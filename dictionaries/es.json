@@ -1,0 +1,12 @@
+{
+  "home": {
+    "topDay": "Lo más Top del Día",
+    "topWorld": "Top Mundial",
+    "newReleases": "Nuevos Lanzamientos"
+  },
+  "common": {
+    "readNow": "Leer ahora",
+    "chapters": "Capítulos",
+    "total": "Totales"
+  }
+}

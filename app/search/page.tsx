@@ -1,0 +1,42 @@
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import SiteHeader, { type SupportedLanguage } from "../components/site-header";
+import SearchResultsContent from "./search-results-content";
+
+function normalizeLanguage(value: string | undefined): SupportedLanguage {
+  if (value === "en" || value === "pt") {
+    return value;
+  }
+
+  return "es";
+}
+
+function SearchPageFallback() {
+  return (
+    <div className="mx-auto max-w-[1600px] px-8 pb-16 pt-10">
+      <div className="mb-8 h-10 w-96 animate-pulse rounded bg-white/5" />
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div
+            key={`fallback-skeleton-${index}`}
+            className="aspect-[2/3] animate-pulse rounded-md bg-white/5"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default async function SearchPage() {
+  const cookieStore = await cookies();
+  const currentLanguage = normalizeLanguage(cookieStore.get("lang")?.value);
+
+  return (
+    <main className="min-h-screen bg-[#141519] text-white">
+      <SiteHeader language={currentLanguage} />
+      <Suspense fallback={<SearchPageFallback />}>
+        <SearchResultsContent />
+      </Suspense>
+    </main>
+  );
+}

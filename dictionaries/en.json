@@ -1,0 +1,12 @@
+{
+  "home": {
+    "topDay": "Top of the Day",
+    "topWorld": "Global Top",
+    "newReleases": "New Releases"
+  },
+  "common": {
+    "readNow": "Read now",
+    "chapters": "Chapters",
+    "total": "Total"
+  }
+}
