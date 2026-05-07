@@ -1,6 +1,7 @@
 "use client";
 
 import { jsPDF } from "jspdf";
+import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -50,27 +51,15 @@ type ChapterFeedItem = {
   };
 };
 
-type ChapterFeedResponse = {
-  data?: ChapterFeedItem[];
-  total?: number;
-  limit?: number;
-  offset?: number;
-};
-
-type AtHomeResponse = {
-  baseUrl: string;
-  chapter: {
-    hash: string;
-    data: string[];
-  };
-};
-
-type MangaDetailsResponse = {
-  data?: {
-    attributes?: {
-      title?: Record<string, string>;
-    };
-  };
+type ReaderApiResponse = {
+  mangaTitle?: string;
+  chapters?: ChapterFeedItem[];
+  currentChapter?: ChapterFeedItem | null;
+  pages?: string[];
+  englishFallbackChapter?: ChapterFeedItem | null;
+  fallbackReason?: "english" | "unavailable" | null;
+  error?: string;
+  code?: string;
 };
 
 const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
@@ -172,18 +161,6 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
 const MAX_PDF_CHAPTERS = 50;
 const READING_PROGRESS_KEY = "mangastoon_reading_progress";
 
-function getLanguageVariants(lang: SupportedLanguage) {
-  switch (lang) {
-    case "es":
-      return ["es-la", "es"];
-    case "pt":
-      return ["pt-br", "pt"];
-    case "en":
-    default:
-      return ["en"];
-  }
-}
-
 function normalizeReaderLanguage(value: string | null, fallback: SupportedLanguage) {
   if (value === "en" || value === "pt" || value === "es") {
     return value;
@@ -192,119 +169,15 @@ function normalizeReaderLanguage(value: string | null, fallback: SupportedLangua
   return fallback;
 }
 
-function buildFeedUrl(mangaId: string, lang: SupportedLanguage, limit: number, offset: number) {
-  const search = new URLSearchParams();
-
-  for (const variant of getLanguageVariants(lang)) {
-    search.append("translatedLanguage[]", variant);
-  }
-
-  search.set("order[chapter]", "asc");
-  search.set("limit", String(limit));
-  search.set("offset", String(offset));
-
-  return `https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`;
-}
-
-async function fetchMangaTitle(mangaId: string) {
-  const response = await fetch(`https://api.mangadex.org/manga/${mangaId}`);
-
-  if (!response.ok) {
-    return "Mangastoon";
-  }
-
-  const payload = (await response.json()) as MangaDetailsResponse;
-  const titles = payload.data?.attributes?.title ?? {};
-
-  return titles.en ?? titles.es ?? titles["es-la"] ?? titles.pt ?? Object.values(titles)[0] ?? "Mangastoon";
-}
-
-async function fetchAllChapters(mangaId: string, lang: SupportedLanguage) {
-  const limit = 100;
-  let offset = 0;
-  let total = 0;
-  const chapters: ChapterFeedItem[] = [];
-
-  do {
-    const response = await fetch(buildFeedUrl(mangaId, lang, limit, offset));
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch chapter feed.");
-    }
-
-    const payload = (await response.json()) as ChapterFeedResponse;
-    const batch = payload.data ?? [];
-    total = payload.total ?? batch.length;
-    chapters.push(...batch);
-    offset += payload.limit ?? limit;
-  } while (offset < total);
-
-  return chapters;
-}
-
 async function fetchChapterPages(chapterId: string) {
-  const response = await fetch(`https://api.mangadex.org/at-home/server/${chapterId}`);
+  const response = await fetch(`/api/read/chapter/${chapterId}`);
 
   if (!response.ok) {
-    throw new Error("Failed to fetch at-home server.");
+    throw new Error("Failed to fetch chapter pages.");
   }
 
-  const payload = (await response.json()) as AtHomeResponse;
-  const hash = payload.chapter?.hash;
-  const files = payload.chapter?.data ?? [];
-
-  if (!payload.baseUrl || !hash || files.length === 0) {
-    return [];
-  }
-
-  return files.map((filename) => `${payload.baseUrl}/data/${hash}/${filename}`);
-}
-
-async function fetchChapterDetails(chapterId: string) {
-  const response = await fetch(`https://api.mangadex.org/chapter/${chapterId}`);
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as {
-    data?: ChapterFeedItem & {
-      relationships?: Array<{
-        id: string;
-        type: string;
-      }>;
-    };
-  };
-
-  return payload.data ?? null;
-}
-
-async function findChapterByNumber(
-  mangaId: string,
-  lang: SupportedLanguage,
-  chapterNumber: string | null | undefined
-) {
-  if (!chapterNumber) {
-    return null;
-  }
-
-  const search = new URLSearchParams();
-
-  getLanguageVariants(lang).forEach((variant) => {
-    search.append("translatedLanguage[]", variant);
-  });
-
-  search.set("chapter", chapterNumber);
-  search.set("limit", "1");
-
-  const response = await fetch(`https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`);
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as ChapterFeedResponse;
-  return payload.data?.[0] ?? null;
+  const payload = (await response.json()) as { pages?: string[] };
+  return payload.pages ?? [];
 }
 
 function getChapterLabel(chapter: ChapterFeedItem | null, dictionary: ReaderDictionary) {
@@ -317,6 +190,46 @@ function getChapterLabel(chapter: ChapterFeedItem | null, dictionary: ReaderDict
 function getChapterNumber(chapter: ChapterFeedItem | null) {
   return chapter?.attributes?.chapter ?? "1";
 }
+
+function getChapterNavigationKey(chapter: ChapterFeedItem | null) {
+  return chapter?.attributes?.chapter?.trim() || chapter?.id || "";
+}
+
+function dedupeChaptersByNumber(chapters: ChapterFeedItem[]) {
+  const seen = new Set<string>();
+  const uniqueChapters: ChapterFeedItem[] = [];
+
+  for (const chapter of chapters) {
+    const key = getChapterNavigationKey(chapter);
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueChapters.push(chapter);
+  }
+
+  return uniqueChapters;
+}
+
+function findChapterIndexByIdOrNumber(
+  chapters: ChapterFeedItem[],
+  chapterId: string | null | undefined,
+  fallbackChapter: ChapterFeedItem | null
+) {
+  const byId = chapterId ? chapters.findIndex((chapter) => chapter.id === chapterId) : -1;
+
+  if (byId >= 0) {
+    return byId;
+  }
+
+  const fallbackKey = getChapterNavigationKey(fallbackChapter);
+  return fallbackKey
+    ? chapters.findIndex((chapter) => getChapterNavigationKey(chapter) === fallbackKey)
+    : -1;
+}
+
 
 function buildReaderUrl(mangaId: string, chapterId?: string, lang?: SupportedLanguage) {
   const search = new URLSearchParams();
@@ -335,7 +248,7 @@ function buildReaderUrl(mangaId: string, chapterId?: string, lang?: SupportedLan
 
 async function loadImageForPdf(url: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
+    const img = new window.Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
@@ -425,6 +338,43 @@ function ChapterNavigation({
   );
 }
 
+function MangaPageImage({
+  pageUrl,
+  alt,
+  priority,
+}: {
+  pageUrl: string;
+  alt: string;
+  priority: boolean;
+}) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className="relative w-full overflow-hidden bg-[#111217]">
+      {!loaded ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#111217]">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-orange-500" />
+        </div>
+      ) : null}
+
+      <div className="relative aspect-[2/3] w-full">
+        <Image
+          src={pageUrl}
+          alt={alt}
+          fill
+          sizes="(max-width: 768px) 100vw, 768px"
+          className="object-contain"
+          loading={priority ? "eager" : "lazy"}
+          priority={priority}
+          unoptimized={true}
+          referrerPolicy="no-referrer"
+          onLoad={() => setLoaded(true)}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function ReadPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -466,71 +416,51 @@ export default function ReadPage() {
       setEnglishFallbackChapter(null);
 
       try {
-        const titlePromise = fetchMangaTitle(mangaId);
-        const feedPromise = fetchAllChapters(mangaId, readerLanguage);
-        const requestedChapterPromise = currentChapterParam
-          ? fetchChapterDetails(currentChapterParam)
-          : null;
+        const requestParams = new URLSearchParams();
+        requestParams.set("lang", readerLanguage);
 
-        const [title, feed, requestedChapter] = await Promise.all([
-          titlePromise,
-          feedPromise,
-          requestedChapterPromise,
-        ]);
+        if (currentChapterParam) {
+          requestParams.set("chapter", currentChapterParam);
+        }
+
+        const response = await fetch(`/api/read/${mangaId}?${requestParams.toString()}`);
 
         if (cancelled) return;
 
-        setMangaTitle(title);
-        setChapters(feed);
+        const payload = (await response.json()) as ReaderApiResponse;
 
-        let selectedChapter =
-          feed.find((chapter) => chapter.id === currentChapterParam) ?? null;
-
-        if (!selectedChapter && requestedChapter?.attributes?.chapter) {
-          selectedChapter = await findChapterByNumber(
-            mangaId,
-            readerLanguage,
-            requestedChapter.attributes.chapter
+        if (!response.ok || payload.error) {
+          setPages([]);
+          setError(
+            payload.code === "RATE_LIMIT"
+              ? payload.error ?? "Servidor ocupado, reintentando..."
+              : payload.error ?? dictionary.chapterUnavailableBody
           );
+          return;
         }
 
-        if (!selectedChapter && currentChapterParam && requestedChapter) {
-          const englishChapter = await findChapterByNumber(
-            mangaId,
-            "en",
-            requestedChapter.attributes?.chapter
-          );
+        const feed = payload.chapters ?? [];
+        const selectedChapter = payload.currentChapter ?? null;
+        const chapterPages = payload.pages ?? [];
 
-          if (cancelled) return;
+        setMangaTitle(payload.mangaTitle ?? "Mangastoon");
+        setChapters(feed);
+        setCurrentChapter(selectedChapter);
+        setEnglishFallbackChapter(payload.englishFallbackChapter ?? null);
 
-          setCurrentChapter(requestedChapter);
+        if (payload.fallbackReason) {
           setPages([]);
-          setEnglishFallbackChapter(englishChapter);
           setError(
-            englishChapter
+            payload.fallbackReason === "english"
               ? dictionary.chapterAvailableInEnglish
               : dictionary.chapterUnavailableBody
           );
           return;
         }
 
-        selectedChapter = selectedChapter ?? feed[0] ?? null;
-
-        setCurrentChapter(selectedChapter);
-
-        if (!selectedChapter) {
+        if (!selectedChapter || chapterPages.length === 0) {
           setPages([]);
-          setError(dictionary.chapterUnavailableBody);
-          return;
-        }
-
-        const chapterPages = await fetchChapterPages(selectedChapter.id);
-
-        if (cancelled) return;
-
-        if (chapterPages.length === 0) {
-          setPages([]);
-          setError(dictionary.noPages);
+          setError(selectedChapter ? dictionary.noPages : dictionary.chapterUnavailableBody);
           return;
         }
 
@@ -611,25 +541,40 @@ export default function ReadPage() {
     }
   }, [currentChapter, dictionary, mangaId, mangaTitle]);
 
-  const currentChapterIndex = chapters.findIndex((chapter) => chapter.id === currentChapter?.id);
-  const previousChapter = currentChapterIndex > 0 ? chapters[currentChapterIndex - 1] : null;
-  const nextChapter =
-    currentChapterIndex >= 0 && currentChapterIndex < chapters.length - 1
-      ? chapters[currentChapterIndex + 1]
-      : null;
-  const pdfStartChapterIndex = chapters.findIndex(
-    (chapter) => chapter.id === (pdfStartChapterId || currentChapter?.id)
+  const readableChapters = dedupeChaptersByNumber(chapters);
+  const currentChapterIndex = findChapterIndexByIdOrNumber(
+    readableChapters,
+    currentChapter?.id,
+    currentChapter
   );
-  const pdfEndChapterIndex = chapters.findIndex(
-    (chapter) => chapter.id === (pdfEndChapterId || pdfStartChapterId || currentChapter?.id)
+  const previousChapter = currentChapterIndex > 0 ? readableChapters[currentChapterIndex - 1] : null;
+  const nextChapter =
+    currentChapterIndex >= 0 && currentChapterIndex < readableChapters.length - 1
+      ? readableChapters[currentChapterIndex + 1]
+      : null;
+  const pdfStartChapterIndex = Math.max(
+    0,
+    findChapterIndexByIdOrNumber(
+      readableChapters,
+      pdfStartChapterId || currentChapter?.id,
+      currentChapter
+    )
+  );
+  const pdfEndChapterIndex = Math.max(
+    0,
+    findChapterIndexByIdOrNumber(
+      readableChapters,
+      pdfEndChapterId || pdfStartChapterId || currentChapter?.id,
+      currentChapter
+    )
   );
   const normalizedPdfStartIndex = Math.max(0, Math.min(pdfStartChapterIndex, pdfEndChapterIndex));
   const normalizedPdfEndIndex = Math.max(pdfStartChapterIndex, pdfEndChapterIndex);
   const requestedPdfChapterCount = normalizedPdfEndIndex - normalizedPdfStartIndex + 1;
-  const maxPdfEndIndex = Math.min(chapters.length - 1, normalizedPdfStartIndex + MAX_PDF_CHAPTERS - 1);
+  const maxPdfEndIndex = Math.min(readableChapters.length - 1, normalizedPdfStartIndex + MAX_PDF_CHAPTERS - 1);
   const allowedPdfEndIndex = Math.min(normalizedPdfEndIndex, maxPdfEndIndex);
-  const pdfEndOptions = chapters.slice(normalizedPdfStartIndex, maxPdfEndIndex + 1);
-  const selectedPdfChapters = chapters
+  const pdfEndOptions = readableChapters.slice(normalizedPdfStartIndex, maxPdfEndIndex + 1);
+  const selectedPdfChapters = readableChapters
     .slice(normalizedPdfStartIndex, allowedPdfEndIndex + 1);
   const pdfStartChapter = selectedPdfChapters[0] ?? currentChapter;
   const pdfEndChapter = selectedPdfChapters[selectedPdfChapters.length - 1] ?? currentChapter;
@@ -862,13 +807,11 @@ export default function ReadPage() {
           <section className="pb-0 pt-0">
             <div className="mx-auto flex max-w-3xl flex-col">
               {pages.map((pageUrl, index) => (
-                <img
+                <MangaPageImage
                   key={pageUrl}
-                  src={pageUrl}
+                  pageUrl={pageUrl}
                   alt={`${dictionary.page} ${index + 1} · ${getChapterLabel(currentChapter, dictionary)}`}
-                  className="block w-full"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  crossOrigin="anonymous"
+                  priority={index === 0}
                 />
               ))}
             </div>
@@ -914,7 +857,7 @@ export default function ReadPage() {
                         onChange={(event) => setPdfStartChapterId(event.target.value)}
                         className="mt-2 w-full rounded-xl border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none focus:border-orange-500"
                       >
-                        {chapters.map((chapter) => (
+                        {readableChapters.map((chapter) => (
                           <option key={chapter.id} value={chapter.id}>
                             {getChapterLabel(chapter, dictionary)}
                           </option>

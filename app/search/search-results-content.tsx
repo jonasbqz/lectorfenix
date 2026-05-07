@@ -43,9 +43,8 @@ export default function SearchResultsContent() {
         params.set("order[relevance]", "desc");
         appendStandardMangaDexFilters(params, isAdult, language);
 
-        const response = await fetch(`https://api.mangadex.org/manga?${params.toString()}`, {
+        const response = await fetch(`/api/mangadex/manga?${params.toString()}`, {
           signal: controller.signal,
-          next: { revalidate: 300 },
         });
 
         if (!response.ok) {

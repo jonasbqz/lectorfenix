@@ -1,5 +1,6 @@
 import type { MangaShowcaseItem } from "../components/home-carousel";
 import type { SupportedLanguage } from "../components/language-provider";
+import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "./mangadex-config";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -164,6 +165,7 @@ export function getAllTagNames(manga: MangaDexManga) {
 
 export async function fetchMangaDexCollection(url: string) {
   const response = await fetch(url, {
+    headers: getMangaDexRequestHeaders(),
     next: { revalidate: 3600 },
   });
 
@@ -187,9 +189,18 @@ export async function fetchMangaDexStatistics(ids: string[]) {
   const params = new URLSearchParams();
   ids.forEach((id) => params.append("manga[]", id));
 
-  const response = await fetch(`https://api.mangadex.org/statistics/manga?${params.toString()}`, {
-    next: { revalidate: 3600 },
-  });
+  const url =
+    typeof window === "undefined"
+      ? toMangaDexApiUrl(`/statistics/manga?${params.toString()}`)
+      : `/api/mangadex/statistics?${params.toString()}`;
+
+  const response =
+    typeof window === "undefined"
+      ? await fetch(url, {
+          headers: getMangaDexRequestHeaders(),
+          next: { revalidate: 3600 },
+        })
+      : await fetch(url);
 
   if (!response.ok) {
     return {};
@@ -272,5 +283,5 @@ export function buildMangaDexMangaUrl(
   });
 
   appendStandardMangaDexFilters(params, isAdult, language);
-  return `https://api.mangadex.org/manga?${params.toString()}`;
+  return toMangaDexApiUrl(`/manga?${params.toString()}`);
 }

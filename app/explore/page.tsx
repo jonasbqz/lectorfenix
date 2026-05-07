@@ -24,24 +24,50 @@ const TYPE_FILTERS = [
 const GENRE_TAGS = [
   { id: "391b0423-d847-456f-aff0-8b0cfc03066b", label: { es: "Accion", en: "Action", pt: "Acao" } },
   { id: "87cc87cd-a395-47af-b27a-93258283bbc6", label: { es: "Aventura", en: "Adventure", pt: "Aventura" } },
+  { id: "5920b825-4181-4a17-beeb-9918b0ff7a30", label: { es: "Boys' Love", en: "Boys' Love", pt: "Boys' Love" } },
   { id: "4d32cc48-9f00-4cca-9b5a-a839f0764984", label: { es: "Comedia", en: "Comedy", pt: "Comedia" } },
+  { id: "5ca48985-9a9d-4bd8-be29-80dc0303db72", label: { es: "Crimen", en: "Crime", pt: "Crime" } },
   { id: "b9af3a63-f058-46de-a9a0-e0c13906197a", label: { es: "Drama", en: "Drama", pt: "Drama" } },
   { id: "cdc58593-87dd-415e-bbc0-2ec27bf404cc", label: { es: "Fantasia", en: "Fantasy", pt: "Fantasia" } },
+  { id: "a3c67850-4684-404e-9b7f-c69850ee5da6", label: { es: "Girls' Love", en: "Girls' Love", pt: "Girls' Love" } },
+  { id: "33771934-028e-4cb3-8744-691e866a923e", label: { es: "Historico", en: "Historical", pt: "Historico" } },
   { id: "cdad7e68-1419-41dd-bdce-27753074a640", label: { es: "Horror", en: "Horror", pt: "Horror" } },
+  { id: "ace04997-f6bd-436e-b261-779182193d3d", label: { es: "Isekai", en: "Isekai", pt: "Isekai" } },
+  { id: "81c836c9-914a-4eca-981a-560dad663e73", label: { es: "Mahou Shoujo", en: "Magical Girls", pt: "Mahou Shoujo" } },
+  { id: "50880a9d-5440-4732-9afb-8f457127e836", label: { es: "Mecha", en: "Mecha", pt: "Mecha" } },
+  { id: "c8cbe35b-1b2b-4a3f-9c37-db84c4514856", label: { es: "Medico", en: "Medical", pt: "Medico" } },
+  { id: "ee968100-4191-4968-93d3-f82d72be7e46", label: { es: "Misterio", en: "Mystery", pt: "Misterio" } },
+  { id: "b1e97889-25b4-4258-b28b-cd7f4d28ea9b", label: { es: "Filosofico", en: "Philosophical", pt: "Filosofico" } },
+  { id: "3b60b75c-a2d7-4860-ab56-05f391bb889c", label: { es: "Psicologico", en: "Psychological", pt: "Psicologico" } },
   { id: "423e2eae-a7a2-4a8b-ac03-a8351462d71d", label: { es: "Romance", en: "Romance", pt: "Romance" } },
   { id: "256c8bd9-4904-4360-bf4f-508a76d67183", label: { es: "Sci-Fi", en: "Sci-Fi", pt: "Sci-Fi" } },
-  {
-    id: "e5301a23-ebd9-49dd-a0cb-2add944c7fe9",
-    label: { es: "Slice of Life", en: "Slice of Life", pt: "Slice of Life" },
-  },
+  { id: "e5301a23-ebd9-49dd-a0cb-2add944c7fe9", label: { es: "Slice of Life", en: "Slice of Life", pt: "Slice of Life" } },
   { id: "69964a64-2f90-4d33-beeb-f3ed2875eb4c", label: { es: "Deportes", en: "Sports", pt: "Esportes" } },
+  { id: "7064a261-a137-4d3a-8848-2d385de3a99c", label: { es: "Superheroes", en: "Superhero", pt: "Super-heroi" } },
+  { id: "07251805-a27e-4d59-b488-f0bfbec15168", label: { es: "Thriller", en: "Thriller", pt: "Thriller" } },
+  { id: "f8f62932-27da-4fe4-8ee1-6779a8c5edba", label: { es: "Tragedia", en: "Tragedy", pt: "Tragedia" } },
+  { id: "acc803a4-c95a-4c22-86fc-eb6b582d82a2", label: { es: "Wuxia", en: "Wuxia", pt: "Wuxia" } },
 ] as const;
 
 const SPECIAL_TAGS = [
-  {
-    id: "ace04997-f6bb-4fee-a8e5-aa9d3bb4147d",
-    label: { es: "Isekai", en: "Isekai", pt: "Isekai" },
-  },
+  { id: "0a39b5a1-b235-4886-a747-1d05d216532d", label: { es: "Premiado", en: "Award Winning", pt: "Premiado" } },
+  { id: "f5ba408b-0e7a-484d-8d49-4e9125ac96de", label: { es: "Full Color", en: "Full Color", pt: "Full Color" } },
+  { id: "3e2b8dae-350e-4ab8-a8ce-016e844b9f0d", label: { es: "Long Strip", en: "Long Strip", pt: "Long Strip" } },
+  { id: "e197df38-d0e7-43b5-9b09-2842d0c326dd", label: { es: "Web Comic", en: "Web Comic", pt: "Web Comic" } },
+  { id: "39730448-9a5f-48a2-85b0-a70db87b1233", label: { es: "Demonios", en: "Demons", pt: "Demonios" } },
+  { id: "a1f53773-c69a-4ce5-8cab-fffcd90b1565", label: { es: "Magia", en: "Magic", pt: "Magia" } },
+  { id: "0bc90acb-ccc1-44ca-a34a-b9f3a73259d0", label: { es: "Reencarnacion", en: "Reincarnation", pt: "Reencarnacao" } },
+  { id: "caaa44eb-cd40-4177-b930-79d3ef2afe87", label: { es: "Vida escolar", en: "School Life", pt: "Vida escolar" } },
+  { id: "9467335a-1b83-4497-9231-765337a00b96", label: { es: "Post-apocaliptico", en: "Post-Apocalyptic", pt: "Pos-apocaliptico" } },
+  { id: "81183756-1453-4c81-aa9e-f6e1b63be016", label: { es: "Samurai", en: "Samurai", pt: "Samurai" } },
+  { id: "799c202e-7daa-44eb-9cf7-8a3c0441531e", label: { es: "Artes marciales", en: "Martial Arts", pt: "Artes marciais" } },
+  { id: "eabc5b4c-6aff-42f3-b657-3e90cbd00b75", label: { es: "Sobrenatural", en: "Supernatural", pt: "Sobrenatural" } },
+  { id: "292e862b-2d17-4062-90a2-0356caa4ae27", label: { es: "Viajes temporales", en: "Time Travel", pt: "Viagem no tempo" } },
+  { id: "d14322ac-4d6f-4e9b-afd9-629d5f4d8a41", label: { es: "Villana", en: "Villainess", pt: "Vila" } },
+  { id: "9438db5a-7e2a-4ac0-b39e-e0d95a34b8a8", label: { es: "Videojuegos", en: "Video Games", pt: "Video games" } },
+  { id: "631ef465-9aba-4afb-b0fc-ea10efe274a8", label: { es: "Zombies", en: "Zombies", pt: "Zumbis" } },
+  { id: "b29d6a3d-1569-4e7a-8caf-7557bc92cd5d", label: { es: "Gore", en: "Gore", pt: "Gore" } },
+  { id: "97893a4c-12af-4dac-b6be-0dffb353568e", label: { es: "Violencia sexual", en: "Sexual Violence", pt: "Violencia sexual" } },
 ] as const;
 
 const ORDER_OPTIONS = [
@@ -99,7 +125,7 @@ const UI_COPY: Record<
     ascending: "Ascendente",
     descending: "Descendente",
     clearFilters: "Limpiar",
-    selectedGenres: "Selecciona hasta 3 tags especiales.",
+    selectedGenres: "Selecciona hasta 3 tematicas.",
     rateLimit: "La API de mangas esta recibiendo demasiadas solicitudes. Intenta de nuevo en unos segundos.",
     genericError: "No se pudo cargar la exploracion de mangas.",
   },
@@ -122,7 +148,7 @@ const UI_COPY: Record<
     ascending: "Ascending",
     descending: "Descending",
     clearFilters: "Clear",
-    selectedGenres: "Select up to 3 special tags.",
+    selectedGenres: "Select up to 3 themes.",
     rateLimit: "The manga API is receiving too many requests. Please try again in a few seconds.",
     genericError: "We could not load the manga catalog.",
   },
@@ -145,7 +171,7 @@ const UI_COPY: Record<
     ascending: "Ascendente",
     descending: "Descendente",
     clearFilters: "Limpar",
-    selectedGenres: "Selecione ate 3 tags especiais.",
+    selectedGenres: "Selecione ate 3 tematicas.",
     rateLimit: "A API de mangas esta recebendo muitas solicitacoes. Tente novamente em alguns segundos.",
     genericError: "Nao foi possivel carregar o catalogo de mangas.",
   },
@@ -207,9 +233,7 @@ async function fetchLatestChapterPreviews(mangaId: string, language: SupportedLa
     params.append("translatedLanguage[]", translatedLanguage);
   });
 
-  const response = await fetch(`https://api.mangadex.org/manga/${mangaId}/feed?${params.toString()}`, {
-    next: { revalidate: 60 },
-  });
+  const response = await fetch(`/api/mangadex/feed/${mangaId}?${params.toString()}`);
 
   if (!response.ok) {
     return [];
@@ -347,9 +371,7 @@ export default function ExplorePage() {
     });
 
     try {
-      const response = await fetch(`https://api.mangadex.org/manga?${params.toString()}`, {
-        next: { revalidate: orderBy === "latestUploadedChapter" ? 60 : 3600 },
-      });
+      const response = await fetch(`/api/mangadex/manga?${params.toString()}`);
 
       if (!response.ok) {
         setMangas([]);

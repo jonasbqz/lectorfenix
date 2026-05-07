@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 
 const JIKAN_BASE_URL = "https://api.jikan.moe/v4/manga";
-const MANGADEX_BASE_URL = "https://api.mangadex.org/manga";
 
 type JikanResponse = {
   data?: Array<{
@@ -65,9 +65,9 @@ async function fetchFromJikan(search: string) {
 }
 
 async function fetchFromMangaDexByMalId(malId: number) {
-  const url = `${MANGADEX_BASE_URL}?links[mal]=${malId}`;
+  const url = toMangaDexApiUrl(`/manga?links[mal]=${malId}`);
   const response = await fetch(url, {
-    headers: { Accept: "application/json" },
+    headers: getMangaDexRequestHeaders(),
     next: { revalidate: 3600 },
   });
 
@@ -80,9 +80,9 @@ async function fetchFromMangaDexByMalId(malId: number) {
 }
 
 async function fetchFromMangaDexByTitle(title: string) {
-  const url = `${MANGADEX_BASE_URL}?title=${encodeURIComponent(title)}&limit=1`;
+  const url = toMangaDexApiUrl(`/manga?title=${encodeURIComponent(title)}&limit=1`);
   const response = await fetch(url, {
-    headers: { Accept: "application/json" },
+    headers: getMangaDexRequestHeaders(),
     next: { revalidate: 3600 },
   });
 

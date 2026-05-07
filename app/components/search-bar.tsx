@@ -92,9 +92,8 @@ export default function SearchBar() {
         params.set("order[relevance]", "desc");
         appendStandardMangaDexFilters(params, isAdult, language);
 
-        const response = await fetch(`https://api.mangadex.org/manga?${params.toString()}`, {
+        const response = await fetch(`/api/mangadex/manga?${params.toString()}`, {
           signal: controller.signal,
-          next: { revalidate: 300 },
         });
 
         if (!response.ok) {
@@ -121,7 +120,7 @@ export default function SearchBar() {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [isAdult, query]);
+  }, [isAdult, language, query]);
 
   function getResultImage(result: MangaDexManga) {
     const coverArt = result.relationships?.find((relationship) => relationship.type === "cover_art");
@@ -186,6 +185,7 @@ export default function SearchBar() {
                       className="object-cover"
                       loading="lazy"
                       unoptimized={true}
+                      referrerPolicy="no-referrer"
                     />
                   ) : null}
                 </div>

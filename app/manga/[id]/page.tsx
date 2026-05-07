@@ -10,6 +10,11 @@ import FavoriteButton from "../../components/FavoriteButton";
 import SiteHeader, { type SupportedLanguage } from "../../components/site-header";
 import SynopsisBlock from "./synopsis";
 import { getLocalizedTitle } from "../../utils/get-localized-title";
+import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
+
+export const revalidate = 3600;
+
+const MANGADEX_RETRY_DELAY_MS = 1200;
 
 type MangaDexLocalizedText = Record<string, string>;
 
@@ -20,6 +25,7 @@ type MangaDetailsResponse = {
       title?: MangaDexLocalizedText;
       altTitles?: MangaDexLocalizedText[];
       description?: MangaDexLocalizedText;
+      contentRating?: string;
       tags?: Array<{
         id: string;
         attributes?: {
@@ -82,9 +88,7 @@ export async function generateMetadata({
   const { id } = await params;
 
   try {
-    const response = await fetch(`https://api.mangadex.org/manga/${id}?includes[]=cover_art`, {
-      next: { revalidate: 3600 },
-    });
+    const response = await fetchMangaDex(`https://api.mangadex.org/manga/${id}?includes[]=cover_art`);
 
     if (!response.ok) {
       return {
@@ -231,6 +235,30 @@ const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   pt: "Português",
 };
 
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchMangaDex(url: string, retries = 1) {
+  const response = await fetch(toMangaDexApiUrl(url), {
+    headers: getMangaDexRequestHeaders(),
+    next: { revalidate: 3600 },
+  });
+
+  if (response.status === 429 && retries > 0) {
+    const retryAfter = Number(response.headers.get("retry-after"));
+    await wait(
+      Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : MANGADEX_RETRY_DELAY_MS
+    );
+    return fetchMangaDex(url, retries - 1);
+  }
+
+  return response;
+}
+
 function getChapterLanguageVariants(language: SupportedLanguage) {
   if (language === "es") {
     return ["es", "es-la"];
@@ -357,17 +385,20 @@ function buildChapterNumberLabel(
 }
 
 async function fetchMangaDetails(id: string) {
-  const response = await fetch(
-    `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`,
-    { next: { revalidate: 3600 } }
-  );
+  try {
+    const response = await fetchMangaDex(
+      `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`
+    );
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as MangaDetailsResponse;
+    return payload.data ?? null;
+  } catch {
     return null;
   }
-
-  const payload = (await response.json()) as MangaDetailsResponse;
-  return payload.data ?? null;
 }
 
 async function fetchMangaChapters(id: string, language: SupportedLanguage) {
@@ -376,30 +407,32 @@ async function fetchMangaChapters(id: string, language: SupportedLanguage) {
   let total = 0;
   const chapters: ChapterFeedItem[] = [];
 
-  do {
-    const params = new URLSearchParams();
-    getChapterLanguageVariants(language).forEach((variant) => {
-      params.append("translatedLanguage[]", variant);
-    });
-    params.set("order[chapter]", "desc");
-    params.set("limit", String(limit));
-    params.set("offset", String(offset));
-    params.append("includes[]", "scanlation_group");
+  try {
+    do {
+      const params = new URLSearchParams();
+      getChapterLanguageVariants(language).forEach((variant) => {
+        params.append("translatedLanguage[]", variant);
+      });
+      params.set("order[chapter]", "desc");
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
+      params.append("includes[]", "scanlation_group");
 
-    const response = await fetch(`https://api.mangadex.org/manga/${id}/feed?${params.toString()}`, {
-      next: { revalidate: 300 },
-    });
+      const response = await fetchMangaDex(`https://api.mangadex.org/manga/${id}/feed?${params.toString()}`);
 
-    if (!response.ok) {
-      return chapters;
-    }
+      if (!response.ok) {
+        return chapters;
+      }
 
-    const payload = (await response.json()) as ChapterFeedResponse;
-    const batch = payload.data ?? [];
-    total = payload.total ?? batch.length;
-    chapters.push(...batch);
-    offset += payload.limit ?? limit;
-  } while (offset < total);
+      const payload = (await response.json()) as ChapterFeedResponse;
+      const batch = payload.data ?? [];
+      total = payload.total ?? batch.length;
+      chapters.push(...batch);
+      offset += payload.limit ?? limit;
+    } while (offset < total);
+  } catch {
+    return chapters;
+  }
 
   return chapters;
 }
@@ -419,21 +452,23 @@ async function fetchChapterLanguageFallback(
   params.set("offset", "0");
   params.append("includes[]", "scanlation_group");
 
-  const response = await fetch(`https://api.mangadex.org/manga/${id}/feed?${params.toString()}`, {
-    next: { revalidate: 300 },
-  });
+  try {
+    const response = await fetchMangaDex(`https://api.mangadex.org/manga/${id}/feed?${params.toString()}`);
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return { language, total: 0, firstChapter: null };
+    }
+
+    const payload = (await response.json()) as ChapterFeedResponse;
+
+    return {
+      language,
+      total: payload.total ?? payload.data?.length ?? 0,
+      firstChapter: payload.data?.[0] ?? null,
+    };
+  } catch {
     return { language, total: 0, firstChapter: null };
   }
-
-  const payload = (await response.json()) as ChapterFeedResponse;
-
-  return {
-    language,
-    total: payload.total ?? payload.data?.length ?? 0,
-    firstChapter: payload.data?.[0] ?? null,
-  };
 }
 
 async function findBestChapterLanguageFallback(
@@ -481,6 +516,9 @@ export default async function MangaDetailsPage({
     id: tag.id,
     name: getLocalizedTagName(tag, currentLanguage),
   }));
+  const isExplicitContent =
+    manga.attributes?.contentRating === "erotica" ||
+    manga.attributes?.contentRating === "pornographic";
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
   const favoriteManga = {
     id: manga.id,
@@ -549,6 +587,7 @@ export default async function MangaDetailsPage({
                     className="object-cover"
                     priority
                     unoptimized={true}
+                    referrerPolicy="no-referrer"
                   />
                 </div>
               ) : (
@@ -585,11 +624,17 @@ export default async function MangaDetailsPage({
             <h1 className="mb-4 text-4xl font-black text-white md:text-5xl">{displayTitle}</h1>
 
             <div className="flex flex-wrap gap-2">
+              {isExplicitContent ? (
+                <span className="rounded-full border border-rose-500/40 bg-rose-500/15 px-3 py-1 text-xs font-black text-rose-400 shadow-[0_0_14px_rgba(244,63,94,0.18)]">
+                  +18
+                </span>
+              ) : null}
+
               {tags.map((tag) => (
                 <Link
                   key={tag.id}
                   href={`/explore?includedTags=${tag.id}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-400"
                 >
                   {tag.name}
                 </Link>

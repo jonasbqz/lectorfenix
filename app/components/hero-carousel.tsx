@@ -163,6 +163,7 @@ export default function HeroCarousel({
               }`}
               loading={index === 0 ? "eager" : "lazy"}
               unoptimized={true}
+              referrerPolicy="no-referrer"
             />
           </div>
         );

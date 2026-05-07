@@ -138,6 +138,7 @@ export function MangaCard({
           className="object-cover transition-transform duration-500 ease-out group-hover:scale-110"
           loading="lazy"
           unoptimized={true}
+          referrerPolicy="no-referrer"
         />
       ) : null}
 
