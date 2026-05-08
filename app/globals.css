@@ -23,12 +23,53 @@ html {
     linear-gradient(180deg, #120f0d 0%, #0a0908 50%, #050505 100%);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
   color: var(--foreground);
   background: transparent;
   font-family: var(--font-body), sans-serif;
+  font-size: clamp(0.875rem, 0.84rem + 0.18vw, 1rem);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+p,
+span,
+li,
+button,
+input,
+select,
+textarea,
+a {
+  font-size: max(0.875rem, 1em);
+}
+
+h1 {
+  font-size: clamp(1.875rem, 1.25rem + 3vw, 3.75rem);
+  line-height: 1.05;
+}
+
+h2 {
+  font-size: clamp(1.5rem, 1.15rem + 1.8vw, 2.5rem);
+  line-height: 1.15;
+}
+
+h3 {
+  font-size: clamp(1.125rem, 1rem + 0.8vw, 1.5rem);
+  line-height: 1.25;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 h1,

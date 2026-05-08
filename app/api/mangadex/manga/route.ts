@@ -1,5 +1,10 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mangadex-config";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  appendMangaDexAvailableLanguageFilters,
+  getMangaDexRequestHeaders,
+  normalizeMangaStoonLanguage,
+  toMangaDexApiUrl,
+} from "../../../utils/mangadex-config";
 
 export const revalidate = 3600;
 
@@ -26,8 +31,20 @@ async function fetchWithRetry(url: string, retries = 1) {
 
 export async function GET(request: NextRequest) {
   try {
+    const params = new URLSearchParams(request.nextUrl.searchParams);
+    const hasLanguageFilter = params.has("availableTranslatedLanguage[]");
+    const language = normalizeMangaStoonLanguage(
+      params.get("lang") ?? request.cookies.get("lang")?.value
+    );
+
+    params.delete("lang");
+
+    if (!hasLanguageFilter) {
+      appendMangaDexAvailableLanguageFilters(params, language);
+    }
+
     const response = await fetchWithRetry(
-      toMangaDexApiUrl(`/manga?${request.nextUrl.searchParams.toString()}`)
+      toMangaDexApiUrl(`/manga?${params.toString()}`)
     );
     const body = await response.text();
 

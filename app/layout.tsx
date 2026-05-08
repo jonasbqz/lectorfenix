@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import AppFeedback from "./components/app-feedback";
 import Footer from "./components/Footer";
@@ -17,6 +17,14 @@ const headingFont = Outfit({
   variable: "--font-heading",
   weight: ["500", "600", "700", "800"],
 });
+
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

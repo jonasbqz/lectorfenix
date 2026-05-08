@@ -1,6 +1,11 @@
 import type { MangaShowcaseItem } from "../components/home-carousel";
 import type { SupportedLanguage } from "../components/language-provider";
-import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "./mangadex-config";
+import {
+  appendMangaDexAvailableLanguageFilters,
+  getMangaDexAvailableLanguages,
+  getMangaDexRequestHeaders,
+  toMangaDexApiUrl,
+} from "./mangadex-config";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -73,15 +78,7 @@ export const SAFE_CONTENT_RATINGS = ["safe", "suggestive"] as const;
 export const ADULT_CONTENT_RATINGS = ["erotica", "pornographic"] as const;
 
 export function getAvailableTranslatedLanguageVariants(language: SupportedLanguage) {
-  if (language === "es") {
-    return ["es", "es-la"];
-  }
-
-  if (language === "pt") {
-    return ["pt-br", "pt"];
-  }
-
-  return ["en"];
+  return getMangaDexAvailableLanguages(language);
 }
 
 export function getPreferredLanguageKeys(language: SupportedLanguage) {
@@ -247,18 +244,11 @@ export function mapToShowcaseItems(
 export function appendStandardMangaDexFilters(
   params: URLSearchParams,
   isAdult: boolean = false,
-  language?: SupportedLanguage
+  language: SupportedLanguage = "es"
 ) {
   params.append("includes[]", "cover_art");
   params.set("hasAvailableChapters", "true");
-
-  const availableLanguages = language
-    ? getAvailableTranslatedLanguageVariants(language)
-    : [...SUPPORTED_READING_LANGUAGES];
-
-  availableLanguages.forEach((lang) => {
-    params.append("availableTranslatedLanguage[]", lang);
-  });
+  appendMangaDexAvailableLanguageFilters(params, language);
 
   const baseContent = [...SAFE_CONTENT_RATINGS];
   const adultContent = [...ADULT_CONTENT_RATINGS];

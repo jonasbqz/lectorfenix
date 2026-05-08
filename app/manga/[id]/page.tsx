@@ -572,56 +572,58 @@ export default async function MangaDetailsPage({
     <main className="min-h-screen bg-[#0a0a0a] text-white">
       <SiteHeader language={currentLanguage} />
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-5 md:px-6 md:py-8 lg:px-8">
         <BackButton />
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-8">
           <aside className="md:col-span-4 lg:col-span-3">
-            <div className="overflow-hidden rounded-xl shadow-2xl shadow-black/50">
-              {coverUrl ? (
-                <div className="relative aspect-[2/3] w-full">
-                  <Image
-                    src={coverUrl}
-                    alt={displayTitle}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 320px"
-                    className="object-cover"
-                    priority
-                    unoptimized={true}
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              ) : (
-                <div className="aspect-[2/3] bg-white/5" />
-              )}
-            </div>
-
-            <div className="mt-4 rounded-xl border border-white/5 bg-[#141519] p-4">
-              <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
-              <ContinueReadingButton mangaId={manga.id} />
-
-              <div className="mt-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">
-                  {copy.author}
-                </p>
-                <p className="mt-2 text-sm text-white">{authorName}</p>
+            <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[150px_minmax(0,1fr)] md:block">
+              <div className="max-w-[180px] overflow-hidden rounded-xl shadow-2xl shadow-black/50 sm:max-w-[220px] md:max-w-none">
+                {coverUrl ? (
+                  <div className="relative aspect-[2/3] w-full">
+                    <Image
+                      src={coverUrl}
+                      alt={displayTitle}
+                      fill
+                      sizes="(max-width: 640px) 112px, (max-width: 768px) 150px, 320px"
+                      className="object-cover"
+                      priority
+                      unoptimized={true}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ) : (
+                  <div className="aspect-[2/3] bg-white/5" />
+                )}
               </div>
 
-              <div className="mt-5">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-500">
-                  {copy.activeScan}
-                </label>
-                <select
-                  defaultValue={activeScanGroup}
-                  className="mt-2 w-full rounded-md border border-white/10 bg-[#0a0a0a] p-2 text-sm text-white outline-none"
-                >
-                  <option value={activeScanGroup}>{activeScanGroup}</option>
-                </select>
+              <div className="rounded-xl border border-white/5 bg-[#141519] p-3 md:mt-4 md:p-4">
+                <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
+                <ContinueReadingButton mangaId={manga.id} />
+
+                <div className="mt-4 md:mt-5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 md:text-[11px]">
+                    {copy.author}
+                  </p>
+                  <p className="mt-2 text-sm text-white">{authorName}</p>
+                </div>
+
+                <div className="mt-4 md:mt-5">
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 md:text-[11px]">
+                    {copy.activeScan}
+                  </label>
+                  <select
+                    defaultValue={activeScanGroup}
+                    className="mt-2 w-full rounded-md border border-white/10 bg-[#0a0a0a] p-2 text-sm text-white outline-none"
+                  >
+                    <option value={activeScanGroup}>{activeScanGroup}</option>
+                  </select>
+                </div>
               </div>
             </div>
           </aside>
 
           <section className="md:col-span-8 lg:col-span-9">
-            <h1 className="mb-4 text-4xl font-black text-white md:text-5xl">{displayTitle}</h1>
+            <h1 className="mb-4 text-[1.875rem] font-black leading-tight text-white md:text-5xl">{displayTitle}</h1>
 
             <div className="flex flex-wrap gap-2">
               {isExplicitContent ? (
@@ -634,7 +636,7 @@ export default async function MangaDetailsPage({
                 <Link
                   key={tag.id}
                   href={`/explore?includedTags=${tag.id}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300 transition-colors hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-400"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-400"
                 >
                   {tag.name}
                 </Link>
@@ -691,14 +693,14 @@ export default async function MangaDetailsPage({
                       <Link
                         key={chapter.id}
                         href={`/read/${manga.id}?chapter=${chapter.id}`}
-                        className="mb-2 flex items-center justify-between rounded-lg border-b border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
+                        className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <BookOpen className="h-5 w-5 shrink-0 text-orange-500" />
-                          <p className="font-medium text-white">{chapterLabel}</p>
+                          <p className="text-base font-semibold text-white">{chapterLabel}</p>
                         </div>
 
-                        <div className="ml-4 flex shrink-0 items-center gap-2 text-sm text-gray-400">
+                        <div className="ml-2 flex shrink-0 items-center gap-2 text-sm text-gray-400">
                           <CalendarDays className="h-4 w-4" />
                           <span>{publishedLabel}</span>
                         </div>

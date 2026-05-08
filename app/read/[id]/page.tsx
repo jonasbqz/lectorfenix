@@ -1,7 +1,6 @@
 "use client";
 
 import { jsPDF } from "jspdf";
-import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -160,6 +159,7 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
 
 const MAX_PDF_CHAPTERS = 50;
 const READING_PROGRESS_KEY = "mangastoon_reading_progress";
+const READER_REQUEST_TIMEOUT_MS = 20000;
 
 function normalizeReaderLanguage(value: string | null, fallback: SupportedLanguage) {
   if (value === "en" || value === "pt" || value === "es") {
@@ -170,14 +170,21 @@ function normalizeReaderLanguage(value: string | null, fallback: SupportedLangua
 }
 
 async function fetchChapterPages(chapterId: string) {
-  const response = await fetch(`/api/read/chapter/${chapterId}`);
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), READER_REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch chapter pages.");
+  try {
+    const response = await fetch(`/api/read/chapter/${chapterId}`, { signal: controller.signal, cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch chapter pages.");
+    }
+
+    const payload = (await response.json()) as { pages?: string[] };
+    return payload.pages ?? [];
+  } finally {
+    window.clearTimeout(timeout);
   }
-
-  const payload = (await response.json()) as { pages?: string[] };
-  return payload.pages ?? [];
 }
 
 function getChapterLabel(chapter: ChapterFeedItem | null, dictionary: ReaderDictionary) {
@@ -319,7 +326,7 @@ function ChapterNavigation({
   onList: () => void;
 }) {
   return (
-    <div className="mt-8 mb-12 flex flex-wrap items-center justify-center gap-4 md:gap-6">
+    <div className="my-6 flex flex-wrap items-center justify-center gap-3 md:my-8 md:gap-5">
       <ChapterNavButton disabled={!previousChapter} onClick={onPrevious}>
         <ArrowLeft aria-hidden="true" size={24} strokeWidth={2.6} />
         <span className="sr-only">{dictionary.previousChapter}</span>
@@ -348,29 +355,41 @@ function MangaPageImage({
   priority: boolean;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setFailed(false);
+    const timeout = window.setTimeout(() => setLoaded(true), 12000);
+    return () => window.clearTimeout(timeout);
+  }, [pageUrl]);
 
   return (
     <div className="relative w-full overflow-hidden bg-[#111217]">
-      {!loaded ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#111217]">
+      {!loaded && !failed ? (
+        <div className="absolute inset-0 z-10 flex min-h-[55vh] items-center justify-center bg-[#111217]">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-orange-500" />
         </div>
       ) : null}
 
-      <div className="relative aspect-[2/3] w-full">
-        <Image
+      {failed ? (
+        <div className="flex min-h-[45vh] items-center justify-center px-4 text-center text-sm text-gray-400">
+          No pudimos cargar esta pagina. Intenta recargar el capitulo.
+        </div>
+      ) : (
+        <img
           src={pageUrl}
           alt={alt}
-          fill
-          sizes="(max-width: 768px) 100vw, 768px"
-          className="object-contain"
+          className="block h-auto w-full"
           loading={priority ? "eager" : "lazy"}
-          priority={priority}
-          unoptimized={true}
           referrerPolicy="no-referrer"
           onLoad={() => setLoaded(true)}
+          onError={() => {
+            setLoaded(true);
+            setFailed(true);
+          }}
         />
-      </div>
+      )}
     </div>
   );
 }
@@ -423,7 +442,13 @@ export default function ReadPage() {
           requestParams.set("chapter", currentChapterParam);
         }
 
-        const response = await fetch(`/api/read/${mangaId}?${requestParams.toString()}`);
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), READER_REQUEST_TIMEOUT_MS);
+        const response = await fetch(`/api/read/${mangaId}?${requestParams.toString()}`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
+        window.clearTimeout(timeout);
 
         if (cancelled) return;
 
@@ -693,9 +718,9 @@ export default function ReadPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0a0c] px-3 pb-24 pt-3 text-white md:px-6 md:pt-4">
+    <main className="min-h-screen bg-[#0a0a0c] px-3 pb-20 pt-3 text-white sm:px-4 md:px-6 md:pt-4">
 
-      <div className="fixed right-4 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-3">
+      <div className="fixed right-4 top-1/2 z-50 hidden -translate-y-1/2 flex-col gap-3 md:flex">
         <ToolButton title={dictionary.fullscreen} onClick={toggleFullscreen}>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M8 3H5a2 2 0 0 0-2 2v3" />
@@ -741,32 +766,74 @@ export default function ReadPage() {
           </div>
         </section>
       ) : error ? (
-        <section className="flex min-h-[70vh] items-center justify-center">
-          <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-neutral-900/50 p-8 text-center">
-            <h2 className="text-2xl font-semibold text-white">{dictionary.chapterUnavailable}</h2>
-            <p className="mt-4 text-sm leading-7 text-gray-400">{error}</p>
-            {englishFallbackChapter ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setAutoScroll(false);
-                  router.push(buildReaderUrl(mangaId, englishFallbackChapter.id, "en"));
-                }}
-                className="mt-6 inline-flex items-center justify-center rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-black transition hover:bg-orange-400"
-              >
-                {dictionary.readInEnglish}
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : (
         <>
-          <section className="mx-auto max-w-5xl pt-2">
-            <div className="mb-6 flex w-full items-center justify-between px-2 md:px-4">
+          <section className="mx-auto max-w-5xl pt-1">
+            <div className="mb-5 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="flex items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 transition-all duration-300 hover:bg-orange-500 hover:text-white"
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 transition-all duration-300 hover:bg-orange-500 hover:text-white"
+              >
+                <ArrowLeft size={24} />
+                <span className="hidden font-medium sm:inline">{dictionary.backHome}</span>
+              </button>
+
+              <button
+                type="button"
+                disabled
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 opacity-50"
+              >
+                <Download size={24} />
+                <span className="hidden font-medium sm:inline">{dictionary.downloadPdf}</span>
+              </button>
+            </div>
+
+            <div className="mb-5 flex flex-col items-center justify-center px-3 text-center">
+              <h1 className="mb-2 max-w-4xl text-2xl font-black leading-tight tracking-tight text-orange-500 md:text-4xl">
+                {mangaTitle}
+              </h1>
+              <h2 className="text-lg font-semibold text-white">
+                {getChapterLabel(currentChapter, dictionary)}
+              </h2>
+            </div>
+
+            <ChapterNavigation
+              dictionary={dictionary}
+              previousChapter={previousChapter}
+              nextChapter={nextChapter}
+              onPrevious={() => previousChapter && handleChapterNavigation(previousChapter.id)}
+              onNext={() => nextChapter && handleChapterNavigation(nextChapter.id)}
+              onList={openChapterList}
+            />
+          </section>
+
+          <section className="flex min-h-[45vh] items-center justify-center px-1">
+            <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-neutral-900/50 p-6 text-center sm:p-8">
+              <h2 className="text-2xl font-semibold text-white">{dictionary.chapterUnavailable}</h2>
+              <p className="mt-4 text-sm leading-7 text-gray-400">{error}</p>
+              {englishFallbackChapter ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoScroll(false);
+                    router.push(buildReaderUrl(mangaId, englishFallbackChapter.id, "en"));
+                  }}
+                  className="mt-6 inline-flex items-center justify-center rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-black transition hover:bg-orange-400"
+                >
+                  {dictionary.readInEnglish}
+                </button>
+              ) : null}
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="mx-auto max-w-5xl pt-1">
+            <div className="mb-5 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
+              <button
+                type="button"
+                onClick={() => router.push("/")}
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 transition-all duration-300 hover:bg-orange-500 hover:text-white"
               >
                 <ArrowLeft size={24} />
                 <span className="hidden font-medium sm:inline">{dictionary.backHome}</span>
@@ -776,7 +843,7 @@ export default function ReadPage() {
                 type="button"
                 onClick={() => setShowPdfModal(true)}
                 disabled={downloading || pages.length === 0}
-                className="flex items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 transition-all duration-300 hover:bg-orange-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-11 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 transition-all duration-300 hover:bg-orange-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Download size={24} />
                 <span className="hidden font-medium sm:inline">
@@ -785,11 +852,11 @@ export default function ReadPage() {
               </button>
             </div>
 
-            <div className="mb-6 flex flex-col items-center justify-center px-4 text-center">
-              <h1 className="mb-2 max-w-4xl text-2xl font-black tracking-tight text-orange-500 md:text-4xl">
+            <div className="mb-5 flex flex-col items-center justify-center px-3 text-center">
+              <h1 className="mb-2 max-w-4xl text-2xl font-black leading-tight tracking-tight text-orange-500 md:text-4xl">
                 {mangaTitle}
               </h1>
-              <h2 className="text-lg font-medium text-white">
+              <h2 className="text-lg font-semibold text-white">
                 {getChapterLabel(currentChapter, dictionary)}
               </h2>
             </div>
@@ -805,7 +872,7 @@ export default function ReadPage() {
           </section>
 
           <section className="pb-0 pt-0">
-            <div className="mx-auto flex max-w-3xl flex-col">
+            <div className="mx-auto flex w-full max-w-3xl flex-col">
               {pages.map((pageUrl, index) => (
                 <MangaPageImage
                   key={pageUrl}

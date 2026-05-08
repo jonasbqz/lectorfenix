@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mangadex-config";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type SupportedLanguage = "es" | "en" | "pt";
 
@@ -34,10 +35,12 @@ type AtHomeResponse = {
   chapter: {
     hash: string;
     data: string[];
+    dataSaver?: string[];
   };
 };
 
 const RETRY_DELAY_MS = 1200;
+const FETCH_TIMEOUT_MS = 8000;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -55,14 +58,24 @@ function normalizeLanguage(value: string | null): SupportedLanguage {
 }
 
 async function fetchMangaDex(url: string, init?: RequestInit, retries = 1) {
-  const response = await fetch(toMangaDexApiUrl(url), {
-    ...init,
-    headers: {
-      ...getMangaDexRequestHeaders(),
-      ...init?.headers,
-    },
-    next: { revalidate: 3600 },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(toMangaDexApiUrl(url), {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+      headers: {
+        ...getMangaDexRequestHeaders(),
+        ...init?.headers,
+      },
+      cache: "no-store",
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (response.status === 429 && retries > 0) {
     const retryAfter = Number(response.headers.get("retry-after"));
@@ -130,11 +143,51 @@ async function fetchChapterPages(chapterId: string) {
 
   const payload = (await response.json()) as AtHomeResponse;
   const hash = payload.chapter?.hash;
-  const files = payload.chapter?.data ?? [];
+  const files = payload.chapter?.data?.length
+    ? payload.chapter.data
+    : payload.chapter?.dataSaver ?? [];
 
   if (!payload.baseUrl || !hash || files.length === 0) return [];
 
-  return files.map((filename) => `${payload.baseUrl}/data/${hash}/${filename}`);
+  const mode = payload.chapter?.data?.length ? "data" : "data-saver";
+  return files.map((filename) => `https://uploads.mangadex.org/${mode}/${hash}/${filename}`);
+}
+
+async function findReadableChapterWithPages(
+  chapters: ChapterFeedItem[],
+  preferredChapter: ChapterFeedItem | null
+) {
+  const preferredIndex = preferredChapter
+    ? chapters.findIndex((chapter) => chapter.id === preferredChapter.id)
+    : -1;
+  const orderedChapters = [
+    ...(preferredChapter ? [preferredChapter] : []),
+    ...chapters.slice(Math.max(0, preferredIndex + 1)),
+    ...chapters.slice(0, Math.max(0, preferredIndex)),
+  ];
+  const seen = new Set<string>();
+
+  for (const chapter of orderedChapters.slice(0, 8)) {
+    if (!chapter?.id || seen.has(chapter.id)) {
+      continue;
+    }
+
+    seen.add(chapter.id);
+
+    try {
+      const pages = await fetchChapterPages(chapter.id);
+
+      if (pages.length > 0) {
+        return { chapter, pages };
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === "RATE_LIMIT") {
+        throw error;
+      }
+    }
+  }
+
+  return { chapter: preferredChapter ?? chapters[0] ?? null, pages: [] };
 }
 
 async function fetchChapterDetails(chapterId: string) {
@@ -202,16 +255,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           englishFallbackChapter,
           fallbackReason,
         },
-        { headers: { "Cache-Control": "s-maxage=3600, stale-while-revalidate=86400" } }
+        { headers: { "Cache-Control": "no-store" } }
       );
     }
 
     currentChapter = currentChapter ?? chapters[0] ?? null;
-    const pages = currentChapter ? await fetchChapterPages(currentChapter.id) : [];
+    const readableChapter = await findReadableChapterWithPages(chapters, currentChapter);
+    currentChapter = readableChapter.chapter;
+    const pages = readableChapter.pages;
 
     return NextResponse.json(
       { mangaTitle, chapters, currentChapter, pages, englishFallbackChapter: null, fallbackReason: null },
-      { headers: { "Cache-Control": "s-maxage=3600, stale-while-revalidate=86400" } }
+      { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
     const isRateLimit = error instanceof Error && error.message === "RATE_LIMIT";

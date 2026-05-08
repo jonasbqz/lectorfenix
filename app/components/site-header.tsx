@@ -40,10 +40,10 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
     >
       <div
         suppressHydrationWarning
-        className="mx-auto grid max-w-[1600px] grid-cols-1 gap-4 px-4 py-4 md:grid-cols-3 md:items-center md:px-8"
+        className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:px-5 md:grid md:grid-cols-[auto_minmax(280px,500px)_auto] md:items-center md:gap-6 md:px-8"
       >
-        <div className="flex items-center justify-between gap-4 md:justify-start md:gap-8">
-          <div className="flex items-center gap-4 md:gap-8">
+        <div className="flex min-w-0 items-center justify-between gap-3 md:justify-start md:gap-8">
+          <div className="flex min-w-0 items-center gap-3 md:gap-8">
             <BrandLogo />
 
             <Link
@@ -63,15 +63,20 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
               <span className="hidden lg:inline">{copy.favorites}</span>
             </Link>
           </div>
+
+          <div className="flex shrink-0 items-center gap-2 md:hidden">
+            <LanguagePreferencePicker />
+            <AdultToggle language={language} />
+          </div>
         </div>
 
-        <div className="order-3 md:order-none flex w-full justify-center">
+        <div className="flex w-full justify-center">
           <div className="w-full max-w-[500px]">
             <SearchBar />
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-4">
+        <div className="hidden items-center justify-end gap-4 md:flex">
           <LanguagePreferencePicker />
           <AdultToggle language={language} />
         </div>

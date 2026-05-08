@@ -1,4 +1,4 @@
-﻿export const MANGADEX_USER_AGENT = "Mangastoon/1.0.0";
+export const MANGADEX_USER_AGENT = "Mangastoon/1.0.0";
 
 export function getMangaDexApiBase() {
   return (process.env.NEXT_PUBLIC_API_URL || "https://api.mangadex.org").replace(/\/+$/, "");
@@ -18,4 +18,38 @@ export function getMangaDexRequestHeaders() {
     Accept: "application/json",
     "User-Agent": MANGADEX_USER_AGENT,
   };
+}
+
+
+export type MangaStoonLanguage = "es" | "en" | "pt";
+
+export function normalizeMangaStoonLanguage(value: string | null | undefined): MangaStoonLanguage {
+  if (value === "en" || value === "pt") {
+    return value;
+  }
+
+  return "es";
+}
+
+export function getMangaDexAvailableLanguages(language: MangaStoonLanguage) {
+  if (language === "es") {
+    return ["es", "es-la"];
+  }
+
+  if (language === "pt") {
+    return ["pt-br", "pt"];
+  }
+
+  return ["en"];
+}
+
+export function appendMangaDexAvailableLanguageFilters(
+  params: URLSearchParams,
+  language: MangaStoonLanguage
+) {
+  params.delete("availableTranslatedLanguage[]");
+
+  getMangaDexAvailableLanguages(language).forEach((translatedLanguage) => {
+    params.append("availableTranslatedLanguage[]", translatedLanguage);
+  });
 }

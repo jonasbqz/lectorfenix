@@ -1,27 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../../utils/mangadex-config";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type AtHomeResponse = {
   baseUrl: string;
   chapter: {
     hash: string;
     data: string[];
+    dataSaver?: string[];
   };
 };
 
 const RETRY_DELAY_MS = 1200;
+const FETCH_TIMEOUT_MS = 8000;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fetchMangaDex(url: string, retries = 1) {
-  const response = await fetch(toMangaDexApiUrl(url), {
-    headers: getMangaDexRequestHeaders(),
-    next: { revalidate: 3600 },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(toMangaDexApiUrl(url), {
+      headers: getMangaDexRequestHeaders(),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (response.status === 429 && retries > 0) {
     const retryAfter = Number(response.headers.get("retry-after"));
@@ -51,17 +64,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     const payload = (await response.json()) as AtHomeResponse;
     const hash = payload.chapter?.hash;
-    const files = payload.chapter?.data ?? [];
-    const pages = payload.baseUrl && hash ? files.map((filename) => `${payload.baseUrl}/data/${hash}/${filename}`) : [];
+    const files = payload.chapter?.data?.length
+      ? payload.chapter.data
+      : payload.chapter?.dataSaver ?? [];
+    const mode = payload.chapter?.data?.length ? "data" : "data-saver";
+    const pages = hash ? files.map((filename) => `https://uploads.mangadex.org/${mode}/${hash}/${filename}`) : [];
 
     return NextResponse.json(
       { pages },
-      { headers: { "Cache-Control": "s-maxage=3600, stale-while-revalidate=86400" } }
+      { headers: { "Cache-Control": "no-store" } }
     );
   } catch {
     return NextResponse.json(
       { pages: [], error: "Servidor ocupado, reintentando...", code: "MANGADEX_UNAVAILABLE" },
-      { status: 503, headers: { "Cache-Control": "s-maxage=60, stale-while-revalidate=86400" } }
+      { status: 503, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

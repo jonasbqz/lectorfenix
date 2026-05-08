@@ -7,6 +7,7 @@ import { MangaCard } from "../components/home-carousel";
 import SiteHeader from "../components/site-header";
 import { useLanguage, type SupportedLanguage } from "../components/language-provider";
 import {
+  appendStandardMangaDexFilters,
   fetchMangaDexStatistics,
   getAvailableTranslatedLanguageVariants,
   mapToShowcaseItems,
@@ -338,9 +339,8 @@ export default function ExplorePage() {
     const params = new URLSearchParams();
     params.set("limit", "24");
     params.set("offset", String((targetPage - 1) * 24));
-    params.set("includes[]", "cover_art");
-    params.set("hasAvailableChapters", "true");
     params.set(`order[${orderBy}]`, sortDir);
+    appendStandardMangaDexFilters(params, isAdult, language);
 
     const normalizedQuery = searchQuery.trim();
     if (normalizedQuery) {
@@ -351,9 +351,6 @@ export default function ExplorePage() {
       params.append("originalLanguage[]", selectedType);
     }
 
-    getAvailableTranslatedLanguageVariants(language).forEach((translatedLanguage) => {
-      params.append("availableTranslatedLanguage[]", translatedLanguage);
-    });
 
     const selectedTags = [...selectedGenres, ...selectedSpecialTags];
     if (selectedTags.length > 0) {
@@ -362,13 +359,6 @@ export default function ExplorePage() {
       });
     }
 
-    const baseContent = ["safe", "suggestive"];
-    const adultContent = ["erotica", "pornographic"];
-    const contentRatings = isAdult ? [...baseContent, ...adultContent] : baseContent;
-
-    contentRatings.forEach((rating) => {
-      params.append("contentRating[]", rating);
-    });
 
     try {
       const response = await fetch(`/api/mangadex/manga?${params.toString()}`);

@@ -2,11 +2,11 @@ import Link from 'next/link';
 
 export default function BrandLogo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 group cursor-pointer">
+    <Link href="/" className="flex min-w-0 items-center gap-2 group cursor-pointer">
       {/* Isotipo: La "M" ahora es más robusta y proporcionada al texto */}
       <svg
         viewBox="0 0 100 100"
-        className="w-10 h-10 text-orange-500 transform group-hover:scale-105 transition-transform duration-300 drop-shadow-[0_0_12px_rgba(249,115,22,0.45)]"
+        className="h-7 w-7 shrink-0 text-orange-500 drop-shadow-[0_0_10px_rgba(249,115,22,0.4)] transition-transform duration-300 group-hover:scale-105 md:h-8 md:w-8"
         fill="currentColor"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -15,7 +15,7 @@ export default function BrandLogo() {
       </svg>
 
       {/* Logotipo: Ligeramente más separado para respirar mejor */}
-      <span className="text-base md:text-lg font-black text-white tracking-tight">
+      <span className="truncate text-sm font-black tracking-tight text-white sm:text-base md:text-lg">
         MANGA<span className="text-orange-500">STOON</span>
       </span>
     </Link>
