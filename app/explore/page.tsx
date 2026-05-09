@@ -605,7 +605,7 @@ export default function ExplorePage() {
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="order-2 xl:order-1">
+          <section className="order-1 xl:order-1">
             <div className="mb-6">
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#ff6b00]">
                 {copy.title}
@@ -644,7 +644,7 @@ export default function ExplorePage() {
             )}
           </section>
 
-          <aside className="order-1 xl:order-2">
+          <aside className="order-2 xl:order-2">
             <div className="rounded-[28px] border border-white/6 bg-[#111316] p-6 shadow-2xl shadow-black/20 xl:sticky xl:top-24">
               <div className="mb-6 flex items-center gap-3">
                 <div className="rounded-full bg-[#ff6b00]/12 p-3 text-[#ff6b00]">
