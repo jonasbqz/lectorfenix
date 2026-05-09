@@ -10,7 +10,7 @@ type FavoriteButtonProps = {
   mangaId?: string;
   title?: string;
   label?: string;
-  variant?: "floating" | "inline";
+  variant?: "floating" | "inline" | "compact";
 };
 
 function buildFavoriteManga({ manga, mangaId, title }: FavoriteButtonProps): FavoriteManga | null {
@@ -71,11 +71,24 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
         type="button"
         onClick={toggleFavorite}
         className={`flex items-center gap-3 text-sm transition-colors ${
-          isFav ? "text-orange-500" : "text-gray-400 hover:text-orange-500"
+          isFav ? "text-[#ff6b00]" : "text-gray-400 hover:text-[#ff6b00]"
         }`}
       >
         <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
         <span>{props.label ?? "Agregar a favoritos"}</span>
+      </button>
+    );
+  }
+
+  if (variant === "compact") {
+    return (
+      <button
+        type="button"
+        aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
+        onClick={toggleFavorite}
+        className="rounded-full bg-black/60 p-1.5 text-white backdrop-blur-md transition-colors hover:bg-[#FF6B00]"
+      >
+        <Heart className={`h-4 w-4 ${isFav ? "fill-white" : ""}`} />
       </button>
     );
   }
@@ -85,12 +98,12 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
       type="button"
       aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
       onClick={toggleFavorite}
-      className="absolute right-2 top-2 z-30 rounded-full bg-black/50 p-2 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:text-orange-500"
+      className="absolute right-2 top-2 z-30 rounded-full bg-black/50 p-2 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:text-[#ff6b00]"
     >
       <Heart
         size={20}
         className={`transition-all duration-300 ${
-          isFav ? "scale-110 fill-orange-500 text-orange-500" : "hover:scale-110"
+          isFav ? "scale-110 fill-[#ff6b00] text-[#ff6b00]" : "hover:scale-110"
         }`}
       />
     </button>

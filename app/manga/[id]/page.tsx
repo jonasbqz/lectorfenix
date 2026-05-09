@@ -11,6 +11,7 @@ import SiteHeader, { type SupportedLanguage } from "../../components/site-header
 import SynopsisBlock from "./synopsis";
 import { getLocalizedTitle } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
+import { translateTagName } from "../../utils/tagTranslations";
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -314,7 +315,20 @@ function getLocalizedTagName(tag: { attributes?: { name?: MangaDexLocalizedText 
     }
   }
 
-  return Object.values(names)[0] ?? "Tag";
+  return translateTagName(Object.values(names)[0] ?? "Tag", language);
+}
+
+type MangaDetailTag = NonNullable<
+  NonNullable<NonNullable<MangaDetailsResponse["data"]>["attributes"]>["tags"]
+>[number];
+
+function hasSensitiveAdultTag(tags: MangaDetailTag[] | undefined) {
+  const sensitiveTags = new Set(["Sexual Violence", "Hentai", "Erotica"]);
+
+  return (tags ?? []).some((tag) => {
+    const rawName = tag.attributes?.name?.en ?? Object.values(tag.attributes?.name ?? {})[0] ?? "";
+    return sensitiveTags.has(rawName);
+  });
 }
 
 function getCoverUrl(mangaId: string, relationships: MangaRelationship) {
@@ -513,13 +527,16 @@ export default async function MangaDetailsPage({
   const displayTitle = getLocalizedTitle(manga, currentLanguage);
   const description =
     getLocalizedDescription(manga.attributes?.description, currentLanguage) ?? copy.noSynopsis;
-  const tags = (manga.attributes?.tags ?? []).map((tag) => ({
+  const tags = (manga.attributes?.tags ?? [])
+    .filter((tag) => tag.attributes?.group === "genre")
+    .map((tag) => ({
     id: tag.id,
-    name: getLocalizedTagName(tag, currentLanguage),
+    name: translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage),
   }));
   const isExplicitContent =
     manga.attributes?.contentRating === "erotica" ||
-    manga.attributes?.contentRating === "pornographic";
+    manga.attributes?.contentRating === "pornographic" ||
+    hasSensitiveAdultTag(manga.attributes?.tags);
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
   const favoriteManga = {
     id: manga.id,
@@ -531,7 +548,7 @@ export default async function MangaDetailsPage({
     originalLanguage: undefined,
     themes: (manga.attributes?.tags ?? [])
       .filter((tag) => tag.attributes?.group === "theme")
-      .map((tag) => getLocalizedTagName(tag, currentLanguage)),
+      .map((tag) => translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage)),
     tags: tags.map((tag) => tag.name),
     genres: tags.map((tag, index) => ({ mal_id: index, name: tag.name })),
     images: coverUrl ? { webp: { large_image_url: coverUrl } } : {},
@@ -597,7 +614,7 @@ export default async function MangaDetailsPage({
                 )}
               </div>
 
-              <div className="rounded-xl border border-white/5 bg-[#141519] p-3 md:mt-4 md:p-4">
+              <div className="rounded-xl border border-white/5 bg-[#141519] p-3 text-center md:mt-4 md:p-4 md:text-left">
                 <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
                 <ContinueReadingButton mangaId={manga.id} />
 
@@ -623,12 +640,14 @@ export default async function MangaDetailsPage({
             </div>
           </aside>
 
-          <section className="md:col-span-8 lg:col-span-9">
-            <h1 className="mb-4 text-[1.875rem] font-black leading-tight text-white md:text-5xl">{displayTitle}</h1>
+          <section className="text-center md:col-span-8 md:text-left lg:col-span-9">
+            <h1 className="mb-4 line-clamp-2 hyphens-auto text-center text-2xl font-semibold leading-tight text-white md:text-left md:text-3xl">
+              {displayTitle}
+            </h1>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-center gap-2 md:justify-start">
               {isExplicitContent ? (
-                <span className="rounded-full border border-rose-500/40 bg-rose-500/15 px-3 py-1 text-xs font-black text-rose-400 shadow-[0_0_14px_rgba(244,63,94,0.18)]">
+                <span className="rounded-full border border-rose-500/40 bg-rose-500/15 px-3 py-1 text-xs font-semibold text-rose-400 shadow-[0_0_14px_rgba(244,63,94,0.18)]">
                   +18
                 </span>
               ) : null}
@@ -637,7 +656,7 @@ export default async function MangaDetailsPage({
                 <Link
                   key={tag.id}
                   href={`/explore?includedTags=${tag.id}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-400"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-[#ff6b00]/40 hover:bg-[#ff6b00]/10 hover:text-orange-400"
                 >
                   {tag.name}
                 </Link>
@@ -652,16 +671,16 @@ export default async function MangaDetailsPage({
             />
 
             <section id="chapters" className="mt-8 scroll-mt-28">
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <div className="border-l-4 border-orange-500 pl-3">
-                  <h2 className="text-2xl font-bold text-white">{copy.chapters}</h2>
+              <div className="mb-4 flex flex-col items-center justify-center gap-2 md:flex-row md:justify-between md:gap-4">
+                <div className="border-b-4 border-[#ff6b00] px-3 pb-2 md:border-b-0 md:border-l-4 md:pb-0 md:pl-3">
+                  <h2 className="text-2xl font-semibold text-white md:text-2xl">{copy.chapters}</h2>
                 </div>
                 <p className="text-base leading-relaxed text-gray-400">
                   {chapters.length} {copy.totalChapters}
                 </p>
               </div>
 
-              <div className="mb-4 flex items-center justify-between rounded-xl bg-[#141519] px-4 py-3">
+              <div className="mb-4 flex items-center justify-between rounded-xl bg-[#141519] px-4 py-3 text-left">
                 <p className="text-base leading-relaxed text-gray-400">
                   {chapters.length} {copy.totalSuffix}
                 </p>
@@ -680,7 +699,7 @@ export default async function MangaDetailsPage({
                   {bestFallbackLanguage?.firstChapter ? (
                     <Link
                       href={`/read/${manga.id}?chapter=${bestFallbackLanguage.firstChapter.id}&lang=${bestFallbackLanguage.language}`}
-                      className="mt-5 inline-flex rounded-full bg-orange-500 px-5 py-2.5 text-sm font-bold text-black transition hover:bg-orange-400"
+                      className="mt-5 inline-flex rounded-full bg-[#ff6b00] px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-orange-400"
                     >
                       {copy.readInFallbackLanguage} {LANGUAGE_LABELS[bestFallbackLanguage.language]} ·{" "}
                       {bestFallbackLanguage.total} {copy.totalSuffix}
@@ -697,7 +716,7 @@ export default async function MangaDetailsPage({
                         className="animate-soft-enter mb-2 flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <BookOpen className="h-5 w-5 shrink-0 text-orange-500" />
+                          <BookOpen className="h-5 w-5 shrink-0 text-[#ff6b00]" />
                           <p className="text-base font-semibold text-white">{chapterLabel}</p>
                         </div>
 

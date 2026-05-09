@@ -6,6 +6,7 @@ import {
   getMangaDexRequestHeaders,
   toMangaDexApiUrl,
 } from "./mangadex-config";
+import { translateTagName } from "./tagTranslations";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -18,6 +19,8 @@ export type MangaDexManga = {
     description?: MangaDexLocalizedText;
     originalLanguage?: string;
     contentRating?: string;
+    createdAt?: string;
+    updatedAt?: string;
     tags?: Array<{
       id: string;
       type: "tag";
@@ -70,6 +73,8 @@ export type MangaDexShowcaseItem = MangaShowcaseItem & {
   }>;
   themes?: string[];
   tags?: string[];
+  featuredTag?: string | null;
+  createdAt?: string | null;
   isNsfw?: boolean;
 };
 
@@ -139,25 +144,80 @@ export function getCoverUrl(manga: MangaDexManga) {
 }
 
 export function getGenreTags(manga: MangaDexManga, language: SupportedLanguage) {
+  const hiddenSensitiveTags = new Set(["Sexual Violence", "Erotica", "Hentai", "Gore"]);
+
   return (manga.attributes.tags ?? [])
     .filter((tag) => tag.attributes?.group === "genre")
+    .filter((tag) => {
+      const rawName = tag.attributes?.name?.en ?? Object.values(tag.attributes?.name ?? {})[0] ?? "";
+      return !hiddenSensitiveTags.has(rawName);
+    })
     .slice(0, 4)
     .map((tag, index) => ({
       mal_id: Number.parseInt(tag.id.replace(/\D/g, "").slice(0, 8) || `${index + 1}`, 10),
-      name: getLocalizedValue(tag.attributes?.name, language, ["en"]) ?? "Genre",
+      name: translateTagName(getLocalizedValue(tag.attributes?.name, language, ["en"]) ?? "Genre", language),
     }));
 }
 
 export function getThemeTags(manga: MangaDexManga, language: SupportedLanguage) {
   return (manga.attributes.tags ?? [])
     .filter((tag) => tag.attributes?.group === "theme")
-    .map((tag) => getLocalizedValue(tag.attributes?.name, language, ["en"]) ?? "Theme");
+    .map((tag) => translateTagName(getLocalizedValue(tag.attributes?.name, language, ["en"]) ?? "Theme", language));
 }
 
 export function getAllTagNames(manga: MangaDexManga) {
   return (manga.attributes.tags ?? [])
     .map((tag) => tag.attributes?.name?.en ?? Object.values(tag.attributes?.name ?? {})[0] ?? null)
     .filter((tagName): tagName is string => Boolean(tagName));
+}
+
+const FEATURED_FORMAT_PRIORITY = ["Long Strip", "Full Color", "Web Comic"] as const;
+
+export function getFeaturedFormatTag(manga: MangaDexManga, language: SupportedLanguage) {
+  const formatTags = (manga.attributes.tags ?? []).filter(
+    (entry) => entry.attributes?.group === "format"
+  );
+
+  const tag = FEATURED_FORMAT_PRIORITY
+    .map((priorityName) =>
+      formatTags.find((entry) => {
+        const rawName = entry.attributes?.name?.en ?? Object.values(entry.attributes?.name ?? {})[0];
+        return rawName === priorityName;
+      })
+    )
+    .find(Boolean);
+
+  if (!tag) {
+    return null;
+  }
+
+  const rawName = getLocalizedValue(tag.attributes?.name, language, ["en"]) ?? null;
+  return rawName ? translateTagName(rawName, language) : null;
+}
+
+export function isRecentlyCreated(manga: MangaDexManga) {
+  const dateString = manga.attributes.createdAt ?? manga.attributes.updatedAt;
+
+  if (!dateString) {
+    return false;
+  }
+
+  const createdAt = new Date(dateString).getTime();
+  return Number.isFinite(createdAt) && Date.now() - createdAt < 7 * 24 * 60 * 60 * 1000;
+}
+
+export function hasSensitiveAdultTag(manga: MangaDexManga) {
+  const sensitiveTags = new Set(["Sexual Violence", "Erotica", "Hentai"]);
+  const hasSensitiveTag = (manga.attributes.tags ?? []).some((tag) => {
+    const rawName = tag.attributes?.name?.en ?? Object.values(tag.attributes?.name ?? {})[0] ?? "";
+    return sensitiveTags.has(rawName);
+  });
+
+  return (
+    hasSensitiveTag ||
+    manga.attributes.contentRating === "erotica" ||
+    manga.attributes.contentRating === "pornographic"
+  );
 }
 
 export async function fetchMangaDexCollection(url: string) {
@@ -234,10 +294,10 @@ export function mapToShowcaseItems(
     },
     genres: getGenreTags(manga, language),
     themes: getThemeTags(manga, language),
-    tags: getAllTagNames(manga),
-    isNsfw:
-      manga.attributes.contentRating === "erotica" ||
-      manga.attributes.contentRating === "pornographic",
+    tags: getAllTagNames(manga).map((tagName) => translateTagName(tagName, language)),
+    featuredTag: getFeaturedFormatTag(manga, language) ?? (isRecentlyCreated(manga) ? "NUEVO" : null),
+    createdAt: manga.attributes.createdAt ?? null,
+    isNsfw: hasSensitiveAdultTag(manga),
   }));
 }
 

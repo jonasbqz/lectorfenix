@@ -51,9 +51,9 @@ export default function HorizontalCarousel({
     <section>
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-6 w-1.5 rounded-full bg-orange-500 md:h-8" />
+          <div className="h-6 w-1.5 rounded-full bg-[#ff6b00] md:h-8" />
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-white md:text-2xl">{title}</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h2>
             <p className="text-xs text-gray-500">{subtitle ?? "Descubre algo grande para leer ahora"}</p>
           </div>
         </div>

@@ -43,14 +43,14 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:px-5 md:grid md:grid-cols-[auto_minmax(280px,500px)_auto] md:items-center md:gap-6 md:px-8"
       >
         <div className="flex min-w-0 items-center justify-between gap-3 md:justify-start md:gap-8">
-          <div className="flex min-w-0 items-center gap-3 md:gap-8">
+        <div className="flex min-w-0 w-full items-center justify-between gap-6 md:justify-start md:gap-8">
             <BrandLogo />
 
             <Link
               href="/explore"
               className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 transition-colors hover:text-orange-500"
             >
-              <Compass className="h-4 w-4" />
+              <Compass className="w-6 h-6" />
               <span className="hidden sm:inline">{copy.explore}</span>
             </Link>
 
@@ -59,7 +59,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
               className="inline-flex items-center gap-2 text-sm font-medium text-gray-300 transition-colors hover:text-orange-500"
               aria-label={copy.favorites}
             >
-              <Heart className="h-4 w-4" />
+              <Heart className="w-6 h-6" />
               <span className="hidden lg:inline">{copy.favorites}</span>
             </Link>
           </div>

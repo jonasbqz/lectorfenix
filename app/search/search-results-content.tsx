@@ -117,8 +117,8 @@ export default function SearchResultsContent() {
   return (
     <div className="mx-auto max-w-[1600px] px-8 pb-16 pt-10">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white md:text-5xl">
-          Resultados para: <span className="text-orange-500">{query || "..."}</span>
+        <h1 className="text-xl font-semibold text-white md:text-xl">
+          Resultados para: <span className="text-[#ff6b00]">{query || "..."}</span>
         </h1>
       </header>
 

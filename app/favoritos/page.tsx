@@ -51,7 +51,7 @@ export default function FavoritosPage() {
       <div className="mx-auto min-h-[70vh] max-w-[1600px] px-4 py-12 md:px-8">
         <BackButton />
 
-        <h1 className="mb-8 border-l-4 border-orange-500 pl-4 text-3xl font-black text-white md:text-4xl">
+        <h1 className="mb-8 border-l-4 border-[#ff6b00] pl-4 text-xl font-semibold text-white md:text-xl">
         Mis Guardados
         </h1>
 

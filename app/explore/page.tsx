@@ -14,6 +14,7 @@ import {
   type MangaDexCollectionResponse,
   type MangaDexManga,
 } from "../utils/mangadex";
+import { translateTagName } from "../utils/tagTranslations";
 
 const TYPE_FILTERS = [
   { value: "all", label: { es: "Todo", en: "All", pt: "Todos" } },
@@ -55,6 +56,7 @@ const SPECIAL_TAGS = [
   { id: "f5ba408b-0e7a-484d-8d49-4e9125ac96de", label: { es: "Full Color", en: "Full Color", pt: "Full Color" } },
   { id: "3e2b8dae-350e-4ab8-a8ce-016e844b9f0d", label: { es: "Long Strip", en: "Long Strip", pt: "Long Strip" } },
   { id: "e197df38-d0e7-43b5-9b09-2842d0c326dd", label: { es: "Web Comic", en: "Web Comic", pt: "Web Comic" } },
+  { id: "51d83883-4103-437c-b4b1-731cb73d786c", label: { es: "Historia única", en: "Oneshot", pt: "História única" } },
   { id: "39730448-9a5f-48a2-85b0-a70db87b1233", label: { es: "Demonios", en: "Demons", pt: "Demonios" } },
   { id: "a1f53773-c69a-4ce5-8cab-fffcd90b1565", label: { es: "Magia", en: "Magic", pt: "Magia" } },
   { id: "0bc90acb-ccc1-44ca-a34a-b9f3a73259d0", label: { es: "Reencarnacion", en: "Reincarnation", pt: "Reencarnacao" } },
@@ -223,6 +225,31 @@ function formatRelativeTime(dateString: string | null | undefined, language: Sup
   if (language === "en") return `${minutes} min ago`;
   if (language === "pt") return `Ha ${minutes} min`;
   return `Hace ${minutes} min`;
+}
+
+function getTranslatedFilterLabel(
+  label: Record<SupportedLanguage, string>,
+  language: SupportedLanguage
+) {
+  return translateTagName(label.en, language);
+}
+
+function getSpecialTagGroups(language: SupportedLanguage) {
+  const groups = new Map<string, { label: string; ids: string[] }>();
+
+  SPECIAL_TAGS.forEach((tag) => {
+    const label = getTranslatedFilterLabel(tag.label, language);
+    const current = groups.get(label);
+
+    if (current) {
+      current.ids.push(tag.id);
+      return;
+    }
+
+    groups.set(label, { label, ids: [tag.id] });
+  });
+
+  return Array.from(groups.values());
 }
 
 async function fetchLatestChapterPreviews(mangaId: string, language: SupportedLanguage) {
@@ -495,6 +522,30 @@ export default function ExplorePage() {
     });
   }
 
+  function toggleSpecialTagGroup(tagIds: string[]) {
+    setSelectedSpecialTags((current) => {
+      const isActive = tagIds.some((tagId) => current.includes(tagId));
+
+      if (isActive) {
+        return current.filter((tagId) => !tagIds.includes(tagId));
+      }
+
+      const next = [...current];
+
+      for (const tagId of tagIds) {
+        if (!next.includes(tagId)) {
+          next.push(tagId);
+        }
+      }
+
+      return next.slice(0, 3);
+    });
+  }
+
+  const selectedSpecialTagGroupCount = getSpecialTagGroups(language).filter((group) =>
+    group.ids.some((tagId) => selectedSpecialTags.includes(tagId))
+  ).length;
+
   return (
     <main className="min-h-screen bg-[#141519] text-white">
       <SiteHeader language={language} />
@@ -503,10 +554,10 @@ export default function ExplorePage() {
         <div className="mb-8 rounded-[28px] border border-white/6 bg-[#111316] px-5 py-5 md:px-8">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="inline-flex items-center gap-3 text-base font-semibold text-white">
-              <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b00]" />
               <span>
-                {copy.showing} <span className="text-orange-500">{mangas.length}</span> {copy.of}{" "}
-                <span className="text-orange-500">{totalItems}</span> {copy.titles}
+                {copy.showing} <span className="text-[#ff6b00]">{mangas.length}</span> {copy.of}{" "}
+                <span className="text-[#ff6b00]">{totalItems}</span> {copy.titles}
               </span>
             </div>
 
@@ -515,7 +566,7 @@ export default function ExplorePage() {
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
                 disabled={currentPage <= 1}
-                className="rounded-full border border-white/10 bg-white/5 p-3 transition-colors hover:border-orange-500/40 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-full border border-white/10 bg-white/5 p-3 transition-colors hover:border-[#ff6b00]/40 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>
@@ -527,8 +578,8 @@ export default function ExplorePage() {
                   onClick={() => setCurrentPage(pageNumber)}
                   className={`rounded-full px-5 py-3 font-medium transition-colors ${
                     pageNumber === currentPage
-                      ? "bg-orange-500 text-white hover:bg-orange-600"
-                      : "border border-white/10 bg-white/5 text-gray-200 hover:border-orange-500/40 hover:text-orange-400"
+                      ? "bg-[#ff6b00] text-white hover:bg-orange-600"
+                      : "border border-white/10 bg-white/5 text-gray-200 hover:border-[#ff6b00]/40 hover:text-orange-400"
                   }`}
                 >
                   {pageNumber}
@@ -545,7 +596,7 @@ export default function ExplorePage() {
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.min(lastVisiblePage, page + 1))}
                 disabled={currentPage >= lastVisiblePage}
-                className="rounded-full border border-white/10 bg-white/5 p-3 transition-colors hover:border-orange-500/40 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-full border border-white/10 bg-white/5 p-3 transition-colors hover:border-[#ff6b00]/40 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -556,10 +607,10 @@ export default function ExplorePage() {
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
           <section className="order-2 xl:order-1">
             <div className="mb-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-500">
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#ff6b00]">
                 {copy.title}
               </p>
-              <h1 className="mt-3 text-4xl font-bold text-white md:text-5xl">{copy.title}</h1>
+              <h1 className="mt-3 text-xl font-semibold text-white md:text-xl">{copy.title}</h1>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400 md:text-base">
                 {copy.subtitle}
               </p>
@@ -596,10 +647,10 @@ export default function ExplorePage() {
           <aside className="order-1 xl:order-2">
             <div className="rounded-[28px] border border-white/6 bg-[#111316] p-6 shadow-2xl shadow-black/20 xl:sticky xl:top-24">
               <div className="mb-6 flex items-center gap-3">
-                <div className="rounded-full bg-orange-500/12 p-3 text-orange-500">
+                <div className="rounded-full bg-[#ff6b00]/12 p-3 text-[#ff6b00]">
                   <SlidersHorizontal className="h-5 w-5" />
                 </div>
-                <h2 className="text-2xl font-bold text-white">{copy.filters}</h2>
+                <h2 className="text-xl font-semibold text-white">{copy.filters}</h2>
               </div>
 
               <div className="space-y-6">
@@ -618,8 +669,8 @@ export default function ExplorePage() {
                           onClick={() => setSelectedType(typeOption.value)}
                           className={`rounded-full border px-4 py-2 text-sm transition-colors ${
                             active
-                              ? "border-orange-500 bg-orange-500/20 text-orange-500"
-                              : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-orange-500/30 hover:text-orange-400"
+                              ? "border-[#ff6b00] bg-[#ff6b00]/20 text-[#ff6b00]"
+                              : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-[#ff6b00]/30 hover:text-orange-400"
                           }`}
                         >
                           {typeOption.label[language]}
@@ -641,13 +692,13 @@ export default function ExplorePage() {
                         value={searchQuery}
                         onChange={(event) => setSearchQuery(event.target.value)}
                         placeholder={copy.searchPlaceholder}
-                        className="h-14 w-full rounded-full border border-white/10 bg-[#171a1f] pl-12 pr-4 text-sm text-white outline-none transition-colors placeholder:text-gray-500 focus:border-orange-500/40"
+                        className="h-14 w-full rounded-full border border-white/10 bg-[#171a1f] pl-12 pr-4 text-sm text-white outline-none transition-colors placeholder:text-gray-500 focus:border-[#ff6b00]/40"
                       />
                     </div>
                     <button
                       type="button"
                       onClick={handleSearch}
-                      className="rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                      className="rounded-full bg-[#ff6b00] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                     >
                       {copy.searchButton}
                     </button>
@@ -661,7 +712,7 @@ export default function ExplorePage() {
                   <select
                     value={orderBy}
                     onChange={(event) => setOrderBy(event.target.value)}
-                    className="h-14 w-full rounded-2xl border border-white/10 bg-[#171a1f] px-4 text-sm text-white outline-none transition-colors focus:border-orange-500/40"
+                    className="h-14 w-full rounded-2xl border border-white/10 bg-[#171a1f] px-4 text-sm text-white outline-none transition-colors focus:border-[#ff6b00]/40"
                   >
                     {ORDER_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -678,7 +729,7 @@ export default function ExplorePage() {
                   <select
                     value={sortDir}
                     onChange={(event) => setSortDir(event.target.value)}
-                    className="h-14 w-full rounded-2xl border border-white/10 bg-[#171a1f] px-4 text-sm text-white outline-none transition-colors focus:border-orange-500/40"
+                    className="h-14 w-full rounded-2xl border border-white/10 bg-[#171a1f] px-4 text-sm text-white outline-none transition-colors focus:border-[#ff6b00]/40"
                   >
                     <option value="desc">{copy.descending}</option>
                     <option value="asc">{copy.ascending}</option>
@@ -690,7 +741,7 @@ export default function ExplorePage() {
                     <label className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
                       {copy.genreTitle}
                     </label>
-                    <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-500">
+                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-3 py-1 text-xs font-medium text-[#ff6b00]">
                       {selectedGenres.length}
                     </span>
                   </div>
@@ -699,6 +750,8 @@ export default function ExplorePage() {
                     <div className="flex flex-wrap gap-2">
                       {GENRE_TAGS.map((genre) => {
                         const active = selectedGenres.includes(genre.id);
+                        const label = getTranslatedFilterLabel(genre.label, language);
+                        const selectedIndex = selectedGenres.indexOf(genre.id);
 
                         return (
                           <button
@@ -707,11 +760,11 @@ export default function ExplorePage() {
                             onClick={() => toggleGenre(genre.id)}
                             className={`rounded-full border px-4 py-2 text-sm transition-colors ${
                               active
-                                ? "border-orange-500 bg-orange-500/20 text-orange-500"
-                                : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-orange-500/30 hover:text-orange-400"
-                            }`}
-                          >
-                            {genre.label[language]}
+                                ? "border-[#ff6b00] bg-[#ff6b00]/20 text-[#ff6b00]"
+                                : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-[#ff6b00]/30 hover:text-orange-400"
+                          }`}
+                        >
+                            {active ? `${label} +${selectedIndex + 1}` : label}
                           </button>
                         );
                       })}
@@ -724,29 +777,32 @@ export default function ExplorePage() {
                     <label className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500">
                       {copy.specialTagTitle}
                     </label>
-                    <span className="rounded-full border border-orange-500/20 bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-500">
-                      {selectedSpecialTags.length}/3
+                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-3 py-1 text-xs font-medium text-[#ff6b00]">
+                      {selectedSpecialTagGroupCount}/3
                     </span>
                   </div>
 
                   <p className="mb-4 text-xs text-gray-500">{copy.selectedGenres}</p>
 
                   <div className="flex flex-wrap gap-2">
-                    {SPECIAL_TAGS.map((tag) => {
-                      const active = selectedSpecialTags.includes(tag.id);
+                    {getSpecialTagGroups(language).map((tag) => {
+                      const active = tag.ids.some((tagId) => selectedSpecialTags.includes(tagId));
+                      const selectedIndex = getSpecialTagGroups(language)
+                        .filter((group) => group.ids.some((tagId) => selectedSpecialTags.includes(tagId)))
+                        .findIndex((group) => group.label === tag.label);
 
                       return (
                         <button
-                          key={tag.id}
+                          key={tag.label}
                           type="button"
-                          onClick={() => toggleSpecialTag(tag.id)}
-                          className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                          onClick={() => toggleSpecialTagGroup(tag.ids)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                             active
-                              ? "border-orange-500 bg-orange-500/20 text-orange-500"
-                              : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-orange-500/30 hover:text-orange-400"
+                              ? "border-[#ff6b00] bg-[#ff6b00]/20 text-[#ff6b00]"
+                              : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-[#ff6b00]/30 hover:text-orange-400"
                           }`}
                         >
-                          {tag.label[language]}
+                          {active ? `${tag.label} +${selectedIndex + 1}` : tag.label}
                         </button>
                       );
                     })}
@@ -757,14 +813,14 @@ export default function ExplorePage() {
                   <button
                     type="button"
                     onClick={handleSearch}
-                    className="flex-1 rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+                    className="flex-1 rounded-full bg-[#ff6b00] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
                   >
                     {copy.searchButton}
                   </button>
                   <button
                     type="button"
                     onClick={handleClearFilters}
-                    className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-gray-300 transition-colors hover:border-orange-500/30 hover:text-orange-400"
+                    className="rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-gray-300 transition-colors hover:border-[#ff6b00]/30 hover:text-orange-400"
                   >
                     {copy.clearFilters}
                   </button>

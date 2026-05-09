@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Download, EyeOff, List, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Eye, EyeOff, List } from "lucide-react";
 import { SupportedLanguage, useLanguage } from "../../components/language-provider";
 
 type ScrollSpeed = 1 | 2 | 3;
@@ -338,7 +338,7 @@ function ChapterNavigation({
   onList: () => void;
 }) {
   return (
-    <div className="my-6 flex flex-wrap items-center justify-center gap-3 md:my-8 md:gap-5">
+    <div className="my-4 flex flex-wrap items-center justify-center gap-3 md:my-5 md:gap-4">
       <ChapterNavButton disabled={!previousChapter} onClick={onPrevious}>
         <ArrowLeft aria-hidden="true" size={24} strokeWidth={2.6} />
         <span className="sr-only">{dictionary.previousChapter}</span>
@@ -429,10 +429,8 @@ export default function ReadPage() {
   const [pdfEndChapterId, setPdfEndChapterId] = useState("");
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState<ScrollSpeed>(1);
-  const [showReaderTools, setShowReaderTools] = useState(true);
-  const [readerToolsAutoVisible, setReaderToolsAutoVisible] = useState(true);
+  const [isReaderUiVisible, setIsReaderUiVisible] = useState(true);
   const autoScrollIntervalRef = useRef<number | null>(null);
-  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
     if (currentChapter?.id) {
@@ -556,36 +554,6 @@ export default function ReadPage() {
       }
     };
   }, [autoScroll, scrollSpeed]);
-
-  useEffect(() => {
-    lastScrollYRef.current = window.scrollY;
-
-    function handleScroll() {
-      if (window.innerWidth < 768) {
-        setReaderToolsAutoVisible(true);
-        lastScrollYRef.current = window.scrollY;
-        return;
-      }
-
-      const currentY = window.scrollY;
-      const delta = currentY - lastScrollYRef.current;
-
-      if (Math.abs(delta) < 8) {
-        return;
-      }
-
-      if (delta > 0 && currentY > 120) {
-        setReaderToolsAutoVisible(false);
-      } else {
-        setReaderToolsAutoVisible(true);
-      }
-
-      lastScrollYRef.current = currentY;
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!currentChapter?.id || !mangaId) {
@@ -764,112 +732,74 @@ export default function ReadPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#0a0a0c] px-4 pb-24 pt-3 text-white sm:px-4 md:px-6 md:pb-20 md:pt-4"
-      onPointerDown={(event) => {
-        const target = event.target as HTMLElement;
-        if (!target.closest("button,a,select,input,textarea")) {
-          setReaderToolsAutoVisible(true);
-        }
-      }}
+      className="min-h-screen bg-[#0a0a0c] px-4 pb-10 pt-2 text-white sm:px-4 md:px-6 md:pt-3"
     >
 
       <AnimatePresence>
-      {showReaderTools && readerToolsAutoVisible ? (
-        <motion.div
-          key="reader-tools"
-          initial={{ opacity: 0, x: 18, scale: 0.96 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 18, scale: 0.96 }}
-          transition={{ duration: 0.22 }}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5rem)] left-1/2 z-50 flex -translate-x-1/2 flex-row gap-2 rounded-full border border-white/10 bg-[#141519]/88 p-2 shadow-2xl shadow-black/45 backdrop-blur-xl md:bottom-auto md:left-auto md:right-4 md:top-1/2 md:-translate-x-0 md:-translate-y-1/2 md:flex-col md:rounded-none md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0"
-        >
-        <ToolButton title={dictionary.hideControls} onClick={() => setShowReaderTools(false)}>
-          <EyeOff className="h-5 w-5" />
-        </ToolButton>
+        {isReaderUiVisible ? (
+          <motion.div
+            key="reader-tools-visible"
+            initial={{ opacity: 0, x: 18, scale: 0.96 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 18, scale: 0.96 }}
+            transition={{ duration: 0.22 }}
+            className="fixed right-3 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-3 rounded-2xl border border-white/10 bg-[#141519]/78 p-2 shadow-2xl shadow-black/45 backdrop-blur-xl md:right-4"
+          >
+            <ToolButton title={dictionary.hideControls} onClick={() => setIsReaderUiVisible(false)}>
+              <EyeOff className="h-5 w-5" />
+            </ToolButton>
 
-        <ToolButton title={dictionary.fullscreen} onClick={toggleFullscreen}>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-            <path d="M16 3h3a2 2 0 0 1 2 2v3" />
-            <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
-            <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-          </svg>
-        </ToolButton>
+            <ToolButton title={dictionary.fullscreen} onClick={toggleFullscreen}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+                <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+                <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+              </svg>
+            </ToolButton>
 
-        <ToolButton
-          title={autoScroll ? dictionary.pause : dictionary.play}
-          onClick={() => setAutoScroll((current) => !current)}
-        >
-          {autoScroll ? (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-              <rect x="6" y="5" width="4" height="14" rx="1" />
-              <rect x="14" y="5" width="4" height="14" rx="1" />
-            </svg>
-          ) : (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          )}
-        </ToolButton>
+            <ToolButton
+              title={autoScroll ? dictionary.pause : dictionary.play}
+              onClick={() => setAutoScroll((current) => !current)}
+            >
+              {autoScroll ? (
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </ToolButton>
 
-        <ToolButton title={`${scrollSpeed}x`} onClick={cycleSpeed}>
-          <span className="text-sm font-bold">{scrollSpeed}x</span>
-        </ToolButton>
+            <ToolButton title={`${scrollSpeed}x`} onClick={cycleSpeed}>
+              <span className="text-sm font-semibold">{scrollSpeed}x</span>
+            </ToolButton>
 
-        <ToolButton title={dictionary.scrollTop} onClick={scrollToTop}>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 19V5" />
-            <path d="m5 12 7-7 7 7" />
-          </svg>
-        </ToolButton>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="reader-tools-toggle"
-          initial={{ opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.92 }}
-          className="fixed bottom-24 right-3 z-50 hidden md:block md:right-4"
-        >
-          <ToolButton title={dictionary.controls} onClick={() => setShowReaderTools(true)}>
-            <SlidersHorizontal className="h-5 w-5" />
-          </ToolButton>
-        </motion.div>
-      )}
+            <ToolButton title={dictionary.scrollTop} onClick={scrollToTop}>
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </ToolButton>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="reader-tools-hidden"
+            initial={{ opacity: 0, x: 10, scale: 0.92 }}
+            animate={{ opacity: 0.58, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 10, scale: 0.92 }}
+            transition={{ duration: 0.22 }}
+            className="fixed right-3 top-1/2 z-50 -translate-y-1/2 md:right-4"
+          >
+            <ToolButton title={dictionary.controls} onClick={() => setIsReaderUiVisible(true)}>
+              <Eye className="h-5 w-5" />
+            </ToolButton>
+          </motion.div>
+        )}
       </AnimatePresence>
-
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-[#141519]/88 px-2 py-2 shadow-2xl shadow-black/45 backdrop-blur-xl md:hidden">
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.9 }}
-          onClick={() => router.back()}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-gray-200 transition-colors hover:bg-orange-500 hover:text-black"
-          aria-label={dictionary.backHome}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </motion.button>
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.9 }}
-          onClick={openChapterList}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-orange-500 transition-colors hover:bg-orange-500 hover:text-black"
-          aria-label={dictionary.chapterList}
-        >
-          <List className="h-5 w-5" />
-        </motion.button>
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            setReaderToolsAutoVisible(true);
-            setShowReaderTools((current) => (current && readerToolsAutoVisible ? false : true));
-          }}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/5 text-gray-200 transition-colors hover:bg-orange-500 hover:text-black"
-          aria-label={dictionary.controls}
-        >
-          <SlidersHorizontal className="h-5 w-5" />
-        </motion.button>
-      </div>
 
       {loading ? (
         <section className="flex min-h-[70vh] items-center justify-center">
@@ -880,12 +810,12 @@ export default function ReadPage() {
         </section>
       ) : error ? (
         <>
-          <section className="mx-auto max-w-5xl pt-1">
-            <div className="mb-5 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
+          <section className="mx-auto max-w-5xl pt-0">
+            <div className="mb-2 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="flex min-h-12 items-center gap-2 rounded-full bg-[#1a1b20] px-5 py-2.5 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-orange-500 hover:text-white"
+                className="flex min-h-10 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-[#ff6b00] hover:text-white"
               >
                 <ArrowLeft size={24} />
                 <span className="hidden font-medium sm:inline">{dictionary.backHome}</span>
@@ -894,18 +824,18 @@ export default function ReadPage() {
               <button
                 type="button"
                 disabled
-                className="flex min-h-12 items-center gap-2 rounded-full bg-[#1a1b20] px-5 py-2.5 text-sm font-semibold text-gray-300 opacity-50"
+                className="flex min-h-10 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 opacity-50"
               >
                 <Download size={24} />
                 <span className="hidden font-medium sm:inline">{dictionary.downloadPdf}</span>
               </button>
             </div>
 
-            <div className="mb-5 flex flex-col items-center justify-center px-3 text-center">
-              <h1 className="mb-2 max-w-4xl text-2xl font-black leading-tight tracking-tight text-orange-500 md:text-4xl">
+            <div className="mb-2 flex flex-col items-center justify-center px-3 text-center">
+              <h1 className="mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-semibold leading-tight tracking-tight text-orange-500 md:text-2xl">
                 {mangaTitle}
               </h1>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-base font-semibold text-white">
                 {getChapterLabel(currentChapter, dictionary)}
               </h2>
             </div>
@@ -920,9 +850,9 @@ export default function ReadPage() {
             />
           </section>
 
-          <section className="flex min-h-[45vh] items-center justify-center px-1">
+          <section className="flex min-h-[38vh] items-center justify-center px-1">
             <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-neutral-900/50 p-6 text-center sm:p-8">
-              <h2 className="text-2xl font-semibold text-white">{dictionary.chapterUnavailable}</h2>
+                <h2 className="text-2xl font-semibold text-white">{dictionary.chapterUnavailable}</h2>
               <p className="mt-4 text-sm leading-7 text-gray-400">{error}</p>
               {englishFallbackChapter ? (
                 <button
@@ -931,7 +861,7 @@ export default function ReadPage() {
                     setAutoScroll(false);
                     router.push(buildReaderUrl(mangaId, englishFallbackChapter.id, "en"));
                   }}
-                  className="mt-6 inline-flex items-center justify-center rounded-full bg-orange-500 px-6 py-3 text-sm font-bold text-black transition hover:bg-orange-400"
+                  className="mt-6 inline-flex items-center justify-center rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
                 >
                   {dictionary.readInEnglish}
                 </button>
@@ -941,12 +871,12 @@ export default function ReadPage() {
         </>
       ) : (
         <>
-          <section className="mx-auto max-w-5xl pt-1">
-            <div className="mb-5 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
+          <section className="mx-auto max-w-5xl pt-0">
+            <div className="mb-2 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
               <button
                 type="button"
                 onClick={() => router.push("/")}
-                className="flex min-h-12 items-center gap-2 rounded-full bg-[#1a1b20] px-5 py-2.5 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-orange-500 hover:text-white"
+                className="flex min-h-10 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-[#ff6b00] hover:text-white"
               >
                 <ArrowLeft size={24} />
                 <span className="hidden font-medium sm:inline">{dictionary.backHome}</span>
@@ -956,7 +886,7 @@ export default function ReadPage() {
                 type="button"
                 onClick={() => setShowPdfModal(true)}
                 disabled={downloading || pages.length === 0}
-                className="flex min-h-12 items-center gap-2 rounded-full bg-[#1a1b20] px-5 py-2.5 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-orange-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex min-h-10 items-center gap-2 rounded-full bg-[#1a1b20] px-4 py-2 text-sm font-semibold text-gray-300 shadow-lg shadow-black/20 transition-all duration-300 hover:bg-[#ff6b00] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Download size={24} />
                 <span className="hidden font-medium sm:inline">
@@ -965,11 +895,11 @@ export default function ReadPage() {
               </button>
             </div>
 
-            <div className="mb-5 flex flex-col items-center justify-center px-3 text-center">
-              <h1 className="mb-2 max-w-4xl text-2xl font-black leading-tight tracking-tight text-orange-500 md:text-4xl">
+            <div className="mb-2 flex flex-col items-center justify-center px-3 text-center">
+              <h1 className="mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-semibold leading-tight tracking-tight text-orange-500 md:text-2xl">
                 {mangaTitle}
               </h1>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-base font-semibold text-white">
                 {getChapterLabel(currentChapter, dictionary)}
               </h2>
             </div>
@@ -997,17 +927,15 @@ export default function ReadPage() {
             </div>
           </section>
 
-          <section className="pb-16">
-            <div className="mx-auto max-w-3xl">
-              <ChapterNavigation
-                dictionary={dictionary}
-                previousChapter={previousChapter}
-                nextChapter={nextChapter}
-                onPrevious={() => previousChapter && handleChapterNavigation(previousChapter.id)}
-                onNext={() => nextChapter && handleChapterNavigation(nextChapter.id)}
-                onList={openChapterList}
-              />
-            </div>
+          <section className="mx-auto max-w-5xl pb-8 pt-6">
+            <ChapterNavigation
+              dictionary={dictionary}
+              previousChapter={previousChapter}
+              nextChapter={nextChapter}
+              onPrevious={() => previousChapter && handleChapterNavigation(previousChapter.id)}
+              onNext={() => nextChapter && handleChapterNavigation(nextChapter.id)}
+              onList={openChapterList}
+            />
           </section>
 
           {showPdfModal ? (
@@ -1016,14 +944,14 @@ export default function ReadPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">
                   {dictionary.pdfModalTitle}
                 </p>
-                <h2 className="mt-2 line-clamp-2 text-2xl font-bold text-white">{mangaTitle}</h2>
+                <h2 className="mt-2 line-clamp-2 text-xl font-semibold text-white">{mangaTitle}</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-400">{dictionary.pdfModalBody}</p>
 
                 <div className="mt-5 rounded-xl border border-white/10 bg-black/35 p-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                     {dictionary.currentDownload}
                   </p>
-                  <p className="mt-2 text-base font-bold text-white">
+                  <p className="mt-2 text-base font-semibold text-white">
                     {getChapterLabel(currentChapter, dictionary)}
                   </p>
 
@@ -1092,7 +1020,7 @@ export default function ReadPage() {
                     type="button"
                     onClick={handleDownloadPdf}
                     disabled={downloading}
-                    className="flex-1 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex-1 rounded-xl bg-orange-500 px-4 py-3 text-sm font-semibold text-black transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {downloading ? dictionary.generatingPdf : dictionary.download}
                   </button>
