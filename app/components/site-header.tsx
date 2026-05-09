@@ -43,7 +43,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         className="mx-auto flex max-w-[1600px] flex-col gap-3 px-4 py-3 sm:px-5 md:grid md:grid-cols-[auto_minmax(280px,500px)_auto] md:items-center md:gap-6 md:px-8"
       >
         <div className="flex min-w-0 items-center justify-between gap-3 md:justify-start md:gap-8">
-        <div className="flex min-w-0 w-full items-center justify-between gap-6 md:justify-start md:gap-8">
+        <div className="flex min-w-0 w-full items-center justify-between gap-4 md:justify-start md:gap-8">
             <BrandLogo />
 
             <Link
