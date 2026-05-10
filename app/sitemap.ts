@@ -1,11 +1,13 @@
-import type { MetadataRoute } from "next";
+﻿import type { MetadataRoute } from "next";
+
+export const dynamic = "force-dynamic";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const mangaDexApiUrl = (process.env.NEXT_PUBLIC_API_URL ?? "https://api.mangadex.org").replace(/\/$/, "");
 
-// Generamos 50 sitemaps, cada uno con 100 mangas = 5,000 mangas indexados
+// Bajamos a 10 sitemaps (1,000 mangas) por ahora para que no haya bloqueos (Error 429)
 export async function generateSitemaps() {
-  return Array.from({ length: 50 }, (_, i) => ({ id: i }));
+  return Array.from({ length: 10 }, (_, i) => ({ id: i }));
 }
 
 export default async function sitemap({ id }: { id: number }): Promise<MetadataRoute.Sitemap> {
@@ -17,18 +19,16 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
   params.set("offset", offset.toString());
   params.set("hasAvailableChapters", "true");
   params.set("order[followedCount]", "desc");
-  params.append("contentRating[]", "safe");
-  params.append("contentRating[]", "suggestive");
   params.append("availableTranslatedLanguage[]", "es");
   params.append("availableTranslatedLanguage[]", "es-la");
-  params.append("includes[]", "cover_art");
+  // Quitamos includes[]=cover_art porque el sitemap no lo necesita y hace la petición más lenta
 
   let mangaRoutes: MetadataRoute.Sitemap = [];
 
   try {
     const response = await fetch(`${mangaDexApiUrl}/manga?${params.toString()}`, {
       headers: { "User-Agent": "Mangastoon/1.0.0" },
-      next: { revalidate: 86400 }, // Cach? de 1 d?a para no saturar
+      next: { revalidate: 86400 } // Guardamos en caché por 24 horas
     });
 
     if (response.ok) {
@@ -46,7 +46,7 @@ export default async function sitemap({ id }: { id: number }): Promise<MetadataR
     console.error("Error generando sitemap parcial", e);
   }
 
-  // Si es el primer sitemap (id 0), inyectamos tambi?n las rutas principales
+  // Si es el primer sitemap (id 0), inyectamos también las rutas principales
   if (id === 0) {
     const staticRoutes: MetadataRoute.Sitemap = [
       { url: siteUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
