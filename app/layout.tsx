@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import AppFeedback from "./components/app-feedback";
+import AdManager from "./components/AdManager";
 import Footer from "./components/Footer";
 import { LanguageProvider } from "./components/language-provider";
 import "./globals.css";
@@ -61,6 +62,7 @@ export default function RootLayout({
           {children}
           <Footer />
           <AppFeedback />
+          <AdManager />
         </LanguageProvider>
       </body>
     </html>
