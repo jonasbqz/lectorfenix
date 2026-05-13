@@ -3,13 +3,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Script from "next/script";
 import Link from "next/link";
-import { ArrowDown, BookOpen, CalendarDays } from "lucide-react";
+import { ArrowDown } from "lucide-react";
 import BackButton from "../../components/BackButton";
 import ContinueReadingButton from "../../components/ContinueReadingButton";
 import FavoriteButton from "../../components/FavoriteButton";
-import { MangaCard } from "../../components/MangaCard";
+import { MangaCard, type MangaShowcaseItem } from "../../components/MangaCard";
 import SiteHeader, { type SupportedLanguage } from "../../components/site-header";
 import SynopsisBlock from "./synopsis";
+import ChapterList from "./chapter-list";
 import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
@@ -119,6 +120,10 @@ type ChapterLanguageFallback = {
 type MangaDetails = NonNullable<MangaDetailsResponse["data"]>;
 type OriginalContentDictionary = Pick<(typeof UI_COPY)[SupportedLanguage], "noSynopsis">;
 type LocalApiComic = Record<string, unknown>;
+
+function isMangaShowcaseItem(item: MangaShowcaseItem | LocalApiComic): item is MangaShowcaseItem {
+  return "mangaDexId" in item || "mal_id" in item;
+}
 type LocalComicScan = Record<string, unknown> & {
   scanGroup?: Record<string, unknown>;
   chapters?: unknown;
@@ -454,6 +459,7 @@ const UI_COPY: Record<
     noScan: string;
     publishedOn: string;
     chapterFallback: string;
+    showMoreChapters: string;
   }
 > = {
   es: {
@@ -475,6 +481,7 @@ const UI_COPY: Record<
     noScan: "Seleccion automatica",
     publishedOn: "Publicado",
     chapterFallback: "Capitulo especial",
+    showMoreChapters: "Mostrar más capítulos",
   },
   en: {
     addToFavorites: "Add to Favorites",
@@ -495,6 +502,7 @@ const UI_COPY: Record<
     noScan: "Auto selection",
     publishedOn: "Published",
     chapterFallback: "Special chapter",
+    showMoreChapters: "Show more chapters",
   },
   pt: {
     addToFavorites: "Adicionar aos Favoritos",
@@ -515,6 +523,7 @@ const UI_COPY: Record<
     noScan: "Selecao automatica",
     publishedOn: "Publicado",
     chapterFallback: "Capitulo especial",
+    showMoreChapters: "Mostrar mais capítulos",
   },
 };
 
@@ -1076,7 +1085,8 @@ export default async function MangaDetailsPage({
     currentLanguage,
     isAdult
   );
-  const suggestedMangas = await fetchSuggestedLocalMangas(manga.id);
+  const fallbackSuggestedMangas = await fetchSuggestedLocalMangas(manga.id);
+  const suggestedMangas = similarMangas.length > 0 ? similarMangas.slice(0, 12) : fallbackSuggestedMangas.slice(0, 12);
   const isExplicitContent =
     manga.attributes?.contentRating === "erotica" ||
     manga.attributes?.contentRating === "pornographic" ||
@@ -1369,48 +1379,30 @@ export default async function MangaDetailsPage({
                   ) : null}
                 </div>
               ) : (
-                <div>
-                  {chapterRows.map(({ chapter, chapterLabel, publishedLabel }) => {
-                    return (
-                      <Link
-                        key={chapter.id}
-                        href={`/read/${manga.id}?chapter=${chapter.id}`}
-                        className="animate-soft-enter mb-2 flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 p-4 transition-colors hover:bg-white/10"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <BookOpen className="h-5 w-5 shrink-0 text-[#ff6b00]" />
-                          <p className="text-base font-semibold text-white">{chapterLabel}</p>
-                        </div>
-
-                        <div className="ml-2 flex shrink-0 items-center gap-2 text-sm text-gray-400">
-                          <CalendarDays className="h-4 w-4" />
-                          <span>{publishedLabel}</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
+                <ChapterList
+                  mangaId={manga.id}
+                  chapterRows={chapterRows}
+                  showMoreLabel={copy.showMoreChapters}
+                />
               )}
             </section>
 
-            {similarMangas.length > 0 ? (
-              <section className="mt-12 border-t border-white/10 pt-8 md:mt-14 md:pt-10">
-                <div className="mb-5 border-b-4 border-[#ff6b00] px-3 pb-2 text-center md:border-b-0 md:border-l-4 md:pb-0 md:pl-3 md:text-left">
-                  <h2 className="text-2xl font-semibold text-white">{"Mangas similares que te encantar\u00e1n"}</h2>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                  {similarMangas.map((similarManga) => (
-                    <MangaCard key={similarManga.mangaDexId ?? similarManga.url} manga={similarManga} variant="grid" />
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
             {suggestedMangas.length > 0 ? (
               <section className="mt-16 border-t border-gray-800 pt-10">
-                <h2 className="mb-6 text-2xl font-bold text-white">Más contenido similar</h2>
+                <div className="mb-6 border-b-4 border-[#ff6b00] px-3 pb-2 text-center md:border-b-0 md:border-l-4 md:pb-0 md:pl-3 md:text-left">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff6b00]">MangaStoon recomienda</p>
+                  <h2 className="mt-1 text-2xl font-bold text-white">Más contenido similar</h2>
+                </div>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-                  {suggestedMangas.map((suggested) => {
+                  {suggestedMangas.map((suggested, index) => {
+                    if (isMangaShowcaseItem(suggested)) {
+                      return (
+                        <div key={suggested.mangaDexId ?? suggested.url} className={index >= 6 ? "hidden md:block" : undefined}>
+                          <MangaCard manga={suggested} variant="grid" />
+                        </div>
+                      );
+                    }
+
                     const slug = getLocalStringValue(suggested, ["slug", "manga_slug", "comic_slug", "id"]);
                     const title = getLocalStringValue(suggested, ["title", "name", "comic_title", "original_title"]) || "MangaStoon";
                     const coverImage = normalizeLocalImageUrl(
@@ -1420,7 +1412,7 @@ export default async function MangaDetailsPage({
                     if (!slug) return null;
 
                     return (
-                      <Link key={slug} href={`/manga/${slug}`} className="group block">
+                      <Link key={slug} href={`/manga/${slug}`} className={`group block ${index >= 6 ? "hidden md:block" : ""}`}>
                         <div className="aspect-[2/3] overflow-hidden rounded-lg border border-gray-800 bg-gray-900">
                           {coverImage ? (
                             <img

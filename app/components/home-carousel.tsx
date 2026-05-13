@@ -1,10 +1,11 @@
 "use client";
 
-import { BookOpen, Heart } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLanguage } from "./language-provider";
 import { getLocalizedTitle } from "../utils/get-localized-title";
+import FavoriteButton from "./FavoriteButton";
 
 export type MangaShowcaseItem = {
   mal_id: number;
@@ -148,17 +149,7 @@ export function MangaCard({
 
           {/* CONTROLES DERECHOS (CORAZÓN Y +18) */}
           <div className="absolute top-2 right-2 flex flex-col items-center gap-1.5 z-20">
-            
-            {/* BOTÓN CORAZÓN - Círculo pequeño exacto (w-7 h-7) */}
-            <button 
-              className="flex items-center justify-center w-7 h-7 bg-black/70 backdrop-blur-md text-white rounded-full hover:bg-[#FF6B00] transition-colors shadow-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-            >
-              <Heart className="w-3.5 h-3.5" />
-            </button>
+            <FavoriteButton manga={manga} variant="compact" />
 
             {/* ETIQUETA +18 - FONDO OSCURO TRANSLÚCIDO, TEXTO ROJO */}
             {isAdultContent && (

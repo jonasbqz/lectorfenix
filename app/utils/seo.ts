@@ -1,4 +1,6 @@
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.mangastoon.com").replace(/\/$/, "");
+import { NextResponse } from "next/server";
+
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://mangastoon.com").replace(/\/$/, "");
 
 export const SITE_NAME = "MangaStoon";
 
@@ -21,7 +23,7 @@ export const MONLINE_API_URL = (
   "http://46.224.213.127:8085"
 ).replace(/\/$/, "");
 
-const MANGADEX_SITEMAP_LANGUAGES = ["es", "en", "pt-br"] as const;
+export const MANGADEX_SITEMAP_LANGUAGES = ["es", "en", "pt", "pt-br"] as const;
 
 export function absoluteUrl(path = "/") {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -38,9 +40,9 @@ export function escapeXml(value: string) {
 }
 
 export function xmlResponse(xml: string, maxAge = 3600) {
-  return new Response(xml, {
+  return new NextResponse(xml, {
     headers: {
-      "Content-Type": "application/xml; charset=utf-8",
+      "Content-Type": "application/xml",
       "Cache-Control": `public, max-age=${maxAge}, s-maxage=${maxAge}, stale-while-revalidate=${maxAge}`,
     },
   });
@@ -51,11 +53,10 @@ export function buildMangaDexSitemapSearchParams(limit: number, offset: number) 
   searchParams.set("limit", String(limit));
   searchParams.set("offset", String(offset));
 
-  // Intencional: NO usamos hasAvailableChapters=true.
-  // Queremos indexar fichas de manga aunque todavia no tengan capitulos visibles.
-  for (const language of MANGADEX_SITEMAP_LANGUAGES) {
-    searchParams.append("availableTranslatedLanguage[]", language);
-  }
+  // Intencional: NO usamos hasAvailableChapters=true ni availableTranslatedLanguage[].
+  // Esos filtros dependen de capitulos disponibles y dejan fuera fichas indexables.
+  // El sitemap debe cubrir fichas es/en/pt cuando existan en titulo/alt/metadata,
+  // sin bloquear mangas nuevos que aun no tengan capitulos traducidos.
 
   return searchParams;
 }
@@ -68,7 +69,7 @@ export async function getMangaDexSitemapTotal() {
   const searchParams = buildMangaDexSitemapSearchParams(1, 0);
 
   const response = await fetch(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`, {
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -112,7 +113,7 @@ export async function getMonlineSitemapTotal() {
   searchParams.set("page", "1");
 
   const response = await fetch(`${MONLINE_API_URL}/api/comics?${searchParams.toString()}`, {
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -46,6 +46,10 @@ type ReaderDictionary = {
   hideControls: string;
   nextChapterCta: string;
   backToSeries: string;
+  endReachedTitle: string;
+  endReachedBody: string;
+  suggestedTitle: string;
+  exploreMore: string;
 };
 
 type ChapterFeedItem = {
@@ -69,41 +73,51 @@ type ReaderApiResponse = {
   code?: string;
 };
 
+type SuggestedComic = {
+  slug: string;
+  title: string;
+  coverImage: string;
+};
+
 const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
   es: {
     reader: "Lector Mangastoon",
     backHome: "Volver al inicio",
-    chapterUnavailable: "Capitulo no disponible en este idioma",
-    chapterUnavailableBody: "No encontramos un capitulo legible para este idioma.",
-    chapterAvailableInEnglish: "Este capitulo no esta disponible en espanol, pero si existe en ingles.",
-    readInEnglish: "Ver en ingles",
-    loadingChapter: "Cargando capitulo...",
+    chapterUnavailable: "Capítulo no disponible en este idioma",
+    chapterUnavailableBody: "No encontramos un capítulo legible para este idioma.",
+    chapterAvailableInEnglish: "Este capítulo no está disponible en español, pero sí existe en inglés.",
+    readInEnglish: "Ver en inglés",
+    loadingChapter: "Cargando capítulo...",
     previousChapter: "Anterior",
     nextChapter: "Siguiente",
-    chapterList: "Lista de Capitulos",
-    noPages: "No pudimos cargar las paginas de este capitulo.",
+    chapterList: "Lista de Capítulos",
+    noPages: "No pudimos cargar las páginas de este capítulo.",
     downloadPdf: "Descargar PDF",
     generatingPdf: "Generando...",
     pdfModalTitle: "Descargar PDF",
-    pdfModalBody: "Elige el rango exacto de capitulos que quieres incluir.",
+    pdfModalBody: "Elige el rango exacto de capítulos que quieres incluir.",
     currentDownload: "Descarga actual",
     startChapter: "Desde",
     endChapter: "Hasta",
     downloadRange: "Rango incluido",
-    maxChaptersNotice: "Maximo 50 capitulos por PDF para evitar bloqueos.",
-    pdfLimitExceeded: "No se puede descargar mas de 50 capitulos por PDF.",
+    maxChaptersNotice: "Máximo 50 capítulos por PDF para evitar bloqueos.",
+    pdfLimitExceeded: "No se puede descargar más de 50 capítulos por PDF.",
     cancel: "Cancelar",
     download: "Descargar",
     play: "Play",
     pause: "Pause",
-    page: "Pagina",
-    chapter: "Capitulo",
+    page: "Página",
+    chapter: "Capítulo",
     scrollTop: "Subir",
     fullscreen: "Pantalla completa",
     controls: "Controles",
     hideControls: "Ocultar controles",
     nextChapterCta: "Siguiente Capítulo",
     backToSeries: "Volver a la serie",
+    endReachedTitle: "Llegaste al último capítulo disponible",
+    endReachedBody: "Por ahora no hay más episodios publicados. Te dejamos lecturas de MangaStoon para que sigas con el ritmo.",
+    suggestedTitle: "Seguir leyendo en MangaStoon",
+    exploreMore: "Explorar más mangas",
   },
   en: {
     reader: "Mangastoon Reader",
@@ -139,6 +153,10 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     hideControls: "Hide controls",
     nextChapterCta: "Next Chapter",
     backToSeries: "Back to series",
+    endReachedTitle: "You reached the latest available chapter",
+    endReachedBody: "There are no more published episodes yet. Here are MangaStoon picks so you can keep reading.",
+    suggestedTitle: "Keep reading on MangaStoon",
+    exploreMore: "Explore more manga",
   },
   pt: {
     reader: "Leitor Mangastoon",
@@ -174,6 +192,10 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     hideControls: "Ocultar controles",
     nextChapterCta: "Próximo Capítulo",
     backToSeries: "Voltar para a série",
+    endReachedTitle: "Você chegou ao último capítulo disponível",
+    endReachedBody: "Por enquanto não há mais episódios publicados. Deixamos recomendações da MangaStoon para você continuar lendo.",
+    suggestedTitle: "Continuar lendo na MangaStoon",
+    exploreMore: "Explorar mais mangas",
   },
 };
 
@@ -188,6 +210,56 @@ function normalizeReaderLanguage(value: string | null, fallback: SupportedLangua
   }
 
   return fallback;
+}
+
+function getStringValue(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+
+  return "";
+}
+
+function normalizeSuggestedCover(value: string) {
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("/api/proxy-image")) return value;
+  if (value.startsWith("//")) return `https:${value}`;
+  return `/api/proxy-image?url=${encodeURIComponent(value)}`;
+}
+
+function extractSuggestedComics(payload: unknown): SuggestedComic[] {
+  const record = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const data = record.data;
+  const nested = data && !Array.isArray(data) && typeof data === "object" ? data as Record<string, unknown> : {};
+  const comics = Array.isArray(data)
+    ? data
+    : Array.isArray(nested.comics)
+      ? nested.comics
+      : Array.isArray(nested.items)
+        ? nested.items
+        : Array.isArray(nested.results)
+          ? nested.results
+          : Array.isArray(record.comics)
+            ? record.comics
+            : Array.isArray(record.items)
+              ? record.items
+              : Array.isArray(record.results)
+                ? record.results
+                : [];
+
+  return comics.flatMap((comic): SuggestedComic[] => {
+    if (!comic || typeof comic !== "object") return [];
+    const source = comic as Record<string, unknown>;
+    const slug = getStringValue(source, ["slug", "manga_slug", "comic_slug", "id"]);
+    const title = getStringValue(source, ["title", "name", "comic_title", "original_title"]);
+    const coverImage = normalizeSuggestedCover(
+      getStringValue(source, ["coverImage", "cover_image", "cover", "thumbnail", "image", "poster", "url_cover"])
+    );
+
+    return slug && title ? [{ slug, title, coverImage }] : [];
+  });
 }
 
 async function fetchChapterPages(
@@ -492,6 +564,7 @@ export default function ReadPage() {
   const [autoScroll, setAutoScroll] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState<ScrollSpeed>(1);
   const [isReaderUiVisible, setIsReaderUiVisible] = useState(true);
+  const [suggestedComics, setSuggestedComics] = useState<SuggestedComic[]>([]);
   const autoScrollIntervalRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -511,6 +584,38 @@ export default function ReadPage() {
       // Never block reading if storage is unavailable.
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSuggestions() {
+      try {
+        const response = await fetch("/api/monline/api/comics?limit=4&order=updated_at&sort=desc", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) return;
+
+        const items = extractSuggestedComics(await response.json())
+          .filter((comic) => comic.slug !== mangaId)
+          .slice(0, 4);
+
+        if (!cancelled) {
+          setSuggestedComics(items);
+        }
+      } catch {
+        if (!cancelled) {
+          setSuggestedComics([]);
+        }
+      }
+    }
+
+    loadSuggestions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mangaId]);
 
   useEffect(() => {
     if (currentChapter?.id) {
@@ -1009,15 +1114,49 @@ export default function ReadPage() {
                   className="flex items-center gap-3 rounded-full bg-orange-600 px-6 py-3 text-white shadow-lg transition-transform hover:scale-105 hover:bg-orange-500"
                 >
                   <span className="text-sm font-bold">
-                    Cap?tulo Siguiente ? {getChapterLabel(nextChapter, dictionary)}
+                    {dictionary.nextChapterCta} · {getChapterLabel(nextChapter, dictionary)}
                   </span>
                   <ArrowRight aria-hidden="true" className="h-5 w-5" />
                 </button>
               </div>
             ) : (
-              <p className="py-8 text-center text-sm italic text-gray-500">
-                ?Has llegado al final de los cap?tulos disponibles! Pr?ximamente m?s...
-              </p>
+              <div className="mx-auto my-14 max-w-5xl rounded-[28px] border border-white/10 bg-[#111316]/90 p-6 text-center shadow-2xl shadow-black/30 md:p-8">
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-orange-500">MangaStoon</p>
+                <h2 className="mt-3 text-2xl font-black text-white md:text-3xl">{dictionary.endReachedTitle}</h2>
+                <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-gray-400">{dictionary.endReachedBody}</p>
+
+                {suggestedComics.length > 0 ? (
+                  <div className="mt-8 text-left">
+                    <h3 className="mb-4 text-sm font-bold uppercase tracking-[0.22em] text-gray-500">{dictionary.suggestedTitle}</h3>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {suggestedComics.map((comic) => (
+                        <a key={comic.slug} href={`/manga/${comic.slug}`} className="group block">
+                          <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                            {comic.coverImage ? (
+                              <img
+                                src={comic.coverImage}
+                                alt={comic.title}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : null}
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs font-bold text-white group-hover:text-orange-400">
+                            {comic.title}
+                          </p>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <a
+                  href="/explore"
+                  className="mt-8 inline-flex rounded-full border border-orange-500/40 bg-orange-500/10 px-5 py-2.5 text-sm font-bold text-orange-300 transition hover:bg-orange-500 hover:text-white"
+                >
+                  {dictionary.exploreMore}
+                </a>
+              </div>
             )}
           </section>
 

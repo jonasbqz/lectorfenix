@@ -78,6 +78,18 @@ export async function GET(request: Request) {
     });
   }
 
+  if (targetUrl.hostname === "dashboard.olympusbiblioteca.com") {
+    return new NextResponse(null, {
+      status: 307,
+      headers: {
+        Location: targetUrl.toString(),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Proxy-Version": PROXY_VERSION,
+        "X-Proxy-Error": "OLYMPUS_DIRECT_BYPASS",
+      },
+    });
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 

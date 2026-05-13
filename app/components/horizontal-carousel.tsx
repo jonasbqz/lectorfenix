@@ -10,20 +10,18 @@ export default function HorizontalCarousel({
   featuredCards = false,
   subtitle,
   showChapters = false,
+  autoAdvance = false,
 }: {
   title: string;
   mangas: MangaShowcaseItem[];
   featuredCards?: boolean;
   subtitle?: string;
   showChapters?: boolean;
+  autoAdvance?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtStart, setIsAtStart] = useState(true);
   const [isAtEnd, setIsAtEnd] = useState(false);
-
-  if (mangas.length === 0) {
-    return null;
-  }
 
   function checkScroll() {
     if (!scrollRef.current) return;
@@ -46,6 +44,30 @@ export default function HorizontalCarousel({
   useEffect(() => {
     checkScroll();
   }, [mangas]);
+
+  useEffect(() => {
+    if (!autoAdvance || mangas.length <= 1) return;
+
+    const interval = window.setInterval(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+
+      const firstCard = container.querySelector<HTMLElement>("[data-carousel-card]");
+      const step = firstCard ? firstCard.offsetWidth + 24 : Math.round(container.clientWidth * 0.85);
+      const shouldLoop = container.scrollLeft + container.clientWidth >= container.scrollWidth - step;
+
+      container.scrollTo({
+        left: shouldLoop ? 0 : container.scrollLeft + step,
+        behavior: "smooth",
+      });
+    }, 7000);
+
+    return () => window.clearInterval(interval);
+  }, [autoAdvance, mangas.length]);
+
+  if (mangas.length === 0) {
+    return null;
+  }
 
   return (
     <section>
@@ -84,14 +106,19 @@ export default function HorizontalCarousel({
         className="scrollbar-hide -mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 [&::-webkit-scrollbar]:hidden md:mx-0 md:gap-6 md:px-0"
       >
         {mangas.map((manga, index) => (
-          <MangaCard
+          <div
             key={manga.mangaDexId ? `${manga.mangaDexId}-${index}` : `${manga.mal_id}-${index}`}
-            manga={manga}
-            isFeatured={featuredCards}
-            showChapters={showChapters}
-            latestChapters={manga.latestChapters}
-            priorityImage={index < 4}
-          />
+            data-carousel-card
+            className="shrink-0"
+          >
+            <MangaCard
+              manga={manga}
+              isFeatured={featuredCards}
+              showChapters={showChapters}
+              latestChapters={manga.latestChapters}
+              priorityImage={index < 4}
+            />
+          </div>
         ))}
       </div>
     </section>

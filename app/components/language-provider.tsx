@@ -72,15 +72,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         setLanguageState(nextLanguage);
         window.localStorage.setItem(STORAGE_KEY, nextLanguage);
         document.cookie = `${COOKIE_NAME}=${nextLanguage}; path=/; max-age=31536000; samesite=lax`;
+        router.refresh();
       },
       isAdult,
       setAdult: (nextAdult) => {
         setIsAdult(nextAdult);
         window.localStorage.setItem(ADULT_STORAGE_KEY, String(nextAdult));
         document.cookie = `${ADULT_COOKIE_NAME}=${nextAdult}; path=/; max-age=31536000; samesite=lax`;
+        router.refresh();
       },
     }),
-    [isAdult, language]
+    [isAdult, language, router]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

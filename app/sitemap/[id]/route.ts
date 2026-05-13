@@ -15,7 +15,8 @@ import {
   xmlResponse,
 } from "../../utils/seo";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type MonlineComic = Record<string, unknown>;
 
@@ -76,7 +77,7 @@ async function getMangaDexUrls(sitemapId: number) {
   );
 
   const response = await fetch(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`, {
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -102,7 +103,7 @@ async function getMonlineUrls(localSitemapId: number) {
   searchParams.set("page", String(localSitemapId + 1));
 
   const response = await fetch(`${MONLINE_API_URL}/api/comics?${searchParams.toString()}`, {
-    next: { revalidate: 3600 },
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -151,5 +152,5 @@ export async function GET(
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
 
-  return xmlResponse(xml, 3600);
+  return xmlResponse(xml, 0);
 }

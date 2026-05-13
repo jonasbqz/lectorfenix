@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronDown, Languages } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { SupportedLanguage, useLanguage } from "./language-provider";
@@ -16,7 +15,6 @@ const LANGUAGE_OPTIONS: Array<{
 ];
 
 export default function LanguagePreferencePicker() {
-  const router = useRouter();
   const { language, setLanguage } = useLanguage();
   const [showLangMenu, setShowLangMenu] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -37,7 +35,6 @@ export default function LanguagePreferencePicker() {
     setLanguage(nextLanguage);
     setShowLangMenu(false);
     toast.success(`Idioma cambiado a ${selectedLabel ?? nextLanguage.toUpperCase()}`);
-    router.refresh();
   }
 
   return (

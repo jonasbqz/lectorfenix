@@ -9,7 +9,8 @@ import {
   xmlResponse,
 } from "../utils/seo";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function getSitemapPageCount() {
   try {
@@ -49,5 +50,5 @@ export async function GET() {
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemaps.join("\n")}\n</sitemapindex>`;
 
-  return xmlResponse(xml, 3600);
+  return xmlResponse(xml, 0);
 }

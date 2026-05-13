@@ -490,17 +490,24 @@ export default async function HomePage() {
   const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
   const copy = UI_COPY[currentLanguage];
 
-  const [monlineWorldTop, monlineTopManhwas, monlineLatest] = await Promise.all([
-    fetchLocalTop(10, currentLanguage),
-    fetchMonlineComics("/api/comics?limit=10&type=manhua&order=views", currentLanguage),
-    fetchMonlineComics("/api/comics?limit=15&order=created_at", currentLanguage),
-  ]);
+  const useLocalCatalog = currentLanguage === "es";
+  let monlineWorldTop: MangaShowcaseItem[] = [];
+  let monlineTopManhwas: MangaShowcaseItem[] = [];
+  let monlineLatest: MangaShowcaseItem[] = [];
+
+  if (useLocalCatalog) {
+    [monlineWorldTop, monlineTopManhwas, monlineLatest] = await Promise.all([
+      fetchLocalTop(10, currentLanguage),
+      fetchMonlineComics("/api/comics?limit=10&type=manhua&order=views", currentLanguage),
+      fetchMonlineComics("/api/comics?limit=15&order=created_at", currentLanguage),
+    ]);
+  }
 
   const shouldUseFallback =
-    monlineTopManhwas.length < 10 || monlineLatest.length === 0;
+    !useLocalCatalog || monlineTopManhwas.length < 10 || monlineLatest.length === 0;
   const fallbackRows = shouldUseFallback ? await fetchMangaDexFallbackRows(isAdult, currentLanguage) : null;
 
-  const worldTop = monlineWorldTop;
+  const worldTop = useLocalCatalog ? monlineWorldTop : fallbackRows?.topManhwas ?? [];
   const topManhwaKeys = new Set(monlineTopManhwas.map((manga) => manga.mangaDexId ?? manga.url));
   const topManhwas = [
     ...monlineTopManhwas,
@@ -526,7 +533,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-[#141519] pb-12 text-white">
       <SiteHeader language={currentLanguage} />
       <div className="mx-auto max-w-[1600px] space-y-12 px-4 py-8 md:px-8 lg:px-12">
-        <HorizontalCarousel mangas={worldTop} title={copy.worldTop} subtitle={copy.worldTopSubtitle} featuredCards />
+        <HorizontalCarousel mangas={worldTop} title={copy.worldTop} subtitle={copy.worldTopSubtitle} featuredCards autoAdvance />
         <ReadingHistoryList />
         <HorizontalCarousel
           mangas={topManhwas.slice(0, 10)}
