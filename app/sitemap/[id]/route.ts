@@ -1,14 +1,126 @@
 import type { NextRequest } from "next/server";
 import {
-  MANGADEX_API_URL,
   MAX_MANGADEX_SITEMAP_PAGES,
+  MAX_MONLINE_SITEMAP_PAGES,
+  MANGADEX_API_URL,
+  MONLINE_API_URL,
   SITEMAP_PAGE_SIZE,
   absoluteUrl,
+  buildMangaDexSitemapSearchParams,
   escapeXml,
+  extractMonlineSitemapComics,
+  getMangaDexSitemapTotal,
+  getMonlineSitemapTotal,
+  getSitemapPageCountFromTotal,
   xmlResponse,
 } from "../../utils/seo";
 
 export const revalidate = 3600;
+
+type MonlineComic = Record<string, unknown>;
+
+function getStringValue(source: MonlineComic, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+
+  return "";
+}
+
+function getMonlineLastmod(comic: MonlineComic) {
+  const rawDate = getStringValue(comic, [
+    "updated_at",
+    "updatedAt",
+    "created_at",
+    "createdAt",
+    "uploaded_at",
+  ]);
+  const date = rawDate ? new Date(rawDate) : new Date();
+
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+function sitemapUrl(loc: string, lastmod: string, priority = "0.8") {
+  return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+}
+
+async function getSitemapBoundaries() {
+  try {
+    const [mangaDexTotal, monlineTotal] = await Promise.all([
+      getMangaDexSitemapTotal(),
+      getMonlineSitemapTotal(),
+    ]);
+
+    const mangaDexPages = getSitemapPageCountFromTotal(
+      mangaDexTotal,
+      MAX_MANGADEX_SITEMAP_PAGES
+    );
+    const monlinePages = getSitemapPageCountFromTotal(
+      monlineTotal,
+      MAX_MONLINE_SITEMAP_PAGES
+    );
+
+    return { mangaDexPages, totalPages: mangaDexPages + monlinePages };
+  } catch (error) {
+    console.error("Error fetching sitemap boundaries:", error);
+    return { mangaDexPages: MAX_MANGADEX_SITEMAP_PAGES, totalPages: MAX_MANGADEX_SITEMAP_PAGES };
+  }
+}
+
+async function getMangaDexUrls(sitemapId: number) {
+  const searchParams = buildMangaDexSitemapSearchParams(
+    SITEMAP_PAGE_SIZE,
+    sitemapId * SITEMAP_PAGE_SIZE
+  );
+
+  const response = await fetch(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`, {
+    next: { revalidate: 3600 },
+  });
+
+  if (!response.ok) {
+    throw new Error(`MangaDex sitemap page failed: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as {
+    data?: Array<{ id: string; attributes?: { updatedAt?: string | null } }>;
+  };
+
+  return (payload.data ?? []).map((manga) => {
+    const lastmod = manga.attributes?.updatedAt
+      ? new Date(manga.attributes.updatedAt).toISOString()
+      : new Date().toISOString();
+
+    return sitemapUrl(absoluteUrl(`/manga/${manga.id}`), lastmod);
+  });
+}
+
+async function getMonlineUrls(localSitemapId: number) {
+  const searchParams = new URLSearchParams();
+  searchParams.set("limit", SITEMAP_PAGE_SIZE.toString());
+  searchParams.set("page", String(localSitemapId + 1));
+
+  const response = await fetch(`${MONLINE_API_URL}/api/comics?${searchParams.toString()}`, {
+    next: { revalidate: 3600 },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Monline sitemap page failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+
+  return extractMonlineSitemapComics(payload).flatMap((comic): string[] => {
+    if (!comic || typeof comic !== "object") return [];
+
+    const record = comic as MonlineComic;
+    const slug = getStringValue(record, ["slug", "manga_slug", "comic_slug", "id"]);
+    if (!slug) return [];
+
+    return [sitemapUrl(absoluteUrl(`/manga/${slug}`), getMonlineLastmod(record), "0.85")];
+  });
+}
 
 export async function GET(
   request: NextRequest,
@@ -17,42 +129,22 @@ export async function GET(
   const { id: idRaw = "0" } = await params;
   const sitemapId = Number.parseInt(idRaw.replace(/\.xml$/, ""), 10);
 
-  if (!Number.isInteger(sitemapId) || sitemapId < 0 || sitemapId >= MAX_MANGADEX_SITEMAP_PAGES) {
+  if (!Number.isInteger(sitemapId) || sitemapId < 0) {
     return new Response("Not Found", { status: 404 });
   }
 
-  const searchParams = new URLSearchParams();
-  searchParams.set("limit", SITEMAP_PAGE_SIZE.toString());
-  searchParams.set("offset", (sitemapId * SITEMAP_PAGE_SIZE).toString());
-  searchParams.set("hasAvailableChapters", "true");
-  searchParams.append("availableTranslatedLanguage[]", "es");
-  searchParams.append("availableTranslatedLanguage[]", "en");
-  searchParams.append("availableTranslatedLanguage[]", "pt");
+  const { mangaDexPages, totalPages } = await getSitemapBoundaries();
 
-  const urls: string[] = [];
+  if (sitemapId >= totalPages) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  let urls: string[] = [];
 
   try {
-    const response = await fetch(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`, {
-      next: { revalidate: 3600 },
-    });
-
-    if (!response.ok) {
-      throw new Error(`MangaDex sitemap page failed: ${response.status}`);
-    }
-
-    const payload = (await response.json()) as {
-      data?: Array<{ id: string; attributes?: { updatedAt?: string | null } }>;
-    };
-
-    for (const manga of payload.data ?? []) {
-      const lastmod = manga.attributes?.updatedAt
-        ? new Date(manga.attributes.updatedAt).toISOString()
-        : new Date().toISOString();
-
-      urls.push(
-        `  <url>\n    <loc>${escapeXml(absoluteUrl(`/manga/${manga.id}`))}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>`
-      );
-    }
+    urls = sitemapId < mangaDexPages
+      ? await getMangaDexUrls(sitemapId)
+      : await getMonlineUrls(sitemapId - mangaDexPages);
   } catch (error) {
     console.error("Error fetching sitemap page:", sitemapId, error);
   }

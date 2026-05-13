@@ -258,6 +258,31 @@ function getSpecialTagGroups(language: SupportedLanguage) {
   return Array.from(groups.values());
 }
 
+function getLatestChapterTimestamp(manga: MangaShowcaseItem) {
+  const chapterTimestamps = (manga.latestChapters ?? [])
+    .map((chapter) => chapter.publishedAt)
+    .filter((date): date is string => Boolean(date))
+    .map((date) => new Date(date).getTime())
+    .filter(Number.isFinite);
+
+  if (chapterTimestamps.length > 0) {
+    return Math.max(...chapterTimestamps);
+  }
+
+  const createdAt = "createdAt" in manga && typeof manga.createdAt === "string"
+    ? new Date(manga.createdAt).getTime()
+    : 0;
+
+  return Number.isFinite(createdAt) ? createdAt : 0;
+}
+
+function sortByLatestChapter(items: MangaShowcaseItem[], direction: SortDirValue) {
+  return [...items].sort((a, b) => {
+    const diff = getLatestChapterTimestamp(b) - getLatestChapterTimestamp(a);
+    return direction === "asc" ? -diff : diff;
+  });
+}
+
 export default function ExplorePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -510,10 +535,14 @@ export default function ExplorePage() {
         : {};
       const mangaDexMangas = mapToShowcaseItems(rawMangaDex as MangaDexManga[], statistics, language);
       const localSlugs = new Set(localMangas.map((manga) => manga.mangaDexId ?? manga.url));
-      const mixedMangas = [
+      const combinedMangas = [
         ...localMangas,
         ...mangaDexMangas.filter((manga) => !localSlugs.has(manga.mangaDexId ?? manga.url)),
-      ].slice(0, 24);
+      ];
+      const mixedMangas = (orderBy === "latestUploadedChapter"
+        ? sortByLatestChapter(combinedMangas, sortDir)
+        : combinedMangas
+      ).slice(0, 24);
       const total = localTotal + (mangaDexPayload.total ?? mangaDexPayload.pagination?.total ?? 0);
 
       if (signal?.aborted) return;

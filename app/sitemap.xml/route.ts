@@ -1,36 +1,33 @@
 import {
-  MANGADEX_API_URL,
   MAX_MANGADEX_SITEMAP_PAGES,
-  SITEMAP_PAGE_SIZE,
+  MAX_MONLINE_SITEMAP_PAGES,
   SITE_URL,
   escapeXml,
+  getMangaDexSitemapTotal,
+  getMonlineSitemapTotal,
+  getSitemapPageCountFromTotal,
   xmlResponse,
 } from "../utils/seo";
 
 export const revalidate = 3600;
 
 async function getSitemapPageCount() {
-  const searchParams = new URLSearchParams();
-  searchParams.set("limit", "1");
-  searchParams.set("offset", "0");
-  searchParams.set("hasAvailableChapters", "true");
-  searchParams.append("availableTranslatedLanguage[]", "es");
-  searchParams.append("availableTranslatedLanguage[]", "en");
-  searchParams.append("availableTranslatedLanguage[]", "pt");
-
   try {
-    const response = await fetch(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`, {
-      next: { revalidate: 3600 },
-    });
+    const [mangaDexTotal, monlineTotal] = await Promise.all([
+      getMangaDexSitemapTotal(),
+      getMonlineSitemapTotal(),
+    ]);
 
-    if (!response.ok) {
-      throw new Error(`MangaDex sitemap stats failed: ${response.status}`);
-    }
+    const mangaDexPages = getSitemapPageCountFromTotal(
+      mangaDexTotal,
+      MAX_MANGADEX_SITEMAP_PAGES
+    );
+    const monlinePages = getSitemapPageCountFromTotal(
+      monlineTotal,
+      MAX_MONLINE_SITEMAP_PAGES
+    );
 
-    const payload = (await response.json()) as { total?: number };
-    const total = Math.max(0, payload.total ?? 0);
-
-    return Math.max(1, Math.min(Math.ceil(total / SITEMAP_PAGE_SIZE), MAX_MANGADEX_SITEMAP_PAGES));
+    return Math.max(1, mangaDexPages + monlinePages);
   } catch (error) {
     console.error("Error fetching sitemap stats:", error);
     return MAX_MANGADEX_SITEMAP_PAGES;
