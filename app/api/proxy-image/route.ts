@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 const REQUEST_TIMEOUT_MS = 20000;
 const MAX_REDIRECTS = 4;
+const MAX_RETRIES = 2;
+const PROXY_VERSION = "node-direct-v2";
 
 function getBrowserHeaders(targetUrl: URL) {
   return {
@@ -17,7 +19,9 @@ function getBrowserHeaders(targetUrl: URL) {
     Referer: `${targetUrl.origin}/`,
     Origin: targetUrl.origin,
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+    "Accept-Encoding": "identity",
     "Cache-Control": "no-cache",
+    Connection: "close",
     Pragma: "no-cache",
     "Sec-Fetch-Dest": "image",
     "Sec-Fetch-Mode": "no-cors",
@@ -25,7 +29,7 @@ function getBrowserHeaders(targetUrl: URL) {
   };
 }
 
-function fetchImageBuffer(targetUrl: URL, redirects = 0): Promise<{ buffer: Buffer; contentType: string }> {
+function fetchImageBuffer(targetUrl: URL, redirects = 0, attempt = 0): Promise<{ buffer: Buffer; contentType: string }> {
   return new Promise((resolve, reject) => {
     const client = targetUrl.protocol === "http:" ? http : https;
     const agent =
@@ -37,6 +41,8 @@ function fetchImageBuffer(targetUrl: URL, redirects = 0): Promise<{ buffer: Buff
       targetUrl,
       {
         agent,
+        family: 4,
+        servername: targetUrl.hostname,
         timeout: REQUEST_TIMEOUT_MS,
         headers: getBrowserHeaders(targetUrl),
       },
@@ -46,13 +52,21 @@ function fetchImageBuffer(targetUrl: URL, redirects = 0): Promise<{ buffer: Buff
 
         if ([301, 302, 303, 307, 308].includes(statusCode) && location && redirects < MAX_REDIRECTS) {
           response.resume();
-          fetchImageBuffer(new URL(location, targetUrl), redirects + 1).then(resolve).catch(reject);
+          fetchImageBuffer(new URL(location, targetUrl), redirects + 1, attempt).then(resolve).catch(reject);
           return;
         }
 
         if (statusCode < 200 || statusCode >= 300) {
           response.resume();
-          reject(new Error(`Origin image request failed with status ${statusCode}`));
+          const error = new Error(`Origin image request failed with status ${statusCode}`);
+          if (attempt < MAX_RETRIES) {
+            windowlessDelay(250 * (attempt + 1))
+              .then(() => fetchImageBuffer(targetUrl, redirects, attempt + 1))
+              .then(resolve)
+              .catch(reject);
+            return;
+          }
+          reject(error);
           return;
         }
 
@@ -70,8 +84,21 @@ function fetchImageBuffer(targetUrl: URL, redirects = 0): Promise<{ buffer: Buff
     request.on("timeout", () => {
       request.destroy(new Error("Origin image request timed out"));
     });
-    request.on("error", reject);
+    request.on("error", (error) => {
+      if (attempt < MAX_RETRIES) {
+        windowlessDelay(250 * (attempt + 1))
+          .then(() => fetchImageBuffer(targetUrl, redirects, attempt + 1))
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+      reject(error);
+    });
   });
+}
+
+function windowlessDelay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function GET(request: Request) {
@@ -102,10 +129,19 @@ export async function GET(request: Request) {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
+        "X-Proxy-Version": PROXY_VERSION,
       },
     });
   } catch (error) {
-    console.error("ERROR PROXY:", rawUrl, error);
-    return new NextResponse("Image proxy failed", { status: 502 });
+    const message = error instanceof Error ? error.message : "Unknown proxy error";
+    console.error("ERROR PROXY:", rawUrl, message);
+    return new NextResponse("Image proxy failed", {
+      status: 502,
+      headers: {
+        "Cache-Control": "no-store",
+        "X-Proxy-Version": PROXY_VERSION,
+        "X-Proxy-Error": message.slice(0, 180),
+      },
+    });
   }
 }
