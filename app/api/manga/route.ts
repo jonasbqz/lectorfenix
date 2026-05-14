@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalizedTitle } from "../../utils/get-localized-title";
 import { getMangaSynopsis, type MangaDexCollectionResponse, type MangaDexManga } from "../../utils/mangadex";
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
       mangaDexId: manga.id,
     });
   } catch (error) {
-    console.error("Mangastoon API error:", error);
+    logger.error("Mangastoon API error", error);
 
     return NextResponse.json(
       { error: "An error occurred while querying MangaDex." },

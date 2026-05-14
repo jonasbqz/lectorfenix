@@ -14,6 +14,36 @@ const nextConfig = {
         pathname: "/**",
       },
       {
+        protocol: "https",
+        hostname: "media.ikigaimangas.cloud",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "image.ikigaimangas.cloud",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "dashboard.olympusbiblioteca.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "server-img.platformoctopus.workers.dev",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.statically.io",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "demo.flyimg.io",
+        pathname: "/**",
+      },
+      {
         protocol: "http",
         hostname: "localhost",
         port: "8085",

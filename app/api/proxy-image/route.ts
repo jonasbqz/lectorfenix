@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -118,7 +119,7 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     const errorCode = getErrorCode(error);
-    console.error("ERROR PROXY:", rawUrl, errorCode, error);
+    logger.error("ERROR PROXY", rawUrl, errorCode, error);
 
     return new NextResponse("Image proxy failed", {
       status: 502,

@@ -1,4 +1,5 @@
-﻿import { cookies } from "next/headers";
+﻿import { logger } from "./utils/logger";
+import { cookies } from "next/headers";
 import HorizontalCarousel from "./components/horizontal-carousel";
 import ReadingHistoryList from "./components/ReadingHistoryList";
 import type { MangaShowcaseItem } from "./components/MangaCard";
@@ -423,7 +424,7 @@ async function fetchMonlineComics(path: string, language: SupportedLanguage) {
     });
     if (!response.ok) return [];
     const payload = (await response.json()) as MonlineComicsResponse;
-    console.log("📦 Respuesta Monline:", payload);
+    logger.debug("Respuesta Monline", payload);
     const comics = extractLocalApiComics(payload);
     const items = mapLocalApiComicsToShowcaseItems(comics, language, MONLINE_API_URL);
 
@@ -438,7 +439,7 @@ async function fetchMonlineComics(path: string, language: SupportedLanguage) {
 
     return items;
   } catch (error) {
-    console.error("🔥 Error al conectar con Monline:", error);
+    logger.error("Error al conectar con Monline", error);
     return [];
   } finally {
     clearTimeout(timeout);

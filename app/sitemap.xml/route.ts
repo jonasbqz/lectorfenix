@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger";
 import {
   MAX_MANGADEX_SITEMAP_PAGES,
   MAX_MONLINE_SITEMAP_PAGES,
@@ -38,7 +39,7 @@ export async function GET() {
   try {
     dynamicPageCount = await getSitemapPageCount();
   } catch (error) {
-    console.error("Error fetching sitemap stats:", error);
+    logger.error("Error fetching sitemap stats", error);
     return sitemapUnavailableResponse();
   }
   const sitemaps = [

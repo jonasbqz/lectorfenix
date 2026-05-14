@@ -1,3 +1,5 @@
+import { logger } from "../../../utils/logger";
+import { getCached, getOrSetCached, setCached, stableCacheKey } from "../../../utils/server-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mangadex-config";
 import { getLocalizedTitle } from "../../../utils/get-localized-title";
@@ -91,6 +93,43 @@ type LocalPagesResponse = {
 
 const RETRY_DELAY_MS = 1200;
 const FETCH_TIMEOUT_MS = 8000;
+const READ_RESPONSE_TTL_SECONDS = 60 * 5;
+const MANGA_IDENTITY_TTL_SECONDS = 60 * 60 * 24;
+const CHAPTER_LIST_TTL_SECONDS = 60 * 30;
+const CHAPTER_PAGES_TTL_SECONDS = 60 * 60 * 6;
+const LOCAL_DATA_TTL_SECONDS = 60 * 10;
+
+type ReaderApiPayload = Record<string, unknown>;
+
+function readResponseCacheKey(id: string, lang: SupportedLanguage, chapterId: string | null) {
+  return stableCacheKey("read-api", [id, lang, chapterId ?? "default"]);
+}
+
+function readCacheHeaders(cacheStatus: "HIT" | "MISS" | "BYPASS" = "MISS", ttl = READ_RESPONSE_TTL_SECONDS) {
+  return {
+    "Cache-Control": `public, max-age=60, s-maxage=${ttl}, stale-while-revalidate=${ttl * 12}`,
+    "X-Mangastoon-Cache": cacheStatus,
+  };
+}
+
+async function cachedReadResponse(
+  cacheKey: string,
+  payload: ReaderApiPayload,
+  options?: { status?: number; ttl?: number; cache?: boolean }
+) {
+  const status = options?.status ?? 200;
+  const ttl = options?.ttl ?? READ_RESPONSE_TTL_SECONDS;
+  const shouldCache = options?.cache !== false && status >= 200 && status < 300;
+
+  if (shouldCache) {
+    await setCached(cacheKey, payload, ttl);
+  }
+
+  return NextResponse.json(payload, {
+    status,
+    headers: readCacheHeaders(shouldCache ? "MISS" : "BYPASS", ttl),
+  });
+}
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -210,7 +249,7 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
   });
 }
 
-async function fetchLocalMangaIdentity(slug: string) {
+async function resolveLocalMangaIdentity(slug: string) {
   const params = new URLSearchParams();
   params.set("limit", "100");
 
@@ -255,7 +294,16 @@ async function fetchLocalMangaIdentity(slug: string) {
   }
 }
 
-async function fetchLocalChapterPages(chapterId: string) {
+async function fetchLocalMangaIdentity(slug: string) {
+  return getOrSetCached(
+    stableCacheKey("local-manga-identity", [slug]),
+    LOCAL_DATA_TTL_SECONDS,
+    () => resolveLocalMangaIdentity(slug),
+    { shouldCache: (value) => value !== null }
+  );
+}
+
+async function resolveLocalChapterPages(chapterId: string) {
   try {
     const response = await fetch(`${LOCAL_API_URL}/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
       cache: "no-store",
@@ -275,6 +323,15 @@ async function fetchLocalChapterPages(chapterId: string) {
   } catch {
     return [];
   }
+}
+
+async function fetchLocalChapterPages(chapterId: string) {
+  return getOrSetCached(
+    stableCacheKey("local-chapter-pages", [chapterId]),
+    CHAPTER_PAGES_TTL_SECONDS,
+    () => resolveLocalChapterPages(chapterId),
+    { shouldCache: (pages) => pages.length > 0 }
+  );
 }
 
 async function fetchMangaDex(url: string, init?: RequestInit, retries = 1) {
@@ -320,7 +377,7 @@ function buildFeedUrl(mangaId: string, lang: SupportedLanguage, limit: number, o
   return `https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`;
 }
 
-async function fetchMangaIdentity(mangaId: string) {
+async function resolveMangaIdentity(mangaId: string) {
   const response = await fetchMangaDex(`https://api.mangadex.org/manga/${mangaId}?includes[]=cover_art`);
 
   if (!response.ok) return { title: "Mangastoon", coverImage: "", segments: ["mangastoon"] };
@@ -341,7 +398,7 @@ async function fetchMangaIdentity(mangaId: string) {
   };
 }
 
-async function fetchAllChapters(mangaId: string, lang: SupportedLanguage) {
+async function resolveAllChapters(mangaId: string, lang: SupportedLanguage) {
   const limit = 100;
   let offset = 0;
   let total = 0;
@@ -364,36 +421,7 @@ async function fetchAllChapters(mangaId: string, lang: SupportedLanguage) {
   return chapters;
 }
 
-async function fetchChapterPages(
-  chapterId: string,
-  options?: { mangaSegments?: string[]; chapter?: ChapterFeedItem | null }
-) {
-  const monlinePages = await fetchMonlinePagesFromRoute({
-    mangaSegments: options?.mangaSegments ?? [],
-    chapterSegments: buildMonlineChapterSegments(options?.chapter ?? { id: chapterId }),
-  });
-
-  if (monlinePages.length > 0) {
-    return monlinePages.map(normalizeLocalImageUrl);
-  }
-
-  // Si no es un UUID de MangaDex, significa que viene de Consumet
-  const isMangaDexUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chapterId);
-
-  if (!isMangaDexUuid) {
-    const res = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/read?chapterId=${chapterId}`);
-    if (!res.ok) throw new Error("CONSUMET_FAILED");
-    const data = await res.json();
-    return data?.map((p: any) => p.img) || [];
-  }
-
-  const response = await fetchMangaDex(`https://api.mangadex.org/at-home/server/${chapterId}`);
-
-  if (!response.ok) {
-    throw new Error(response.status === 429 ? "RATE_LIMIT" : "AT_HOME_FAILED");
-  }
-
-  const payload = (await response.json()) as AtHomeResponse;
+function buildMangaDexPageUrls(payload: AtHomeResponse) {
   const hash = payload.chapter?.hash;
   const files = payload.chapter?.data?.length
     ? payload.chapter.data
@@ -403,6 +431,123 @@ async function fetchChapterPages(
 
   const mode = payload.chapter?.data?.length ? "data" : "data-saver";
   return files.map((filename) => `https://uploads.mangadex.org/${mode}/${hash}/${filename}`);
+}
+
+async function fetchMangaDexChapterPages(chapterId: string) {
+  const response = await fetchMangaDex(`https://api.mangadex.org/at-home/server/${chapterId}`);
+
+  if (!response.ok) {
+    throw new Error(response.status === 429 ? "RATE_LIMIT" : "AT_HOME_FAILED");
+  }
+
+  const payload = (await response.json()) as AtHomeResponse;
+  return buildMangaDexPageUrls(payload);
+}
+
+async function fetchConsumetChapterPages(chapterId: string) {
+  const res = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/read?chapterId=${chapterId}`);
+  if (!res.ok) throw new Error("CONSUMET_FAILED");
+  const data = await res.json();
+  return data?.map((page: { img?: string }) => page.img).filter(Boolean) || [];
+}
+
+async function fetchMonlineFallbackPages(
+  chapterId: string,
+  options?: { mangaSegments?: string[]; chapter?: ChapterFeedItem | null }
+) {
+  const monlinePages = await fetchMonlinePagesFromRoute({
+    mangaSegments: options?.mangaSegments ?? [],
+    chapterSegments: buildMonlineChapterSegments(options?.chapter ?? { id: chapterId }),
+  });
+
+  return monlinePages.map(normalizeLocalImageUrl);
+}
+
+async function resolveChapterPages(
+  chapterId: string,
+  options?: { mangaSegments?: string[]; chapter?: ChapterFeedItem | null }
+) {
+  const isMangaDexChapterId = isMangaDexUuid(chapterId);
+
+  if (isMangaDexChapterId) {
+    try {
+      const mangaDexPages = await fetchMangaDexChapterPages(chapterId);
+      if (mangaDexPages.length > 0) return mangaDexPages;
+    } catch (error) {
+      if (error instanceof Error && error.message === "RATE_LIMIT") {
+        throw error;
+      }
+    }
+
+    // Monline is only a fallback for MangaDex chapters. Trying it first caused
+    // dozens of sequential route lookups per request when a title has many alt names.
+    return fetchMonlineFallbackPages(chapterId, options);
+  }
+
+  const monlinePages = await fetchMonlineFallbackPages(chapterId, options);
+  if (monlinePages.length > 0) return monlinePages;
+
+  return fetchConsumetChapterPages(chapterId);
+}
+
+async function fetchMangaIdentity(mangaId: string) {
+  return getOrSetCached(
+    stableCacheKey("mangadex-manga-identity", [mangaId]),
+    MANGA_IDENTITY_TTL_SECONDS,
+    () => resolveMangaIdentity(mangaId)
+  );
+}
+
+async function fetchAllChapters(mangaId: string, lang: SupportedLanguage) {
+  return getOrSetCached(
+    stableCacheKey("mangadex-chapters", [mangaId, lang]),
+    CHAPTER_LIST_TTL_SECONDS,
+    () => resolveAllChapters(mangaId, lang),
+    { shouldCache: (chapters) => chapters.length > 0 }
+  );
+}
+
+async function fetchChapterPages(
+  chapterId: string,
+  options?: { mangaSegments?: string[]; chapter?: ChapterFeedItem | null }
+) {
+  const chapterKey = stableCacheKey("chapter-pages", [
+    chapterId,
+    options?.mangaSegments?.join("|") ?? "",
+    options?.chapter?.attributes?.chapter ?? "",
+    options?.chapter?.attributes?.title ?? "",
+  ]);
+
+  return getOrSetCached(
+    chapterKey,
+    CHAPTER_PAGES_TTL_SECONDS,
+    () => resolveChapterPages(chapterId, options),
+    { shouldCache: (pages) => pages.length > 0 }
+  );
+}
+
+async function fetchChapterDetails(chapterId: string) {
+  return getOrSetCached(
+    stableCacheKey("mangadex-chapter-details", [chapterId]),
+    MANGA_IDENTITY_TTL_SECONDS,
+    () => resolveChapterDetails(chapterId),
+    { shouldCache: (chapter) => chapter !== null }
+  );
+}
+
+async function findChapterByNumber(
+  mangaId: string,
+  lang: SupportedLanguage,
+  chapterNumber: string | null | undefined
+) {
+  if (!chapterNumber) return null;
+
+  return getOrSetCached(
+    stableCacheKey("mangadex-chapter-by-number", [mangaId, lang, chapterNumber]),
+    CHAPTER_LIST_TTL_SECONDS,
+    () => resolveChapterByNumber(mangaId, lang, chapterNumber),
+    { shouldCache: (chapter) => chapter !== null }
+  );
 }
 
 async function findReadableChapterWithPages(
@@ -443,7 +588,7 @@ async function findReadableChapterWithPages(
   return { chapter: preferredChapter ?? chapters[0] ?? null, pages: [] };
 }
 
-async function fetchChapterDetails(chapterId: string) {
+async function resolveChapterDetails(chapterId: string) {
   const response = await fetchMangaDex(`https://api.mangadex.org/chapter/${chapterId}`);
 
   if (!response.ok) return null;
@@ -452,7 +597,7 @@ async function fetchChapterDetails(chapterId: string) {
   return payload.data ?? null;
 }
 
-async function findChapterByNumber(
+async function resolveChapterByNumber(
   mangaId: string,
   lang: SupportedLanguage,
   chapterNumber: string | null | undefined
@@ -478,6 +623,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const lang = normalizeLanguage(request.nextUrl.searchParams.get("lang"));
   const chapterId = request.nextUrl.searchParams.get("chapter");
+  const responseCacheKey = readResponseCacheKey(id, lang, chapterId);
+  const cachedPayload = await getCached<ReaderApiPayload>(responseCacheKey);
+
+  if (cachedPayload) {
+    return NextResponse.json(cachedPayload, {
+      headers: readCacheHeaders("HIT"),
+    });
+  }
 
   try {
     const localManga = await fetchLocalMangaIdentity(id);
@@ -494,26 +647,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             ? await fetchLocalChapterPages(currentChapter.id)
             : [];
 
-      return NextResponse.json(
-        {
-          mangaTitle: localManga.title,
-          coverImage: localManga.coverImage,
-          chapters: localManga.chapters,
-          currentChapter,
-          pages,
-          englishFallbackChapter: null,
-          fallbackReason: null,
-          isExternalSource: false,
-          isLocal: true,
-        },
-        { headers: { "Cache-Control": "no-store" } }
-      );
+      return cachedReadResponse(responseCacheKey, {
+        mangaTitle: localManga.title,
+        coverImage: localManga.coverImage,
+        chapters: localManga.chapters,
+        currentChapter,
+        pages,
+        englishFallbackChapter: null,
+        fallbackReason: null,
+        isExternalSource: false,
+        isLocal: true,
+      });
     }
 
     if (!isMangaDexUuid(id)) {
       const pages = chapterId ? await fetchLocalChapterPages(chapterId) : [];
 
-      return NextResponse.json(
+      return cachedReadResponse(
+        responseCacheKey,
         {
           mangaTitle: "Mangastoon",
           coverImage: "",
@@ -531,7 +682,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           error: pages.length > 0 ? undefined : "No pudimos cargar las páginas locales.",
           code: pages.length > 0 ? undefined : "LOCAL_PAGES_UNAVAILABLE",
         },
-        { status: pages.length > 0 ? 200 : 404, headers: { "Cache-Control": "no-store" } }
+        { status: pages.length > 0 ? 200 : 404, cache: pages.length > 0 }
       );
     }
 
@@ -569,18 +720,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       englishFallbackChapter = await findChapterByNumber(id, "en", requestedChapter.attributes?.chapter);
       fallbackReason = englishFallbackChapter ? "english" : "unavailable";
 
-      return NextResponse.json(
-        {
-          mangaTitle,
-          coverImage,
-          chapters: finalChapters,
-          currentChapter: requestedChapter,
-          pages: [],
-          englishFallbackChapter,
-          fallbackReason,
-        },
-        { headers: { "Cache-Control": "no-store" } }
-      );
+      return cachedReadResponse(responseCacheKey, {
+        mangaTitle,
+        coverImage,
+        chapters: finalChapters,
+        currentChapter: requestedChapter,
+        pages: [],
+        englishFallbackChapter,
+        fallbackReason,
+      });
     }
 
     currentChapter = currentChapter ?? finalChapters[0] ?? null;
@@ -590,10 +738,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     currentChapter = readableChapter.chapter;
     const pages = readableChapter.pages;
 
-    return NextResponse.json(
-      { mangaTitle, coverImage, chapters: finalChapters, currentChapter, pages, englishFallbackChapter: null, fallbackReason: null, isExternalSource },
-      { headers: { "Cache-Control": "no-store" } }
-    );
+    return cachedReadResponse(responseCacheKey, {
+      mangaTitle,
+      coverImage,
+      chapters: finalChapters,
+      currentChapter,
+      pages,
+      englishFallbackChapter: null,
+      fallbackReason: null,
+      isExternalSource,
+    });
   } catch (error) {
     const isRateLimit = error instanceof Error && error.message === "RATE_LIMIT";
 
@@ -633,7 +787,7 @@ async function fetchConsumetChapters(title: string) {
       isConsumet: true // Bandera para saber que viene de fuente externa
     })) || [];
   } catch (e) {
-    console.error("Error en Consumet Fallback:", e);
+    logger.error("Error en Consumet Fallback", e);
     return null;
   }
 }

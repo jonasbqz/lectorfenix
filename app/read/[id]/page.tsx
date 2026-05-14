@@ -497,21 +497,62 @@ function MangaPageImage({
   alt: string;
   priority: boolean;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(priority);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setLoaded(false);
     setFailed(false);
-    const timeout = window.setTimeout(() => setLoaded(true), 12000);
-    return () => window.clearTimeout(timeout);
-  }, [pageUrl]);
+    setShouldLoad(priority);
+  }, [pageUrl, priority]);
+
+  useEffect(() => {
+    if (shouldLoad) return;
+
+    const element = containerRef.current;
+    if (!element) return;
+
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldLoad(true);
+          observer.disconnect();
+        }
+      },
+      {
+        // Start loading a little before the page reaches the viewport, but do
+        // not attach src for the whole chapter at once.
+        rootMargin: "900px 0px",
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [shouldLoad]);
 
   return (
-    <div className="relative w-full overflow-hidden bg-[#111217]">
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-hidden bg-[#111217]"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "900px" }}
+    >
       {!loaded && !failed ? (
-        <div className="absolute inset-0 z-10 flex min-h-[55vh] items-center justify-center bg-[#111217]">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-orange-500" />
+        <div
+          aria-hidden="true"
+          className="min-h-[72vh] w-full overflow-hidden bg-[#111217]"
+        >
+          <div className="relative min-h-[72vh] w-full animate-pulse bg-[#181a22]">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.045] to-transparent opacity-70" />
+          </div>
         </div>
       ) : null}
 
@@ -519,12 +560,14 @@ function MangaPageImage({
         <div className="flex min-h-[45vh] items-center justify-center px-4 text-center text-sm text-gray-400">
           No pudimos cargar esta pagina. Intenta recargar el capitulo.
         </div>
-      ) : (
+      ) : shouldLoad ? (
         <img
           src={pageUrl}
           alt={alt}
-          className="block h-auto w-full"
+          className={`block h-auto w-full transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
           loading={priority ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={priority ? "high" : "low"}
           referrerPolicy="no-referrer"
           onLoad={() => setLoaded(true)}
           onError={() => {
@@ -532,7 +575,7 @@ function MangaPageImage({
             setFailed(true);
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1088,7 +1131,7 @@ export default function ReadPage() {
                   key={pageUrl}
                   pageUrl={pageUrl}
                   alt={`${dictionary.page} ${index + 1} · ${getChapterLabel(currentChapter, dictionary)}`}
-                  priority={index === 0}
+                  priority={index < 2}
                 />
               ))}
             </div>

@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import type { NextRequest } from "next/server";
 import {
   MAX_MANGADEX_SITEMAP_PAGES,
@@ -123,7 +124,7 @@ export async function GET(
   try {
     ({ mangaDexPages, totalPages } = await getSitemapBoundaries());
   } catch (error) {
-    console.error("Error fetching sitemap boundaries:", error);
+    logger.error("Error fetching sitemap boundaries", error);
     return sitemapUnavailableResponse();
   }
 
@@ -138,7 +139,7 @@ export async function GET(
       ? await getMangaDexUrls(sitemapId)
       : await getMonlineUrls(sitemapId - mangaDexPages);
   } catch (error) {
-    console.error("Error fetching sitemap page:", sitemapId, error);
+    logger.error("Error fetching sitemap page", sitemapId, error);
     return sitemapUnavailableResponse();
   }
 

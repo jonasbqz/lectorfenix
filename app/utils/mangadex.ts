@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 import type { MangaShowcaseItem } from "../components/home-carousel";
 import type { SupportedLanguage } from "../components/language-provider";
 import { getLocalizedTitle } from "./get-localized-title";
@@ -262,7 +263,7 @@ export async function fetchMangaDexCollection(url: string, signal?: AbortSignal)
       throw error;
     }
 
-    console.error("[mangadex] Failed to fetch collection:", error);
+    logger.error("[mangadex] Failed to fetch collection", error);
     return { data: [], total: 0 };
   }
 }
@@ -301,7 +302,7 @@ export async function fetchMangaDexStatistics(ids: string[], signal?: AbortSigna
       throw error;
     }
 
-    console.error("[mangadex] Failed to fetch statistics:", error);
+    logger.error("[mangadex] Failed to fetch statistics", error);
     return {};
   }
 }
@@ -634,7 +635,7 @@ export async function fetchLocalTop(limit = 10, language: SupportedLanguage = "e
     const payload = (await response.json()) as LocalApiComicsResponse;
     return mapLocalApiComicsToShowcaseItems(extractLocalApiComics(payload), language, apiBaseUrl);
   } catch (error) {
-    console.error("🔥 Error al conectar con la API local:", error);
+    logger.error("Error al conectar con la API local", error);
     return [];
   }
 }

@@ -1,7 +1,33 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import SiteHeader, { type SupportedLanguage } from "../components/site-header";
 import SearchResultsContent from "./search-results-content";
+
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Buscar manga, manhwa y comics online | MangaStoon",
+  description:
+    "Busca manga, manhwa, manhua y comics online en MangaStoon. Encuentra series por título y continúa leyendo tus capítulos favoritos.",
+  alternates: {
+    canonical: "/search",
+  },
+  openGraph: {
+    title: "Buscar manga online | MangaStoon",
+    description:
+      "Encuentra manga, manhwa, manhua y comics online en MangaStoon.",
+    url: "/search",
+    type: "website",
+    siteName: "MangaStoon",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Buscar manga online | MangaStoon",
+    description: "Encuentra manga, manhwa, manhua y comics online en MangaStoon.",
+  },
+};
 
 function normalizeLanguage(value: string | undefined): SupportedLanguage {
   if (value === "en" || value === "pt") {

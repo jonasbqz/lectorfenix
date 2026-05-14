@@ -1,3 +1,4 @@
+import { logger } from "./logger";
 import { jsPDF } from "jspdf";
 import { pdfCache } from "./pdfCache";
 
@@ -11,7 +12,7 @@ export const generateMangaPDF = async (
   const cached = await pdfCache.get(chapters, "high");
 
   if (cached) {
-    console.log("PDF recuperado del cach? instant?neamente");
+    logger.debug("PDF recuperado del cache instantaneamente");
     onProgress?.(100);
     downloadBlob(cached.blob, cached.filename);
     return;

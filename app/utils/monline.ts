@@ -1,4 +1,6 @@
-﻿const MONLINE_API_URL = (
+﻿import { logger } from "./logger";
+import { getCached, setCached, stableCacheKey } from "./server-cache";
+const MONLINE_API_URL = (
   process.env.MONLINE_API_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
   "http://46.224.213.127:8085"
@@ -52,6 +54,60 @@ export function buildMonlineChapterSegments(chapter: MonlineChapterLike | null |
   ]);
 }
 
+async function resolveMonlinePagesFromRoute(cleanMangaSegments: string[], cleanChapterSegments: string[]) {
+  for (const comicSegment of cleanMangaSegments) {
+    for (const chapterSegment of cleanChapterSegments) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), MONLINE_TIMEOUT_MS);
+
+      try {
+        logger.debug(`Buscando en API: ${comicSegment} / ${chapterSegment}`);
+
+        const routeUrl = new URL(`${MONLINE_API_URL}/api/chapters/route`);
+        routeUrl.searchParams.set("comicSegment", comicSegment);
+        routeUrl.searchParams.set("chapterSegment", chapterSegment);
+
+        const routeResponse = await fetch(routeUrl.toString(), {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+
+        if (!routeResponse.ok) continue;
+
+        const routePayload = (await routeResponse.json()) as MonlineRouteResponse;
+        const monlineId = routePayload.data?.id;
+
+        if (monlineId === undefined || monlineId === null || monlineId === "") continue;
+
+        const pagesResponse = await fetch(
+          `${MONLINE_API_URL}/api/chapters/${encodeURIComponent(String(monlineId))}/pages`,
+          { cache: "no-store", signal: controller.signal }
+        );
+
+        if (!pagesResponse.ok) continue;
+
+        const pagesPayload = (await pagesResponse.json()) as MonlinePagesResponse;
+        const rawPages = pagesPayload.data?.url_pages;
+        const pages = Array.isArray(rawPages)
+          ? rawPages.filter((url): url is string => typeof url === "string" && url.length > 0)
+          : [];
+
+        if (pages.length > 0) {
+          logger.debug(`Encontrado: ${pages.length} paginas.`);
+          return pages;
+        }
+      } catch (err) {
+        logger.error(`Fallo en intento: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+  }
+
+  return [] as string[];
+}
+
 export async function fetchMonlinePagesFromRoute({
   mangaSegments,
   chapterSegments,
@@ -66,57 +122,19 @@ export async function fetchMonlinePagesFromRoute({
     return [] as string[];
   }
 
-  for (const comicSegment of cleanMangaSegments) {
-    for (const chapterSegment of cleanChapterSegments) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), MONLINE_TIMEOUT_MS);
+  const cacheKey = stableCacheKey("monline-pages-route", [
+    cleanMangaSegments.join("|"),
+    cleanChapterSegments.join("|"),
+  ]);
 
-      try {
-        // 👈 IMPORTANTE: Agregamos logs para que veas en Dokploy qué está pasando
-        console.log(`🔎 Buscando en API: ${comicSegment} / ${chapterSegment}`);
+  const cachedPages = await getCached<string[]>(cacheKey);
+  if (cachedPages) return cachedPages;
 
-        const routeUrl = new URL(`${MONLINE_API_URL}/api/chapters/route`);
-        routeUrl.searchParams.set("comicSegment", comicSegment);
-        routeUrl.searchParams.set("chapterSegment", chapterSegment);
+  const pages = await resolveMonlinePagesFromRoute(cleanMangaSegments, cleanChapterSegments);
 
-        const routeResponse = await fetch(routeUrl.toString(), {
-          cache: "no-store",
-          signal: controller.signal,
-          // 👈 Quitamos headers raros para evitar bloqueos
-        });
-        
-        if (!routeResponse.ok) continue;
+  // Cache successful route matches for a long time, but also cache misses briefly
+  // so the same MangaDex chapter does not trigger dozens of repeated Monline probes.
+  await setCached(cacheKey, pages, pages.length > 0 ? 60 * 60 * 24 * 7 : 60 * 10);
 
-        const routePayload = (await routeResponse.json()) as MonlineRouteResponse;
-        const monlineId = routePayload.data?.id;
-        
-        if (monlineId === undefined || monlineId === null || monlineId === "") continue;
-
-        const pagesResponse = await fetch(
-          `${MONLINE_API_URL}/api/chapters/${encodeURIComponent(String(monlineId))}/pages`,
-          { cache: "no-store", signal: controller.signal }
-        );
-        
-        if (!pagesResponse.ok) continue;
-
-        const pagesPayload = (await pagesResponse.json()) as MonlinePagesResponse;
-        const rawPages = pagesPayload.data?.url_pages;
-        const pages = Array.isArray(rawPages)
-          ? rawPages.filter((url): url is string => typeof url === "string" && url.length > 0)
-          : [];
-
-        if (pages.length > 0) {
-          console.log(`✅ ¡Encontrado! ${pages.length} páginas.`);
-          return pages;
-        }
-      } catch (err: any) {
-        console.error(`❌ Fallo en intento: ${err.message}`);
-        continue;
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-  }
-
-  return [] as string[];
+  return pages;
 }

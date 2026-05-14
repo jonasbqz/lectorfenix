@@ -1,3 +1,4 @@
+import { logger } from "../../utils/logger";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -558,7 +559,7 @@ async function fetchMangaDex(url: string, retries = 1) {
       next: { revalidate: 3600 },
     });
   } catch (error) {
-    console.error("[manga-page] MangaDex fetch failed:", error);
+    logger.error("[manga-page] MangaDex fetch failed", error);
     return new Response(null, { status: 502 });
   }
 
@@ -826,7 +827,7 @@ async function fetchMangaDetails(id: string) {
 
     const payload = (await response.json()) as MangaDetailsResponse;
     if (!payload.data) {
-      console.warn(`[MangaStoon] MangaDex devolvió detalles vacíos para manga ${id}`);
+      logger.warn(`[MangaStoon] MangaDex devolvio detalles vacios para manga ${id}`);
     }
 
     return payload.data ?? null;
@@ -1065,7 +1066,7 @@ export default async function MangaDetailsPage({
 
   const displayTitle = await getLocalizedTitleAsync(manga, currentLanguage);
   if (displayTitle === "Título Desconocido") {
-    console.warn(`[MangaStoon] Manga sin título utilizable: ${manga.id}`);
+    logger.warn(`[MangaStoon] Manga sin titulo utilizable: ${manga.id}`);
   }
   let chapters = initialChapters;
 
