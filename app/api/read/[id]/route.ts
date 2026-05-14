@@ -303,6 +303,20 @@ async function fetchLocalMangaIdentity(slug: string) {
   );
 }
 
+
+function stripChapterForClient(chapter: ChapterFeedItem | null | undefined): ChapterFeedItem | null {
+  if (!chapter) return null;
+
+  return {
+    id: chapter.id,
+    attributes: chapter.attributes,
+  };
+}
+
+function stripChaptersForClient(chapters: ChapterFeedItem[]) {
+  return chapters.map((chapter) => stripChapterForClient(chapter)).filter(Boolean) as ChapterFeedItem[];
+}
+
 async function resolveLocalChapterPages(chapterId: string) {
   try {
     const response = await fetch(`${LOCAL_API_URL}/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
@@ -650,8 +664,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle: localManga.title,
         coverImage: localManga.coverImage,
-        chapters: localManga.chapters,
-        currentChapter,
+        chapters: stripChaptersForClient(localManga.chapters),
+        currentChapter: stripChapterForClient(currentChapter),
         pages,
         englishFallbackChapter: null,
         fallbackReason: null,
@@ -723,8 +737,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle,
         coverImage,
-        chapters: finalChapters,
-        currentChapter: requestedChapter,
+        chapters: stripChaptersForClient(finalChapters),
+        currentChapter: stripChapterForClient(requestedChapter),
         pages: [],
         englishFallbackChapter,
         fallbackReason,
@@ -741,8 +755,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return cachedReadResponse(responseCacheKey, {
       mangaTitle,
       coverImage,
-      chapters: finalChapters,
-      currentChapter,
+      chapters: stripChaptersForClient(finalChapters),
+      currentChapter: stripChapterForClient(currentChapter),
       pages,
       englishFallbackChapter: null,
       fallbackReason: null,

@@ -350,48 +350,46 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const canonicalUrl = absoluteUrl(`/manga/${id}`);
 
   try {
-    const response = await fetchMangaDex(`https://api.mangadex.org/manga/${id}?includes[]=cover_art`);
+    const manga = await fetchMangaDetails(id);
 
-    if (!response.ok) {
+    if (!manga) {
       return {
-        title: "Manga",
-        description: "Lee este manga en MangaStoon.",
+        title: `Manga no encontrado | ${SITE_NAME}`,
+        description: "Explora manga, manhwa y comics online en MangaStoon.",
         alternates: {
-          canonical: absoluteUrl(`/manga/${id}`),
-          languages: {
-            es: absoluteUrl(`/manga/${id}`),
-            en: absoluteUrl(`/manga/${id}`),
-            pt: absoluteUrl(`/manga/${id}`),
-            "x-default": absoluteUrl(`/manga/${id}`),
-          },
+          canonical: canonicalUrl,
+        },
+        robots: {
+          index: false,
+          follow: true,
         },
       };
     }
 
-    const payload = (await response.json()) as MangaDetailsResponse;
-    const manga = payload.data;
     const metadataLanguage: SupportedLanguage = "es";
-    const title = manga ? await getLocalizedTitleAsync(manga, metadataLanguage) : "Manga";
+    const title = await getLocalizedTitleAsync(manga, metadataLanguage);
     const originalContent = (await getOriginalContent(manga, metadataLanguage, UI_COPY[metadataLanguage]))
       .replace(/\s+/g, " ")
       .trim();
-    const description =
-      originalContent.length > 155 ? `${originalContent.slice(0, 155)}...` : originalContent;
-    const coverArt = manga?.relationships?.find((relationship) => relationship.type === "cover_art");
-    const coverFileName = coverArt?.attributes?.fileName;
-    const imageUrl = coverFileName
-      ? `https://uploads.mangadex.org/covers/${id}/${coverFileName}`
-      : SITE_IMAGE;
-
-    const cleanTitle = title;
-    const socialTitle = `${cleanTitle} | ${SITE_NAME}`;
-    const canonicalUrl = absoluteUrl(`/manga/${id}`);
+    const description = originalContent.length > 155 ? `${originalContent.slice(0, 155)}...` : originalContent;
+    const imageUrl = getCoverUrl(manga.id, manga.relationships) || SITE_IMAGE;
+    const socialTitle = `${title} | ${SITE_NAME}`;
 
     return {
-      title: `Leer ${cleanTitle} Online Gratis - ${SITE_NAME}`,
+      title: `Leer ${title} Online Gratis - ${SITE_NAME}`,
       description,
+      keywords: [
+        title,
+        `${title} manga`,
+        `${title} manhwa`,
+        `${title} online`,
+        `${title} en español`,
+        "leer manga online",
+        "MangaStoon",
+      ],
       alternates: {
         canonical: canonicalUrl,
         languages: {
@@ -412,7 +410,7 @@ export async function generateMetadata({
             url: imageUrl,
             width: 800,
             height: 1200,
-            alt: `Portada del manga ${cleanTitle}`,
+            alt: `Portada de ${title}`,
           },
         ],
       },
@@ -422,23 +420,22 @@ export async function generateMetadata({
         description,
         images: [imageUrl],
       },
+      robots: {
+        index: true,
+        follow: true,
+      },
     };
   } catch {
     return {
-      title: "Manga",
+      title: `Manga | ${SITE_NAME}`,
       description: "Lee este manga en MangaStoon.",
       alternates: {
-        canonical: absoluteUrl(`/manga/${id}`),
-        languages: {
-          es: absoluteUrl(`/manga/${id}`),
-          en: absoluteUrl(`/manga/${id}`),
-          pt: absoluteUrl(`/manga/${id}`),
-          "x-default": absoluteUrl(`/manga/${id}`),
-        },
+        canonical: canonicalUrl,
       },
     };
   }
 }
+
 
 const UI_COPY: Record<
   SupportedLanguage,

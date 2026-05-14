@@ -19,9 +19,8 @@ type ChapterListProps = {
   totalLabel: string;
 };
 
-const INITIAL_CHAPTER_COUNT = 10;
 export default function ChapterList({ mangaId, chapterRows, showMoreLabel, totalLabel }: ChapterListProps) {
-  const [visibleCount, setVisibleCount] = useState(INITIAL_CHAPTER_COUNT);
+  const [visibleCount, setVisibleCount] = useState(chapterRows.length);
   const [descending, setDescending] = useState(true);
   const orderedRows = descending ? chapterRows : [...chapterRows].reverse();
   const visibleRows = orderedRows.slice(0, visibleCount);
@@ -38,7 +37,7 @@ export default function ChapterList({ mangaId, chapterRows, showMoreLabel, total
           type="button"
           onClick={() => {
             setDescending((current) => !current);
-            setVisibleCount(INITIAL_CHAPTER_COUNT);
+            setVisibleCount(chapterRows.length);
           }}
           aria-label={sortLabel}
           title={sortLabel}
