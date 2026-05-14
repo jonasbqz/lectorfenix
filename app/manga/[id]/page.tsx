@@ -389,7 +389,7 @@ export async function generateMetadata({
     const canonicalUrl = absoluteUrl(`/manga/${id}`);
 
     return {
-      title: `Leer ${cleanTitle} Manga Online Gratis - ${SITE_NAME}`,
+      title: `Leer ${cleanTitle} Online Gratis - ${SITE_NAME}`,
       description,
       alternates: {
         canonical: canonicalUrl,
@@ -1159,29 +1159,44 @@ export default async function MangaDetailsPage({
   const aggregateRating = {
     "@type": "AggregateRating",
     ratingValue: ratingSummary.ratingValue,
+    reviewCount: ratingSummary.ratingCount,
+    ratingCount: ratingSummary.ratingCount,
     bestRating: "5",
     worstRating: "1",
-    ratingCount: ratingSummary.ratingCount,
   };
 
+  const mangaCanonicalUrl = `https://www.mangastoon.com/manga/${manga.id}`;
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "ComicSeries",
+    "@type": "Book",
     name: displayTitle,
+    alternateName: getLocalizedTitle(manga, currentLanguage),
     description,
     genre: tags.map((tag) => tag.name),
     aggregateRating,
     author: {
       "@type": "Person",
-      name: realAuthor || "No disponible en DB",
+      name: realAuthor || manga.author || "MangaStoon Editor",
     },
     image: coverUrl || "",
-    url: absoluteUrl(`/manga/${manga.id}`),
+    url: mangaCanonicalUrl,
     inLanguage: currentLanguage,
+    isAccessibleForFree: true,
+    publisher: {
+      "@type": "Organization",
+      name: "MangaStoon",
+    },
+    workExample: {
+      "@type": "Book",
+      bookFormat: "http://schema.org/EBook",
+      potentialAction: {
+        "@type": "ReadAction",
+        target: mangaCanonicalUrl,
+      },
+    },
   };
 
   const siteUrl = absoluteUrl("/").replace(/\/$/, "");
-  const mangaCanonicalUrl = absoluteUrl(`/manga/${manga.id}`);
   const faqJsonLd = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
