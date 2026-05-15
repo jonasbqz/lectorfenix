@@ -229,6 +229,7 @@ export async function GET(request: Request) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("ERROR PROXY", rawUrl, errorCode, error);
     console.error('🔥 ERROR EN PROXY:', error);
+    console.error('🔥🔥 ERROR CRÍTICO FLARESOLVERR:', error);
 
     return fallbackImage(errorCode, errorMessage);
   } finally {
