@@ -28,6 +28,16 @@ type ChapterListProps = {
 };
 
 const INITIAL_CHAPTER_COUNT = 10;
+const ALL_SCAN_GROUPS = "__all_scan_groups__";
+
+function normalizeScanGroup(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 export default function ChapterList({
   mangaId,
@@ -38,11 +48,31 @@ export default function ChapterList({
   searchPlaceholder,
   sortNewestLabel,
   sortOldestLabel,
+  scanGroups,
+  activeScanGroup,
 }: ChapterListProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_CHAPTER_COUNT);
   const [descending, setDescending] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const orderedRows = descending ? chapterRows : [...chapterRows].reverse();
+  const [selectedScanGroup, setSelectedScanGroup] = useState(ALL_SCAN_GROUPS);
+  const orderedScanGroups = [...new Set([activeScanGroup, ...scanGroups].filter(Boolean))]
+    .map((scanGroup) => ({
+      label: scanGroup,
+      key: normalizeScanGroup(scanGroup),
+    }))
+    .filter((scanGroup) => scanGroup.key.length > 0);
+  const scanFilteredRows =
+    selectedScanGroup === ALL_SCAN_GROUPS
+      ? chapterRows
+      : chapterRows.filter((row) => {
+          const rowScanGroup = normalizeScanGroup(row.scanGroupName);
+          return (
+            rowScanGroup === selectedScanGroup ||
+            rowScanGroup.includes(selectedScanGroup) ||
+            selectedScanGroup.includes(rowScanGroup)
+          );
+        });
+  const orderedRows = descending ? scanFilteredRows : [...scanFilteredRows].reverse();
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const filteredRows = normalizedSearchQuery
     ? orderedRows.filter(({ chapterLabel }) => chapterLabel.toLowerCase().includes(normalizedSearchQuery))
@@ -54,7 +84,25 @@ export default function ChapterList({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-[#141519] px-3 py-2.5 text-left md:mb-4 md:gap-3 md:px-4 md:py-3">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-gray-400 md:text-base">{totalLabel}</p>
+        <div className="min-w-0 flex-1">
+          {orderedScanGroups.length > 0 ? (
+            <select
+              value={selectedScanGroup}
+              onChange={(event) => {
+                setSelectedScanGroup(event.target.value);
+                setVisibleCount(INITIAL_CHAPTER_COUNT);
+              }}
+              className="h-10 max-w-full cursor-pointer appearance-none rounded-2xl border border-white/5 bg-[#1e1f24] px-3 text-sm text-gray-300 outline-none transition-all focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00] sm:max-w-[240px]"
+            >
+              <option value={ALL_SCAN_GROUPS}>Todos los fansubs</option>
+              {orderedScanGroups.map((scanGroup) => (
+                <option key={scanGroup.key} value={scanGroup.key}>
+                  {scanGroup.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
 
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           <input
