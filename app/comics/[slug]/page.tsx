@@ -1536,7 +1536,6 @@ export default async function MangaDetailsPage({
                   chapterRows={chapterRows}
                   showMoreLabel={copy.showMoreChapters}
                   totalLabel={`${chapters.length} ${copy.totalSuffix}`}
-                  showingLabel={copy.showingChapters}
                   searchPlaceholder={copy.chapterSearchPlaceholder}
                   sortNewestLabel={copy.sortNewestLabel}
                   sortOldestLabel={copy.sortOldestLabel}

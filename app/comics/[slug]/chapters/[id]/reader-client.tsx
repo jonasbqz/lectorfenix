@@ -49,6 +49,8 @@ type ReaderDictionary = {
   downloadRange: string;
   maxChaptersNotice: string;
   pdfLimitExceeded: string;
+  pdfNoImages: string;
+  pdfFailed: string;
   cancel: string;
   download: string;
   play: string;
@@ -117,6 +119,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     downloadRange: "Rango incluido",
     maxChaptersNotice: "Máximo 50 capítulos por PDF para evitar bloqueos.",
     pdfLimitExceeded: "No se puede descargar más de 50 capítulos por PDF.",
+    pdfNoImages: "No encontramos páginas válidas para generar este PDF.",
+    pdfFailed: "No se pudo generar el PDF. Intentá de nuevo.",
     cancel: "Cancelar",
     download: "Descargar",
     play: "Play",
@@ -156,6 +160,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     downloadRange: "Included range",
     maxChaptersNotice: "Maximum 50 chapters per PDF to avoid freezing.",
     pdfLimitExceeded: "You cannot download more than 50 chapters per PDF.",
+    pdfNoImages: "We could not find valid pages to generate this PDF.",
+    pdfFailed: "The PDF could not be generated. Please try again.",
     cancel: "Cancel",
     download: "Download",
     play: "Play",
@@ -195,6 +201,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     downloadRange: "Intervalo incluido",
     maxChaptersNotice: "Maximo de 50 capitulos por PDF para evitar travamentos.",
     pdfLimitExceeded: "Nao e possivel baixar mais de 50 capitulos por PDF.",
+    pdfNoImages: "Nao encontramos paginas validas para gerar este PDF.",
+    pdfFailed: "Nao foi possivel gerar o PDF. Tente novamente.",
     cancel: "Cancelar",
     download: "Baixar",
     play: "Play",
@@ -987,6 +995,11 @@ export default function ReaderClient({
         allImages.push(...chapterPages);
       }
 
+      if (allImages.length === 0) {
+        toast.error(dictionary.pdfNoImages);
+        return;
+      }
+
       const firstExportedChapter = chaptersToExport[0] ?? currentChapter;
       const chapterName = getChapterNumber(firstExportedChapter);
       const endChapterName =
@@ -998,6 +1011,9 @@ export default function ReaderClient({
 
       await generateMangaPDF(mangaTitle, chapterLabel, allImages, setPdfProgress);
       setShowPdfModal(false);
+    } catch (error) {
+      console.error("PDF generation failed", error);
+      toast.error(dictionary.pdfFailed);
     } finally {
       setDownloading(false);
       setPdfProgress(0);

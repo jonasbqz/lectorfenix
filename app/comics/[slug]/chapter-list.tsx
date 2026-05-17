@@ -20,7 +20,6 @@ type ChapterListProps = {
   chapterRows: ChapterRow[];
   showMoreLabel: string;
   totalLabel: string;
-  showingLabel: string;
   searchPlaceholder: string;
   sortNewestLabel: string;
   sortOldestLabel: string;
@@ -36,7 +35,6 @@ export default function ChapterList({
   chapterRows,
   showMoreLabel,
   totalLabel,
-  showingLabel,
   searchPlaceholder,
   sortNewestLabel,
   sortOldestLabel,
@@ -52,12 +50,11 @@ export default function ChapterList({
   const visibleRows = filteredRows.slice(0, visibleCount);
   const hasMore = visibleCount < filteredRows.length;
   const sortLabel = descending ? sortOldestLabel : sortNewestLabel;
-  const totalText = `${showingLabel} ${visibleRows.length} / ${filteredRows.length} · ${totalLabel}`;
 
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-[#141519] px-3 py-2.5 text-left md:mb-4 md:gap-3 md:px-4 md:py-3">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-gray-400 md:text-base">{totalText}</p>
+        <p className="min-w-0 flex-1 text-sm leading-relaxed text-gray-400 md:text-base">{totalLabel}</p>
 
         <div className="flex shrink-0 items-center gap-2 md:gap-3">
           <input
