@@ -1,10 +1,12 @@
 ﻿import { logger } from "../../utils/logger";
 import { NextResponse } from "next/server";
+import http from "node:http";
+import https from "node:https";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const PROXY_VERSION = "node-direct-v5-flaresolverr";
+const PROXY_VERSION = "node-direct-v6-node-https";
 const REQUEST_TIMEOUT_MS = 40000;
 const FORCED_REFERER = "https://olympusbiblioteca.com/";
 const FLARESOLVERR_URL = (
@@ -29,6 +31,14 @@ type FlareSolverrResponse = {
     userAgent?: string;
     cookies?: FlareSolverrCookie[];
   };
+};
+
+type ImageFetchResult = {
+  ok: boolean;
+  status: number;
+  contentType: string;
+  cfMitigated: string | null;
+  buffer: Buffer;
 };
 
 function getBrowserHeaders() {
@@ -75,11 +85,11 @@ function proxyHeaders(contentType: string, errorCode = "NONE", cacheControl = "p
   };
 }
 
-async function isCloudflareChallenge(response: Response, contentType: string) {
-  if (response.headers.get("cf-mitigated") === "challenge") return true;
-  if (response.status !== 403 || !contentType.toLowerCase().includes("text/html")) return false;
+function isCloudflareChallenge(response: ImageFetchResult) {
+  if (response.cfMitigated === "challenge") return true;
+  if (response.status !== 403 || !response.contentType.toLowerCase().includes("text/html")) return false;
 
-  const body = await response.clone().text().catch(() => "");
+  const body = response.buffer.toString("utf8");
   return body.includes("Just a moment") || body.includes("challenges.cloudflare.com") || body.includes("cf-chl");
 }
 
@@ -114,17 +124,58 @@ function fallbackImage(errorCode: string, debugError?: string) {
         "no-store, no-cache, must-revalidate, proxy-revalidate",
       ),
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      ...(debugError ? { "X-Debug-Error": debugError } : {}),
+      ...(debugError ? { "X-Debug-Error": debugError.slice(0, 180) } : {}),
     },
   });
 }
 
-async function fetchImage(targetUrl: URL, signal?: AbortSignal) {
-  return fetch(targetUrl, {
-    cache: "no-store",
-    redirect: "follow",
-    signal,
-    headers: getBrowserHeaders(),
+function fetchImage(targetUrl: URL, signal?: AbortSignal, redirects = 0): Promise<ImageFetchResult> {
+  return new Promise((resolve, reject) => {
+    const transport = targetUrl.protocol === "http:" ? http : https;
+    const request = transport.get(
+      targetUrl,
+      {
+        headers: getBrowserHeaders(),
+        rejectUnauthorized: false,
+      },
+      (response) => {
+        const location = response.headers.location;
+
+        if (location && [301, 302, 303, 307, 308].includes(response.statusCode ?? 0) && redirects < 5) {
+          response.resume();
+          resolve(fetchImage(new URL(location, targetUrl), signal, redirects + 1));
+          return;
+        }
+
+        const chunks: Buffer[] = [];
+
+        response.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+        response.on("end", () => {
+          const status = response.statusCode ?? 500;
+          const contentTypeHeader = response.headers["content-type"];
+          const contentType = Array.isArray(contentTypeHeader) ? contentTypeHeader[0] : contentTypeHeader || "image/webp";
+          const cfMitigatedHeader = response.headers["cf-mitigated"];
+
+          resolve({
+            ok: status >= 200 && status < 300,
+            status,
+            contentType,
+            cfMitigated: Array.isArray(cfMitigatedHeader) ? cfMitigatedHeader[0] : cfMitigatedHeader ?? null,
+            buffer: Buffer.concat(chunks),
+          });
+        });
+      },
+    );
+
+    request.on("error", reject);
+
+    signal?.addEventListener(
+      "abort",
+      () => {
+        request.destroy(new Error("ABORT_ERR"));
+      },
+      { once: true },
+    );
   });
 }
 
@@ -163,13 +214,10 @@ async function refreshFlareSolverrSession(imageUrl: string) {
   }
 }
 
-async function imageResponse(response: Response, diagnostic = "NONE") {
-  const contentType = response.headers.get("content-type") || "image/webp";
-  const buffer = await response.arrayBuffer();
-
-  return new NextResponse(buffer, {
+function imageResponse(response: ImageFetchResult, diagnostic = "NONE") {
+  return new NextResponse(new Uint8Array(response.buffer), {
     status: 200,
-    headers: proxyHeaders(contentType, diagnostic),
+    headers: proxyHeaders(response.contentType, diagnostic),
   });
 }
 
@@ -198,8 +246,7 @@ export async function GET(request: Request) {
 
   try {
     const firstResponse = await fetchImage(targetUrl, controller.signal);
-    const firstContentType = firstResponse.headers.get("content-type") || "image/webp";
-    const firstIsChallenge = await isCloudflareChallenge(firstResponse, firstContentType);
+    const firstIsChallenge = isCloudflareChallenge(firstResponse);
 
     if (firstResponse.ok && !firstIsChallenge) {
       return imageResponse(firstResponse);
@@ -219,8 +266,7 @@ export async function GET(request: Request) {
     await flareSolverrPromise;
 
     const secondResponse = await fetchImage(targetUrl, controller.signal);
-    const secondContentType = secondResponse.headers.get("content-type") || "image/webp";
-    const secondIsChallenge = await isCloudflareChallenge(secondResponse, secondContentType);
+    const secondIsChallenge = isCloudflareChallenge(secondResponse);
 
     if (secondResponse.ok && !secondIsChallenge) {
       return imageResponse(secondResponse, "FLARESOLVERR_OK");
@@ -233,8 +279,6 @@ export async function GET(request: Request) {
     const errorCode = getErrorCode(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("ERROR PROXY", rawUrl, errorCode, error);
-    console.error('🔥 ERROR EN PROXY:', error);
-    console.error('🔥🔥 ERROR CRÍTICO FLARESOLVERR:', error);
 
     return fallbackImage(errorCode, errorMessage);
   } finally {
