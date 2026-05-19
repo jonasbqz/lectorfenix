@@ -41,6 +41,31 @@ export function uniqueNonEmpty(values: Array<string | null | undefined>) {
   return Array.from(new Set(values.map((value) => value?.trim()).filter(Boolean))) as string[];
 }
 
+export function isMonlineChapterPageUrl(value: string) {
+  const raw = value.trim();
+  if (!raw) return false;
+
+  const normalized = decodeURIComponent(raw).toLowerCase();
+
+  // Las páginas reales vienen bajo /storage/comics/{comicId}/{chapterId}/...
+  // Las portadas/recomendados vienen bajo /storage/comics/covers/... y no son páginas del capítulo.
+  if (normalized.includes("/storage/comics/covers/")) return false;
+
+  // Algunos capítulos traen assets sueltos de reporte/créditos de la fuente.
+  // No tocamos imágenes tipo 1_01.webp porque pueden incluir intro + viñetas reales.
+  if (normalized.includes("zonaolympus")) return false;
+  if (normalized.includes("z (reporte)") || normalized.includes("z%20(reporte)")) return false;
+  if (normalized.includes("reporte).webp")) return false;
+
+  return true;
+}
+
+export function filterMonlineChapterPageUrls(rawPages: unknown) {
+  return Array.isArray(rawPages)
+    ? rawPages.filter((url): url is string => typeof url === "string" && isMonlineChapterPageUrl(url))
+    : [];
+}
+
 export function buildMonlineChapterSegments(chapter: MonlineChapterLike | null | undefined) {
   const chapterNumber = chapter?.attributes?.chapter?.trim();
   const title = chapter?.attributes?.title;
@@ -88,9 +113,7 @@ async function resolveMonlinePagesFromRoute(cleanMangaSegments: string[], cleanC
 
         const pagesPayload = (await pagesResponse.json()) as MonlinePagesResponse;
         const rawPages = pagesPayload.data?.url_pages;
-        const pages = Array.isArray(rawPages)
-          ? rawPages.filter((url): url is string => typeof url === "string" && url.length > 0)
-          : [];
+        const pages = filterMonlineChapterPageUrls(rawPages);
 
         if (pages.length > 0) {
           logger.debug(`Encontrado: ${pages.length} paginas.`);

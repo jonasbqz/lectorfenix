@@ -115,9 +115,9 @@ const websiteJsonLd = {
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: SITE_NAME,
-  url: SITE_URL,
-  logo: `${SITE_URL}/icon.svg`,
+  url: "https://mangastoon.com",
+  logo: "https://mangastoon.com/icon.png",
+  name: "Mangastoon",
 };
 
 

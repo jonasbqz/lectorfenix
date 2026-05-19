@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 const PROXY_VERSION = "node-direct-v5-flaresolverr";
 const REQUEST_TIMEOUT_MS = 40000;
 const FORCED_REFERER = "https://olympusbiblioteca.com/";
+const FLARESOLVERR_URL = (
+  process.env.FLARESOLVERR_URL ||
+  process.env.NEXT_PUBLIC_FLARESOLVERR_URL ||
+  "http://127.0.0.1:8191"
+).replace(/\/$/, "");
 
 let cachedCookies = "";
 let cachedUserAgent = "";
@@ -101,13 +106,14 @@ function fallbackImage(errorCode: string, debugError?: string) {
   </svg>`;
 
   return new NextResponse(svg, {
-    status: 200,
+    status: 502,
     headers: {
       ...proxyHeaders(
         "image/svg+xml; charset=utf-8",
         errorCode,
-        debugError ? "no-store" : "public, max-age=300, s-maxage=300",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
       ),
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
       ...(debugError ? { "X-Debug-Error": debugError } : {}),
     },
   });
@@ -123,8 +129,7 @@ async function fetchImage(targetUrl: URL, signal?: AbortSignal) {
 }
 
 async function refreshFlareSolverrSession(imageUrl: string) {
-  const flaresolverrUrl = "http://46.224.213.127:8191";
-  const response = await fetch(`${flaresolverrUrl.replace(/\/$/, "")}/v1`, {
+  const response = await fetch(`${FLARESOLVERR_URL}/v1`, {
     method: "POST",
     cache: "no-store",
     headers: {

@@ -324,7 +324,13 @@ export function mapToShowcaseItems(
     ),
     synopsis: getMangaSynopsis(manga, language),
     score: statistics[manga.id]?.rating?.average ?? null,
-    url: `https://mangadex.org/title/${manga.id}`,
+    url: buildComicPath(getLocalizedTitle(
+      {
+        titleMap: manga.attributes.title,
+        altTitles: manga.attributes.altTitles,
+      },
+      language
+    ), manga.id),
     mangaDexId: manga.id,
     titleMap: manga.attributes.title,
     altTitles: manga.attributes.altTitles,

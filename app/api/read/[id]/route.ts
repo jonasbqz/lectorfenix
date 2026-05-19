@@ -5,6 +5,7 @@ import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mang
 import { getLocalizedTitleAsync } from "../../../utils/get-localized-title";
 import {
   buildMonlineChapterSegments,
+  filterMonlineChapterPageUrls,
   fetchMonlinePagesFromRoute,
   toMonlineSegment,
   uniqueNonEmpty,
@@ -225,9 +226,7 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
 
       const title = getStringValue(chapter, ["title", "name"]);
       const createdAt = getStringValue(chapter, ["releaseDate", "release_date", "created_at", "createdAt", "readableAt", "updated_at", "updatedAt"]);
-      const pages = Array.isArray(chapter.urlPages)
-        ? chapter.urlPages.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
-        : [];
+      const pages = filterMonlineChapterPageUrls(chapter.urlPages);
 
       return [{
         id,
@@ -326,9 +325,7 @@ async function resolveLocalChapterPages(chapterId: string) {
 
     const payload = (await response.json()) as LocalPagesResponse;
     const rawPages = payload.data?.url_pages ?? (payload.data as Record<string, unknown> | null | undefined)?.urlPages;
-    const pages = Array.isArray(rawPages)
-      ? rawPages.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
-      : [];
+    const pages = filterMonlineChapterPageUrls(rawPages);
 
     return pages.map(normalizeLocalImageUrl);
   } catch {

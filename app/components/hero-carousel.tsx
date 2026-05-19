@@ -297,9 +297,9 @@ export default function HeroCarousel({
             </div>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              {manga.mangaDexId ? (
+              {manga.mangaDexId || manga.url.startsWith("/") ? (
                 <Link
-                  href={buildComicPath(getLocalizedTitle(manga, currentLang), manga.mangaDexId)}
+                  href={manga.mangaDexId ? buildComicPath(getLocalizedTitle(manga, currentLang), manga.mangaDexId) : manga.url}
                   className="inline-flex items-center rounded-full bg-orange-500 px-6 py-3 text-sm font-bold uppercase tracking-wide text-black transition hover:bg-orange-400"
                 >
                   {copy.viewDetails}

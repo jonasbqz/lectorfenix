@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../../utils/mangadex-config";
-import { fetchMonlinePagesFromRoute, toMonlineSegment, uniqueNonEmpty } from "../../../../utils/monline";
+import { filterMonlineChapterPageUrls, fetchMonlinePagesFromRoute, toMonlineSegment, uniqueNonEmpty } from "../../../../utils/monline";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,9 +79,7 @@ async function fetchLocalChapterPages(chapterId: string) {
 
     const payload = (await response.json()) as LocalPagesResponse;
     const rawPages = payload.data?.url_pages ?? (payload.data as Record<string, unknown> | null | undefined)?.urlPages;
-    const pages = Array.isArray(rawPages)
-      ? rawPages.filter((url): url is string => typeof url === "string" && url.trim().length > 0)
-      : [];
+    const pages = filterMonlineChapterPageUrls(rawPages);
 
     return pages.map(normalizeLocalImageUrl);
   } catch {

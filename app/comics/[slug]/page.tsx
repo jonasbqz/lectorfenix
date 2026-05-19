@@ -1,7 +1,6 @@
 import { logger } from "../../utils/logger";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -12,10 +11,12 @@ import { MangaCard, type MangaShowcaseItem } from "../../components/MangaCard";
 import SiteHeader, { type SupportedLanguage } from "../../components/site-header";
 import SeoSynopsis from "./synopsis";
 import ChapterList from "./chapter-list";
+import ComicCoverImage from "./cover-image";
 import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
 import { forceTranslate } from "../../utils/translation";
+import { filterMonlineChapterPageUrls } from "../../utils/monline";
 import {
   appendStandardMangaDexFilters,
   fetchMangaDexCollection,
@@ -70,6 +71,7 @@ type MangaRelationship = NonNullable<MangaDetailsResponse["data"]>["relationship
 
 type ChapterFeedItem = {
   id: string;
+  localPages?: string[];
   attributes?: {
     chapter?: string | null;
     title?: string | null;
@@ -274,11 +276,13 @@ function getLocalComicScanChapters(source: LocalApiComic): ChapterFeedItem[] {
         const chapterId = getLocalStringValue(chapter, ["id", "chapterId", "chapter_id"]);
         const chapterNumber = getLocalStringValue(chapter, ["chapterNumber", "chapter_number", "chapter", "number"]);
         const releaseDate = getLocalStringValue(chapter, ["releaseDate", "release_date", "publishedAt", "published_at", "createdAt", "created_at"]);
+        const localPages = filterMonlineChapterPageUrls(chapter.urlPages).map(normalizeLocalImageUrl);
 
         if (!chapterId || !chapterNumber) return [];
 
         return [{
           id: chapterId,
+          localPages,
           attributes: {
             chapter: chapterNumber,
             title: getLocalStringValue(chapter, ["title", "name"]) || null,
@@ -844,6 +848,51 @@ function getCoverUrl(mangaId: string, relationships: MangaRelationship) {
   return `https://uploads.mangadex.org/covers/${mangaId}/${fileName}`;
 }
 
+function getManualCoverOverride(mangaId: string, title: string) {
+  const normalized = `${mangaId} ${title}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (
+    normalized.includes("un-nigromante-en-la-familia-de-espadachines") ||
+    normalized.includes("nigromante en la familia de espadachines")
+  ) {
+    return "https://cdn.asurascans.com/asura-images/covers/sword-of-the-undying.bbd784.webp";
+  }
+
+  return "";
+}
+
+async function shouldUseFallbackCover(coverUrl: string) {
+  if (!coverUrl.startsWith("/api/proxy-image?")) {
+    return false;
+  }
+
+  const rawUrl = new URLSearchParams(coverUrl.split("?")[1] ?? "").get("url");
+
+  if (!rawUrl || !rawUrl.includes("dashboard.olympusbiblioteca.com")) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(rawUrl, {
+      method: "HEAD",
+      cache: "no-store",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        Referer: "https://olympusbiblioteca.com/",
+      },
+    });
+
+    return response.status === 404;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchAuthorName(mangaTitle: string) {
   const title = mangaTitle.trim();
   if (!title) return null;
@@ -1248,6 +1297,11 @@ export default async function MangaDetailsPage({
     manga.attributes?.contentRating === "pornographic" ||
     hasSensitiveAdultTag(manga.attributes?.tags);
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
+  const fallbackCoverPages = chapters.flatMap((chapter) => chapter.localPages ?? []);
+  const fallbackCoverUrl = fallbackCoverPages[1] ?? fallbackCoverPages[0] ?? "";
+  const manualCoverUrl = getManualCoverOverride(manga.id, displayTitle);
+  const primaryCoverUrl =
+    manualCoverUrl || (fallbackCoverUrl && (await shouldUseFallbackCover(coverUrl)) ? fallbackCoverUrl : coverUrl);
   const favoriteManga = {
     id: manga.id,
     mangaDexId: manga.id,
@@ -1261,7 +1315,7 @@ export default async function MangaDetailsPage({
       .map((tag) => translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage)),
     tags: tags.map((tag) => tag.name),
     genres: tags.map((tag, index) => ({ mal_id: index, name: tag.name })),
-    images: coverUrl ? { webp: { large_image_url: coverUrl } } : {},
+    images: primaryCoverUrl ? { webp: { large_image_url: primaryCoverUrl } } : {},
   };
   const databaseAuthor =
     manga.author &&
@@ -1331,7 +1385,7 @@ export default async function MangaDetailsPage({
       "@type": "Person",
       name: realAuthor || manga.author || "MangaStoon Editor",
     },
-    image: coverUrl || "",
+    image: primaryCoverUrl || "",
     url: mangaCanonicalUrl,
     inLanguage: currentLanguage,
     isAccessibleForFree: true,
@@ -1424,17 +1478,12 @@ export default async function MangaDetailsPage({
           <aside className="md:col-span-4 lg:col-span-3">
             <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[150px_minmax(0,1fr)] md:block">
               <div className="max-h-[300px] max-w-[180px] overflow-hidden rounded-xl shadow-2xl shadow-black/50 sm:max-w-[220px] md:max-h-none md:max-w-none">
-                {coverUrl ? (
+                {primaryCoverUrl ? (
                   <div className="relative aspect-[2/3] w-full">
-                    <Image
-                      src={coverUrl}
+                    <ComicCoverImage
+                      src={primaryCoverUrl}
+                      fallbackSrc={fallbackCoverUrl}
                       alt={`Portada del manga ${displayTitle}`}
-                      fill
-                      sizes="(max-width: 640px) 112px, (max-width: 768px) 150px, 320px"
-                      className="object-cover object-top"
-                      priority
-                      unoptimized={true}
-                      referrerPolicy="no-referrer"
                     />
                   </div>
                 ) : (

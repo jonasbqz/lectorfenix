@@ -134,7 +134,7 @@ export function MangaCard({
       : "w-[140px] md:w-[190px]";
 
   const cardHref = href;
-  const isInternal = Boolean(manga.mangaDexId);
+  const isInternal = Boolean(manga.mangaDexId) || cardHref.startsWith("/");
   const mangaTitle = displayTitle;
   const mangaGenre = subtitle;
   const formatTag = featuredTag;

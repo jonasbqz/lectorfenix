@@ -17,13 +17,15 @@ const MAX_IMAGE_RETRIES = 3;
 function withImageRetryParam(src: string, retry: number) {
   if (!src || src.startsWith("data:") || src.startsWith("blob:")) return src;
 
+  const retryValue = `${retry}_${Date.now()}`;
+
   try {
     const url = new URL(src, window.location.origin);
-    url.searchParams.set("retry", String(retry));
+    url.searchParams.set("retry", retryValue);
     return src.startsWith("/") ? `${url.pathname}${url.search}${url.hash}` : url.toString();
   } catch {
     const separator = src.includes("?") ? "&" : "?";
-    return `${src}${separator}retry=${retry}`;
+    return `${src}${separator}retry=${retryValue}`;
   }
 }
 
