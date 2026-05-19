@@ -1,4 +1,3 @@
-import { logger } from "../../utils/logger";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -255,7 +254,7 @@ export async function GET(request: Request) {
     }
 
     if (!firstIsChallenge && firstResponse.status !== 403) {
-      logger.warn("IMAGE PROXY FALLBACK", rawUrl, String(firstResponse.status));
+      console.warn("IMAGE PROXY FALLBACK", rawUrl, String(firstResponse.status));
       return fallbackImage(String(firstResponse.status));
     }
 
@@ -275,12 +274,12 @@ export async function GET(request: Request) {
     }
 
     const errorCode = secondIsChallenge ? `CF_CHALLENGE_${secondResponse.status}` : String(secondResponse.status);
-    logger.warn("IMAGE PROXY FALLBACK", rawUrl, errorCode);
+    console.warn("IMAGE PROXY FALLBACK", rawUrl, errorCode);
     return fallbackImage(errorCode);
   } catch (error) {
     const errorCode = getErrorCode(error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error("ERROR PROXY", rawUrl, errorCode, error);
+    console.error("ERROR PROXY", rawUrl, errorCode, error);
 
     return fallbackImage(errorCode, errorMessage);
   } finally {
