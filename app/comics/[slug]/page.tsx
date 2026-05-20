@@ -35,6 +35,7 @@ const LOCAL_API_URL = (
   process.env.NEXT_PUBLIC_API_URL ??
   "http://46.224.213.127:8085"
 ).replace(/\/$/, "");
+const LOCAL_COMIC_LOOKUP_LIMIT = 2000;
 
 type MangaDexLocalizedText = Record<string, string>;
 
@@ -202,7 +203,7 @@ function getLocalGenres(source: LocalApiComic) {
 
 async function fetchLocalComicBySlug(slug: string) {
   try {
-    const listResponse = await fetch(`${LOCAL_API_URL}/api/comics?limit=100`, { cache: "no-store" });
+    const listResponse = await fetch(`${LOCAL_API_URL}/api/comics?limit=${LOCAL_COMIC_LOOKUP_LIMIT}`, { cache: "no-store" });
     if (!listResponse.ok) return null;
 
     const comics = extractLocalComics(await listResponse.json());

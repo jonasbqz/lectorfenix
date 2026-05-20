@@ -15,6 +15,7 @@ import {
 import { buildComicPath } from "../utils/slugify";
 
 const MONLINE_API_URL = "/api/monline";
+const MONLINE_SEARCH_LOOKUP_LIMIT = 2000;
 
 type MonlineComic = Record<string, unknown>;
 type MonlineComicsResponse = {
@@ -78,6 +79,24 @@ function extractMonlineComics(payload: MonlineComicsResponse) {
   return [];
 }
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function localComicMatchesQuery(comic: MonlineComic, query: string) {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+
+  return ["title", "name", "comic_title", "original_title", "titleAlternative", "slug"]
+    .map((key) => comic[key])
+    .filter((value): value is string | number => typeof value === "string" || typeof value === "number")
+    .some((value) => normalizeSearchText(String(value)).includes(normalizedQuery));
+}
+
 function normalizeMonlineImageUrl(value: string) {
   if (!value) return "";
   const imageUrl =
@@ -123,8 +142,7 @@ async function fetchSearchResults(query: string, language: "es" | "en" | "pt", i
 
   if (language === "es") {
     const params = new URLSearchParams();
-    params.set("title", query);
-    params.set("limit", "24");
+    params.set("limit", String(MONLINE_SEARCH_LOOKUP_LIMIT));
 
     const response = await fetch(`${MONLINE_API_URL}/api/comics?${params.toString()}`, {
       cache: "no-store",
@@ -133,7 +151,10 @@ async function fetchSearchResults(query: string, language: "es" | "en" | "pt", i
 
     if (response.ok) {
       const payload = (await response.json()) as MonlineComicsResponse;
-      localResults = mapMonlineComicsToShowcase(extractMonlineComics(payload), language);
+      localResults = mapMonlineComicsToShowcase(
+        extractMonlineComics(payload).filter((comic) => localComicMatchesQuery(comic, query)).slice(0, 24),
+        language
+      );
     }
   }
 

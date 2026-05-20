@@ -18,6 +18,7 @@ import {
 import { buildComicPath } from "../utils/slugify";
 
 const MONLINE_API_URL = "/api/monline";
+const MONLINE_SEARCH_LOOKUP_LIMIT = 2000;
 
 const PRIORITY_THEMES = [
   "Isekai",
@@ -194,7 +195,7 @@ async function fetchMonlineSearch(query: string, language: "es" | "en" | "pt", i
 
   if (language === "es") {
     const params = new URLSearchParams();
-    params.set("limit", "100");
+    params.set("limit", String(MONLINE_SEARCH_LOOKUP_LIMIT));
 
     const response = await fetch(`${MONLINE_API_URL}/api/comics?${params.toString()}`, {
       cache: "no-store",
