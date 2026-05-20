@@ -1,0 +1,16 @@
+HTTP/1.1 200 OK
+Date: Wed, 20 May 2026 14:25:28 GMT
+Content-Type: text/html; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+alt-svc: h3=":443"; ma=86400
+Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=qzy3joUGboNFC8wz0qpNPHoBKqgkfrIt7lA1f92apCw3nlAJaXJKfT4njv4CvlApcF5o%2F8wpTXe3fnqea6pEq3fIBN4mfiO1L7QyHsM%2FPm36aDF6SgN%2BXDFKa7fkrOcImw%3D%3D"}]}
+link: </_next/static/media/1b99372b3eaef0c8-s.p.0gx2haw2tmll8.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2", </_next/static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2>; rel=preload; as="font"; crossorigin=""; type="font/woff2"
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+x-powered-by: Next.js
+cf-cache-status: DYNAMIC
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Server: cloudflare
+CF-RAY: 9fec02c83b71a6b0-MAD
+

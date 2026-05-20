@@ -228,6 +228,10 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
       const createdAt = getStringValue(chapter, ["releaseDate", "release_date", "created_at", "createdAt", "readableAt", "updated_at", "updatedAt"]);
       const pages = filterMonlineChapterPageUrls(chapter.urlPages);
 
+      if (pages.length === 0) {
+        return [];
+      }
+
       return [{
         id,
         localPages: pages.map(normalizeLocalImageUrl),
@@ -247,7 +251,7 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
 
 async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
   const params = new URLSearchParams();
-  params.set("limit", "100");
+  params.set("limit", "2000");
 
   try {
     const response = await fetch(`${LOCAL_API_URL}/api/comics?${params.toString()}`, {
@@ -273,6 +277,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
       ? await fetch(`${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`, { cache: "no-store" })
       : null;
     const fullComic = detailResponse?.ok ? ((await detailResponse.json()) as LocalComic) : comic;
+    const comicSlug = getStringValue(fullComic, ["slug", "manga_slug", "comic_slug"]) || slug;
     const rawTitle = getStringValue(fullComic, ["title", "name", "comic_title", "original_title"]);
     const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle }, lang) || "Mangastoon";
     const coverImage = normalizeLocalImageUrl(
@@ -280,9 +285,10 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     );
 
     return {
+      slug: comicSlug,
       title,
       coverImage,
-      segments: uniqueNonEmpty([slug, title].map(toMonlineSegment)),
+      segments: uniqueNonEmpty([comicSlug, title].map(toMonlineSegment)),
       chapters: getLocalChapters(fullComic),
     };
   } catch {
@@ -662,6 +668,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle: localManga.title,
+        comicSlug: localManga.slug,
         coverImage: localManga.coverImage,
         chapters: stripChaptersForClient(localManga.chapters),
         currentChapter: stripChapterForClient(currentChapter),

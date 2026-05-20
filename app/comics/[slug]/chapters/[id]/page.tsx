@@ -1,5 +1,6 @@
 ﻿import Script from "next/script";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import ReaderClient from "./reader-client";
 import { SITE_NAME, absoluteUrl } from "../../../../utils/seo";
 import { extractComicIdFromSlugId } from "../../../../utils/slugify";
@@ -17,6 +18,7 @@ type ChapterFeedItem = {
 
 type ReaderApiResponse = {
   mangaTitle?: string;
+  comicSlug?: string;
   coverImage?: string;
   chapters?: ChapterFeedItem[];
   currentChapter?: ChapterFeedItem | null;
@@ -87,6 +89,13 @@ export default async function ReadPage({
   const mangaId = extractComicIdFromSlugId(slug);
   const chapterId = resolvedSearchParams.chapter ?? id;
   const data = await fetchReaderData({ id: mangaId, chapter: chapterId, lang });
+  const canonicalSlug = data?.comicSlug;
+
+  if (canonicalSlug && canonicalSlug !== slug) {
+    const query = lang !== "es" ? `?lang=${encodeURIComponent(lang)}` : "";
+    redirect(`/comics/${canonicalSlug}/chapters/${chapterId}${query}`);
+  }
+
   const mangaTitle = data?.mangaTitle || SITE_NAME;
   const currentChapter = data?.currentChapter ?? null;
   const currentLabel = getChapterLabel(currentChapter, "Capítulo no disponible");

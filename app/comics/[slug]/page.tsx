@@ -279,7 +279,7 @@ function getLocalComicScanChapters(source: LocalApiComic): ChapterFeedItem[] {
         const releaseDate = getLocalStringValue(chapter, ["releaseDate", "release_date", "publishedAt", "published_at", "createdAt", "created_at"]);
         const localPages = filterMonlineChapterPageUrls(chapter.urlPages).map(normalizeLocalImageUrl);
 
-        if (!chapterId || !chapterNumber) return [];
+        if (!chapterId || !chapterNumber || localPages.length === 0) return [];
 
         return [{
           id: chapterId,
