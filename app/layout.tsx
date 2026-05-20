@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
-import Script from "next/script";
 import AppFeedback from "./components/app-feedback";
 import Footer from "./components/Footer";
 import { LanguageProvider } from "./components/language-provider";
@@ -96,7 +95,8 @@ export const metadata: Metadata = {
     },
   },
   other: {
-    monetag: "4022d02a52caca255fe36d90c0a054af",
+    // Monetag desactivado temporalmente.
+    // monetag: "4022d02a52caca255fe36d90c0a054af",
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-title": SITE_NAME,
@@ -145,13 +145,7 @@ export default function RootLayout({
             suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
           />
-          <Script
-            id="monetag-popunder-core"
-            strategy="afterInteractive"
-            dangerouslySetInnerHTML={{
-              __html: `(function(s){s.dataset.zone='11014955',s.src='https://jnbhi.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))`,
-            }}
-          />
+          {/* Sistema de anuncios desactivado temporalmente. */}
           {children}
           <Footer />
           <AppFeedback />

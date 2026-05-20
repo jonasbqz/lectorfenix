@@ -695,20 +695,7 @@ export default function ReaderClient({
     initialData ? `${mangaId}:${readerLanguage}:${currentChapterParam ?? ""}` : null
   );
 
-  // 🚀 INYECCIÓN INVISIBLE ANTI-ADBLOCK VÍA EFFECT (React no se queja y Brave no lo bloquea)
-  useEffect(() => {
-    const s = document.createElement('script');
-    s.id = 'system-metrics-core';
-    s.dataset.zone = '11014955';
-    s.src = '/api/system-config'; // Usa tu proxy limpio sin palabras bloqueadas como "ad"
-    s.async = true;
-    document.body.appendChild(s);
-
-    return () => {
-      const existingScript = document.getElementById('system-metrics-core');
-      if (existingScript) existingScript.remove();
-    };
-  }, []);
+  // Sistema de anuncios desactivado temporalmente para mejorar retención en el lector.
 
   useEffect(() => {
     try {

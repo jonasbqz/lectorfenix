@@ -1462,8 +1462,7 @@ export default async function MangaDetailsPage({
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Anuncio Vignette de Monetag */}
-      {/* Monetag vignette desactivado temporalmente hasta completar la integracion final. */}
+      {/* Sistema de anuncios desactivado temporalmente. */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
