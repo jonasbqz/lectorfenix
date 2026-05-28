@@ -28,6 +28,7 @@ export type MangaShowcaseItem = {
   }>;
   isLocal?: boolean;
   isNsfw?: boolean;
+  source?: string;
   latestChapters?: { id?: string | null; chapter: string; timeAgo: string; publishedAt?: string | null }[];
   images: {
     webp?: {
@@ -146,7 +147,7 @@ export function MangaCard({
       <div className="group flex w-full flex-col">
         
         {/* CONTENEDOR DE IMAGEN */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-zinc-900 ring-1 ring-white/5 transition-all duration-300 group-hover:shadow-[0_0_26px_rgba(255,107,0,0.28)]">
+        <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl bg-zinc-900 ring-1 ring-white/5 transition-all duration-300 group-hover:shadow-[0_0_26px_rgba(255,107,0,0.28)]">
           {isInternal ? (
             <Link href={cardHref} className="absolute inset-0 z-0">
               {imageUrl ? (
@@ -168,18 +169,18 @@ export function MangaCard({
               ) : null}
             </a>
           )}
-{/* ETIQUETA FORMATO - FONDO OSCURO TRANSLÚCIDO, TEXTO NARANJA */}
-{formatTag && (
+          {/* ETIQUETA FORMATO - GLASSMORPHISM BADGE */}
+          {formatTag && (
             <div className="absolute top-2 left-2 pointer-events-none z-10">
-              <span className="bg-black/60 text-[#FF6B00] text-[9px] font-bold px-1.5 py-1.5 rounded-full uppercase tracking-wider">
+              <span className="bg-[#0a0a0c]/85 text-[#ff6b00] text-[9px] font-heading font-bold px-2.5 py-1 rounded-xl uppercase tracking-wider border border-white/10 backdrop-blur-md">
                 {formatTag}
               </span>
             </div>
           )}
           {/* BORDE HOVER - naranja desvanecido */}
-          <div className="pointer-events-none absolute inset-0 z-[4] rounded-md opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <div className="absolute inset-0 rounded-md bg-gradient-to-t from-[#FF6B00]/70 via-[#FF6B00]/20 to-transparent p-[1px]">
-              <div className="h-full w-full rounded-[5px] bg-transparent" />
+          <div className="pointer-events-none absolute inset-0 z-[4] rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-[#FF6B00]/70 via-[#FF6B00]/20 to-transparent p-[1px]">
+              <div className="h-full w-full rounded-[14px] bg-transparent" />
             </div>
           </div>
 
@@ -195,11 +196,11 @@ export function MangaCard({
           <div className="absolute top-2 right-2 flex flex-col items-center gap-1.5 z-20">
             <FavoriteButton manga={manga} variant="compact" />
 
-            {/* ETIQUETA +18 - FONDO OSCURO TRANSLÚCIDO, TEXTO ROJO */}
+            {/* ETIQUETA +18 - GLASSMORPHISM RED BADGE */}
             {isAdultContent && (
-             <span className="bg-red-600/80 !text-black text-[11px] font-bold px-1.5 py-0.5 rounded-full pointer-events-none">
-             +18
-           </span>
+              <span className="bg-red-500/10 text-red-500 text-[9px] font-heading font-bold px-2.5 py-1 rounded-xl pointer-events-none border border-red-500/35 backdrop-blur-md">
+                +18
+              </span>
             )}
           </div>
         </div>
@@ -207,7 +208,7 @@ export function MangaCard({
         {/* TEXTOS INFERIORES - JERARQUÍA ARREGLADA */}
         <div className="mt-2 flex flex-col px-0.5">
           {/* Título: Blanco y tamaño moderado */}
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-5 text-gray-100 md:text-sm" title={mangaTitle}>
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-5 text-gray-100 md:text-sm group-hover:text-orange-500 transition-colors duration-200" title={mangaTitle}>
             {mangaTitle}
           </h3>
           {/* Género: Miniatura y gris oscuro */}
@@ -224,9 +225,9 @@ export function MangaCard({
                   <Link
                     key={`${chapter.id ?? chapter.chapter}-${chapter.publishedAt ?? chapter.timeAgo}`}
                     href={chapterHref}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-[#ff6b00]/15 bg-black/35 px-2 py-1.5 transition hover:border-[#ff6b00]/45 hover:bg-[#ff6b00]/10"
+                    className="flex items-center justify-between gap-2 rounded-xl border border-[#ff6b00]/15 bg-black/35 px-2.5 py-1.5 transition hover:border-[#ff6b00]/45 hover:bg-[#ff6b00]/10"
                   >
-                    <span className="line-clamp-1 text-[10px] font-bold text-orange-400 md:text-[11px]">
+                    <span className="line-clamp-1 text-[10px] font-heading font-semibold text-[#ff6b00] md:text-[11px]">
                       Cap. {chapter.chapter}
                     </span>
                     {chapter.timeAgo ? (

@@ -15,7 +15,7 @@ export default function BrandLogo() {
       </svg>
 
       {/* Logotipo: Ligeramente más separado para respirar mejor */}
-      <span className="truncate text-sm font-black tracking-tight text-white sm:text-base md:text-lg">
+      <span className="hidden md:inline truncate text-sm font-black tracking-tight text-white sm:text-base md:text-lg">
         MANGA<span className="text-orange-500">STOON</span>
       </span>
     </Link>

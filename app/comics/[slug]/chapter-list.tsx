@@ -17,6 +17,7 @@ type ChapterRow = {
 type ChapterListProps = {
   mangaId: string;
   mangaTitle: string;
+  language: "es" | "en" | "pt";
   chapterRows: ChapterRow[];
   showMoreLabel: string;
   totalLabel: string;
@@ -39,9 +40,20 @@ function normalizeScanGroup(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function getScanGroupDisplayLabel(value: string) {
+  const normalized = normalizeScanGroup(value);
+
+  if (!normalized) return value;
+  if (normalized.includes("mangavf")) return "M";
+  if (normalized.includes("olympus")) return "O";
+
+  return value.trim().charAt(0).toUpperCase();
+}
+
 export default function ChapterList({
   mangaId,
   mangaTitle,
+  language,
   chapterRows,
   showMoreLabel,
   totalLabel,
@@ -97,7 +109,7 @@ export default function ChapterList({
               <option value={ALL_SCAN_GROUPS}>Todos los fansubs</option>
               {orderedScanGroups.map((scanGroup) => (
                 <option key={scanGroup.key} value={scanGroup.key}>
-                  {scanGroup.label}
+                  {getScanGroupDisplayLabel(scanGroup.label)}
                 </option>
               ))}
             </select>
@@ -138,7 +150,7 @@ export default function ChapterList({
         {visibleRows.map(({ chapter, chapterLabel, publishedLabel }) => (
           <Link
             key={chapter.id}
-            href={buildChapterPath(mangaTitle, mangaId, chapter.id)}
+            href={buildChapterPath(mangaTitle, mangaId, chapter.id, language)}
             className="animate-soft-enter flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-white/5 p-3 transition-colors hover:bg-white/10 sm:mb-2 sm:gap-3 sm:p-4"
           >
             <div className="flex min-w-0 items-center gap-3">

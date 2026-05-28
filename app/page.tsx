@@ -1,16 +1,21 @@
-﻿import { logger } from "./utils/logger";
+import { logger } from "./utils/logger";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import HorizontalCarousel from "./components/horizontal-carousel";
 import ReadingHistoryList from "./components/ReadingHistoryList";
-import type { MangaShowcaseItem } from "./components/MangaCard";
+import MangaCard, { type MangaShowcaseItem } from "./components/MangaCard";
 import SiteHeader, { type SupportedLanguage } from "./components/site-header";
 import { getLocalizedTitle, getLocalizedTitleAsync } from "./utils/get-localized-title";
+import { FolderHeart, Crown, User, Compass, ArrowRight } from "lucide-react";
+import PremiumPromoModal from "./components/PremiumPromoModal";
+import { getPublicMangaLists } from "./actions/lists";
 import {
   buildMangaDexMangaUrl,
   fetchMangaDexCollection,
   fetchMangaDexStatistics,
   fetchLocalTop,
   fetchLocalChapterPreviews,
+  fetchLeerCapituloLatest,
   getAvailableTranslatedLanguageVariants,
   extractLocalApiComics,
   mapLocalApiComicsToShowcaseItems,
@@ -572,21 +577,28 @@ export default async function HomePage() {
   const currentLanguage = normalizeLanguage(cookieStore.get("lang")?.value);
   const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
   const copy = UI_COPY[currentLanguage];
+  const { lists: publicLists } = await getPublicMangaLists().catch(() => ({ lists: [] }));
 
   const useLocalCatalog = currentLanguage === "es";
   let monlineWorldTop: MangaShowcaseItem[] = [];
   let monlineTopManhwas: MangaShowcaseItem[] = [];
   let monlineNewManhwas: MangaShowcaseItem[] = [];
   let monlineLatest: MangaShowcaseItem[] = [];
+  let leerCapituloLatest: MangaShowcaseItem[] = [];
 
   if (useLocalCatalog) {
-    [monlineWorldTop, monlineTopManhwas, monlineNewManhwas, monlineLatest] = await Promise.all([
+    [monlineWorldTop, monlineTopManhwas, monlineNewManhwas, monlineLatest, leerCapituloLatest] = await Promise.all([
       fetchLocalTop(10, currentLanguage),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=views", currentLanguage),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=created_at", currentLanguage),
       fetchMonlineComics("/api/comics?limit=15&order=updated_at&sort=desc", currentLanguage, true),
+      fetchLeerCapituloLatest(currentLanguage).catch(() => []),
     ]);
   }
+
+  // Combine all updates and sort them strictly by arrival/publish date
+  const combinedLatest = [...leerCapituloLatest, ...monlineLatest];
+  combinedLatest.sort((a, b) => getLatestChapterPreviewTimestamp(b) - getLatestChapterPreviewTimestamp(a));
 
   const localTopManhwaKeys = new Set(monlineTopManhwas.map((manga) => manga.mangaDexId ?? manga.url));
   const localTopManhwas = [
@@ -594,7 +606,7 @@ export default async function HomePage() {
     ...monlineNewManhwas.filter((manga) => !localTopManhwaKeys.has(manga.mangaDexId ?? manga.url)),
   ];
   const shouldUseFallback =
-    !useLocalCatalog || localTopManhwas.length < 10 || monlineLatest.length === 0;
+    !useLocalCatalog || localTopManhwas.length < 10 || combinedLatest.length === 0;
   const fallbackRows = shouldUseFallback ? await fetchMangaDexFallbackRows(isAdult, currentLanguage) : null;
 
   const worldTop = useLocalCatalog ? monlineWorldTop : fallbackRows?.topManhwas ?? [];
@@ -603,7 +615,7 @@ export default async function HomePage() {
     ...localTopManhwas,
     ...(fallbackRows?.topManhwas ?? []).filter((manga) => !topManhwaKeys.has(manga.mangaDexId ?? manga.url)),
   ].slice(0, 10);
-  const latest = monlineLatest.length > 0 ? monlineLatest : fallbackRows?.latest ?? [];
+  const latest = (combinedLatest.length > 0 ? combinedLatest : fallbackRows?.latest ?? []).slice(0, 60);
 
   if (worldTop.length === 0 && topManhwas.length === 0 && latest.length === 0) {
     return (
@@ -624,14 +636,179 @@ export default async function HomePage() {
       <SiteHeader language={currentLanguage} />
       <div className="mx-auto max-w-[1600px] space-y-12 px-4 py-8 md:px-8 lg:px-12">
         <HorizontalCarousel mangas={worldTop} title={copy.worldTop} subtitle={copy.worldTopSubtitle} featuredCards autoAdvance />
+        
+        {/* Banner de Telegram de la Comunidad */}
+        <div className="flex justify-center pt-4 pb-12 md:py-4">
+          <a
+            href="https://t.me/+dtPKjcBfiDUyOWQx"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/10 px-6 py-3.5 text-sm font-heading font-bold text-sky-400 hover:bg-sky-500 hover:text-white transition-all hover:scale-[1.02] active:scale-95 shadow-lg shadow-sky-500/5 cursor-pointer"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.57-3.26 3.6-1.52 4.35-1.78 4.84-1.79.11 0 .35.03.5.16.13.1.17.24.19.34.02.09.02.26 0 .38z"/>
+            </svg>
+            <span>{currentLanguage === "es" ? "Unirse a la comunidad de Telegram" : currentLanguage === "pt" ? "Juntar-se à comunidade do Telegram" : "Join Telegram Community"}</span>
+          </a>
+        </div>
+
         <ReadingHistoryList />
         <HorizontalCarousel
           mangas={topManhwas.slice(0, 10)}
           title={copy.topManhwas}
           subtitle={copy.topManhwasSubtitle}
         />
-        <HorizontalCarousel mangas={latest} title={copy.latestReleases} subtitle={copy.latestReleasesSubtitle} showChapters />
+        <div className="space-y-6">
+          <div className="flex items-center justify-between gap-4 w-full flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-1.5 rounded-full bg-[#ff6b00] md:h-8" />
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{copy.latestReleases}</h2>
+                <p className="text-xs text-gray-500">{copy.latestReleasesSubtitle}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6">
+            {latest.map((manga, index) => (
+              <MangaCard
+                key={manga.mangaDexId ? `${manga.mangaDexId}-${index}` : `${manga.mal_id}-${index}`}
+                manga={manga}
+                variant="grid"
+                showChapters
+                latestChapters={manga.latestChapters}
+              />
+            ))}
+          </div>
+          
+          {/* Gran botón de Explorar al final */}
+          <div className="mt-12 flex justify-center">
+            <Link
+              href="/explore"
+              className="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-600 via-amber-500 to-orange-500 px-10 py-4.5 text-sm font-heading font-extrabold uppercase tracking-wider text-black hover:brightness-110 active:scale-95 transition-all shadow-[0_4px_24px_rgba(249,115,22,0.35)] hover:shadow-[0_4px_35px_rgba(249,115,22,0.55)] cursor-pointer"
+            >
+              <Compass size={18} className="animate-spin-slow group-hover:rotate-45 transition-transform duration-500" />
+              <span>{currentLanguage === "es" ? "Explorar todo el catálogo" : currentLanguage === "pt" ? "Explorar todo o catálogo" : "Explore entire catalog"}</span>
+              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Sección de Listas de la Comunidad al final */}
+        {publicLists && publicLists.length > 0 && (
+          <div className="space-y-6 pt-10 border-t border-white/5">
+            <div className="flex items-center justify-between gap-4 w-full flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-1.5 rounded-full bg-[#ff6b00] md:h-8" />
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">
+                    {currentLanguage === "es" ? "Listas de la Comunidad" : currentLanguage === "pt" ? "Listas da Comunidade" : "Community Lists"}
+                  </h2>
+                  <p className="text-xs text-gray-500">
+                    {currentLanguage === "es" ? "Colecciones de cómics creadas y compartidas por nuestros miembros" : currentLanguage === "pt" ? "Coleções de quadrinhos criadas por nossos membros" : "Comic collections created and shared by our members"}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/lists"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-xs font-heading font-bold text-orange-500 hover:bg-orange-500 hover:text-black transition-all active:scale-95 shadow-md"
+              >
+                <FolderHeart size={14} className="text-orange-400" />
+                <span>{currentLanguage === "es" ? "Ver todas las listas" : currentLanguage === "pt" ? "Ver todas as listas" : "View all lists"}</span>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {publicLists.slice(0, 3).map((list) => {
+                const username = list.profiles?.username || (currentLanguage === "es" ? "Lector Anónimo" : currentLanguage === "pt" ? "Leitor Anônimo" : "Anonymous Reader");
+                const items = list.items || [];
+                const itemsCount = items.length;
+
+                return (
+                  <div
+                    key={list.id}
+                    className="flex flex-col rounded-3xl border bg-[#1c1d22]/40 p-6 transition-all hover:bg-neutral-900/40 hover:scale-[1.01] hover:shadow-[0_12px_30px_rgba(0,0,0,0.4)]"
+                    style={{ borderColor: "rgba(255, 255, 255, 0.08)" }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                        <User size={13} className="text-orange-500 shrink-0" />
+                        <span className={`font-semibold truncate ${list.profiles?.is_premium ? "text-amber-400 font-bold drop-shadow-[0_0_6px_rgba(245,158,11,0.15)]" : "text-gray-400"}`}>
+                          @{username}
+                        </span>
+                        {list.profiles?.is_premium && (
+                          <span className="inline-flex h-4.5 w-4.5 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 via-yellow-300 to-amber-600 border border-yellow-300/40 shadow-[0_0_8px_rgba(245,158,11,0.2)] shrink-0" title="Premium">
+                            <Crown size={9} className="text-black fill-black stroke-[1.5]" />
+                          </span>
+                        )}
+                      </div>
+
+                      <h3 className="text-lg font-bold font-heading text-neutral-100 line-clamp-1">
+                        {list.name}
+                      </h3>
+                      {list.description ? (
+                        <p className="mt-2 text-xs text-neutral-400 leading-normal line-clamp-2">
+                          {list.description}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs italic text-neutral-600 leading-normal">
+                          {currentLanguage === "es" ? "Sin descripción disponible." : currentLanguage === "pt" ? "Sem descrição disponível." : "No description available."}
+                        </p>
+                      )}
+
+                      {/* Cover Stack preview */}
+                      <div className="mt-5 mb-3 flex items-center gap-1.5">
+                        {itemsCount === 0 ? (
+                          <div className="flex h-16 w-full items-center justify-center rounded-xl border border-dashed border-white/5 bg-black/20 text-xs text-neutral-600 font-semibold gap-1.5">
+                            <span>Lista vacía</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center -space-x-4 overflow-hidden">
+                            {items.slice(0, 4).map((item: any, idx: number) => (
+                              <div
+                                key={item.manga_id + idx}
+                                className="relative h-16 w-11 shrink-0 overflow-hidden rounded-lg border-2 border-[#141519] bg-neutral-800 shadow-md transition-transform hover:translate-y-[-4px]"
+                                style={{ zIndex: 10 - idx }}
+                              >
+                                {item.cover_image ? (
+                                  <img
+                                    src={item.cover_image}
+                                    alt="Cover preview"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="h-full w-full bg-neutral-700" />
+                                )}
+                              </div>
+                            ))}
+                            {itemsCount > 4 && (
+                              <div className="flex h-16 w-11 items-center justify-center rounded-lg border-2 border-[#141519] bg-neutral-900 text-[10px] font-bold text-orange-500 shadow-md">
+                                +{itemsCount - 4}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 border-t border-white/5 pt-4 flex items-center justify-between text-xs text-gray-500">
+                      <span className="font-semibold text-gray-400">
+                        {itemsCount === 1 ? (currentLanguage === "es" ? "1 cómic" : currentLanguage === "pt" ? "1 cómic" : "1 comic") : `${itemsCount} ${currentLanguage === "es" ? "cómics" : currentLanguage === "pt" ? "cómics" : "comics"}`}
+                      </span>
+                      <Link
+                        href={`/lists/${list.id}`}
+                        className="inline-flex items-center gap-1 font-bold text-orange-500 hover:text-orange-400 group animate-pulse-subtle"
+                      >
+                        <span>{currentLanguage === "es" ? "Explorar Lista" : currentLanguage === "pt" ? "Explorar Lista" : "Explore List"}</span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
+      <PremiumPromoModal />
     </main>
   );
 }

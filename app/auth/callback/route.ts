@@ -1,0 +1,80 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+
+export async function GET(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get("code");
+  const next = searchParams.get("next") ?? "/profile";
+
+  if (!code) {
+    return NextResponse.redirect(`${origin}/?error=missing_code`);
+  }
+
+  const response = NextResponse.redirect(`${origin}${next}`);
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error || !data.session) {
+    console.error("[auth/callback] error:", error?.message);
+    return NextResponse.redirect(`${origin}/?error=auth_failed`);
+  }
+
+  const user = data.session.user;
+  const provider = user.app_metadata?.provider;
+
+  // ── Poblar perfil desde Discord ──────────────────────────────────────────
+  // Si el proveedor es Discord y el perfil aún no tiene username, lo tomamos
+  // de los metadatos que Discord envía automáticamente a Supabase.
+  if (provider === "discord") {
+    const meta = user.user_metadata ?? {};
+
+    // Discord envía: full_name, custom_claims.global_name, user_name, name
+    const discordUsername =
+      meta.custom_claims?.global_name ??
+      meta.full_name ??
+      meta.name ??
+      meta.user_name ??
+      null;
+
+    const avatarUrl = meta.avatar_url ?? meta.picture ?? null;
+
+    if (discordUsername) {
+      // Verificar si el perfil ya tiene username antes de sobreescribir
+      const { data: existing } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+
+      if (!existing?.username) {
+        await supabase.from("profiles").upsert({
+          id: user.id,
+          username: discordUsername,
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString(),
+          // username_updated_at vacío en primer ingreso: no bloquear cambio inicial
+        });
+      }
+    }
+  }
+
+  return response;
+}

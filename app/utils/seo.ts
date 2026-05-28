@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://mangastoon.com").replace(/\/$/, "");
 
@@ -14,15 +15,8 @@ export const SITEMAP_PAGE_SIZE = 100;
 // MangaDex rechaza offsets >= 10000; con 100 URLs por sitemap, el limite seguro es 0..99.
 export const MAX_MANGADEX_SITEMAP_PAGES = 100;
 export const MAX_MONLINE_SITEMAP_PAGES = 100;
-const PUBLIC_MONLINE_API_URL = process.env.NEXT_PUBLIC_API_URL?.startsWith("http")
-  ? process.env.NEXT_PUBLIC_API_URL
-  : undefined;
 
-export const MONLINE_API_URL = (
-  process.env.MONLINE_API_URL ??
-  PUBLIC_MONLINE_API_URL ??
-  "http://46.224.213.127:8085"
-).replace(/\/$/, "");
+export const MONLINE_API_URL = MONLINE_CONFIG_API_URL;
 
 export const MANGADEX_SITEMAP_LANGUAGES = ["es", "en", "pt", "pt-br"] as const;
 export const SITEMAP_UPSTREAM_TIMEOUT_MS = 30000;
@@ -157,4 +151,10 @@ export async function getMonlineSitemapTotal() {
     `${MONLINE_API_URL}/api/comics?${searchParams.toString()}`
   );
   return Math.max(0, getMonlineSitemapTotalFromPayload(payload, extractMonlineSitemapComics(payload).length));
+}
+
+export function safeJsonLd(data: unknown): { __html: string } {
+  return {
+    __html: JSON.stringify(data).replace(/</g, "\\u003c"),
+  };
 }

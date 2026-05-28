@@ -34,6 +34,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "cdn.mangavf.fr",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "cdn.statically.io",
         pathname: "/**",
       },

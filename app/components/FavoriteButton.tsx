@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Heart } from "lucide-react";
 import { useEffect, useMemo, useState, type MouseEvent } from "react";
@@ -71,11 +71,13 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
       <button
         type="button"
         onClick={toggleFavorite}
-        className={`flex items-center gap-3 text-sm transition-colors ${
-          isFav ? "text-[#ff6b00]" : "text-gray-400 hover:text-[#ff6b00]"
+        className={`flex w-full items-center justify-center gap-2.5 rounded-xl border py-3 text-sm font-heading font-semibold transition-all duration-300 ${
+          isFav
+            ? "border-[#ff6b00]/30 bg-[#ff6b00]/10 text-[#ff6b00] shadow-[0_0_15px_rgba(255,107,0,0.08)] hover:bg-[#ff6b00]/15"
+            : "border-white/10 bg-white/5 text-gray-300 hover:border-white/20 hover:bg-white/10 hover:text-white"
         }`}
       >
-        <Heart className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+        <Heart className={`h-4.5 w-4.5 ${isFav ? "fill-current" : ""}`} />
         <span>{props.label ?? "Agregar a favoritos"}</span>
       </button>
     );
@@ -87,9 +89,13 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
         type="button"
         aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
         onClick={toggleFavorite}
-        className="rounded-full bg-black/60 p-1.5 text-white backdrop-blur-md transition-colors hover:bg-[#FF6B00]"
+        className={`rounded-full p-1.5 backdrop-blur-md transition-all border ${
+          isFav 
+            ? "bg-[#ff6b00]/15 border-[#ff6b00]/40 text-[#ff6b00]" 
+            : "bg-black/60 border-white/10 text-white hover:bg-[#ff6b00]/15 hover:border-[#ff6b00]/30 hover:text-[#ff6b00]"
+        }`}
       >
-        <Heart className={`h-4 w-4 ${isFav ? "fill-white" : ""}`} />
+        <Heart className={`h-4 w-4 ${isFav ? "fill-orange-500" : ""}`} />
       </button>
     );
   }
@@ -99,7 +105,11 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
       type="button"
       aria-label={isFav ? "Quitar de favoritos" : "Agregar a favoritos"}
       onClick={toggleFavorite}
-      className="absolute right-2 top-2 z-30 rounded-full bg-black/50 p-2 text-white backdrop-blur-md transition-all hover:bg-black/80 hover:text-[#ff6b00]"
+      className={`absolute right-2 top-2 z-30 rounded-full p-2 backdrop-blur-md transition-all border ${
+        isFav 
+          ? "bg-[#ff6b00]/15 border-[#ff6b00]/40 text-[#ff6b00]" 
+          : "bg-black/50 border-white/10 text-white hover:bg-[#ff6b00]/15 hover:border-[#ff6b00]/30 hover:text-[#ff6b00]"
+      }`}
     >
       <Heart
         size={20}

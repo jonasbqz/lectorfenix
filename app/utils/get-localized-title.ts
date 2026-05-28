@@ -1,4 +1,4 @@
-import { applyFallbackDictionary, forceTranslate } from "./translation";
+import { applyFallbackDictionary, forceTranslate, sanitizeText } from "./translation";
 
 type LocalizedTextMap = Record<string, string>;
 
@@ -41,7 +41,7 @@ function looksLikeRoughTransliteration(title: string) {
   const apostropheCount = title.match(/[?']/g)?.length ?? 0;
   const longVowelCount = title.match(/\b[a-z]{10,}\b/gi)?.length ?? 0;
   const longNoCommonVowelCount =
-    title.match(/\b[A-Za-z]{11,}\b/g)?.filter((word) => !/[aeiou??????]/i.test(word)).length ?? 0;
+    title.match(/\b[A-Za-z]{11,}\b/g)?.filter((word) => !/[aeiou]/i.test(word)).length ?? 0;
   const cjkCharacterCount = title.match(/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/g)?.length ?? 0;
   const connectorRatio = latinWords.length > 0 ? shortConnectorCount / latinWords.length : 0;
 
@@ -59,12 +59,19 @@ function isUsefulTitle(title: string | undefined) {
 }
 
 export function cleanTitle(title: string) {
-  const normalized = title.replace(/\s+/g, " ").trim();
+  const normalized = sanitizeText(title);
   if (!normalized) return normalized;
 
   // Caso editorial: en manhua/manhwa "Green Tea" suele ser arquetipo de persona interesada,
-  // no una traducci?n literal de "t? verde".
+  // no una traducción de "té verde".
   const editorial = normalized.replace(/\bGreen Tea\b/gi, "Interesada");
+
+  const hasLowercase = /\p{Ll}/u.test(editorial);
+  const hasUppercase = /\p{Lu}/u.test(editorial);
+
+  if (hasLowercase && hasUppercase) {
+    return editorial;
+  }
 
   return toTitleCase(editorial);
 }

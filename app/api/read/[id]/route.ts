@@ -3,6 +3,16 @@ import { getCached, getOrSetCached, setCached, stableCacheKey } from "../../../u
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mangadex-config";
 import { getLocalizedTitleAsync } from "../../../utils/get-localized-title";
+import { MONLINE_API_URL } from "../../../utils/monline-config";
+import {
+  resolveBestSource,
+  fetchMangaVfPages,
+  mapMangaVfChapters,
+  getMangaVfChapterId,
+  fetchMangaVfDetailsBySlug,
+  fetchMangaDexChaptersOnly,
+  fetchLeerCapituloChaptersOnly
+} from "../../../utils/mangadex";
 import {
   buildMonlineChapterSegments,
   filterMonlineChapterPageUrls,
@@ -10,16 +20,22 @@ import {
   toMonlineSegment,
   uniqueNonEmpty,
 } from "../../../utils/monline";
+import { slugify } from "../../../utils/slugify";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const CONSUMET_API_URL = "https://consumet-api-one.vercel.app/manga/manganato";
-const LOCAL_API_URL = (
-  process.env.MONLINE_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://46.224.213.127:8085"
-).replace(/\/$/, "");
+const LOCAL_API_URL = MONLINE_API_URL;
+const MANGAVF_API_URL = process.env.MANGAVF_API_URL || "http://localhost:3001";
+
+function normalizePageUrlToProxy(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("/api/proxy-image")) return url;
+  if (url.startsWith("/")) return url;
+  if (url.includes("mangadex.org")) return url;
+  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+}
 
 type SupportedLanguage = "es" | "en" | "pt";
 
@@ -91,6 +107,26 @@ type LocalPagesResponse = {
     url_pages?: unknown;
   } | null;
 };
+type MangaVfChapter = {
+  number?: string;
+  title?: string;
+  url?: string;
+};
+type MangaVfDetails = {
+  manga_title?: string;
+  title?: string;
+  cover?: string;
+  synopsis?: string;
+  status?: string;
+  genres?: string[];
+  chapters?: MangaVfChapter[];
+};
+type MangaVfExtractResponse = {
+  pages?: string[];
+};
+type MangaVfSearchResponse = {
+  results?: Array<{ title?: string; slug?: string; url?: string; cover?: string }>;
+};
 
 const RETRY_DELAY_MS = 1200;
 const FETCH_TIMEOUT_MS = 8000;
@@ -140,6 +176,12 @@ function getLanguageVariants(lang: SupportedLanguage) {
   if (lang === "es") return ["es-la", "es"];
   if (lang === "pt") return ["pt-br", "pt"];
   return ["en"];
+}
+
+function appendReadableContentRatings(search: URLSearchParams) {
+  ["safe", "suggestive", "erotica", "pornographic"].forEach((rating) => {
+    search.append("contentRating[]", rating);
+  });
 }
 
 function normalizeLanguage(value: string | null): SupportedLanguage {
@@ -249,24 +291,43 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
   });
 }
 
-async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
-  const params = new URLSearchParams();
-  params.set("limit", "2000");
+// LeerCapitulo/MangaVf helpers are imported from mangadex utils
 
+async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
   try {
-    const response = await fetch(`${LOCAL_API_URL}/api/comics?${params.toString()}`, {
+    const cleanTitle = slug.replace(/-/g, " ");
+    const searchParams = new URLSearchParams();
+    searchParams.set("title", cleanTitle);
+    searchParams.set("limit", "15");
+
+    let response = await fetch(`${LOCAL_API_URL}/api/comics?${searchParams.toString()}`, {
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      return null;
+    let comics: any[] = [];
+    if (response.ok) {
+      const payload = await response.json();
+      comics = extractLocalComics(payload);
     }
 
-    const payload = (await response.json()) as LocalComicsResponse;
-    const comic = extractLocalComics(payload).find((item) => {
+    let comic = comics.find((item) => {
       const comicSlug = getStringValue(item, ["slug", "manga_slug", "comic_slug"]);
       return comicSlug === slug || slug.endsWith(`-${comicSlug}`);
     });
+
+    if (!comic) {
+      const fallbackResponse = await fetch(`${LOCAL_API_URL}/api/comics?limit=300`, {
+        cache: "no-store",
+      });
+      if (fallbackResponse.ok) {
+        const payload = await fallbackResponse.json();
+        const allComics = extractLocalComics(payload);
+        comic = allComics.find((item) => {
+          const comicSlug = getStringValue(item, ["slug", "manga_slug", "comic_slug"]);
+          return comicSlug === slug || slug.endsWith(`-${comicSlug}`);
+        });
+      }
+    }
 
     if (!comic) {
       return null;
@@ -387,6 +448,7 @@ function buildFeedUrl(mangaId: string, lang: SupportedLanguage, limit: number, o
   search.set("order[chapter]", "asc");
   search.set("limit", String(limit));
   search.set("offset", String(offset));
+  appendReadableContentRatings(search);
 
   return `https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`;
 }
@@ -420,22 +482,39 @@ async function resolveMangaIdentity(mangaId: string, lang: SupportedLanguage) {
 async function resolveAllChapters(mangaId: string, lang: SupportedLanguage) {
   const limit = 100;
   let offset = 0;
-  let total = 0;
-  const chapters: ChapterFeedItem[] = [];
 
-  do {
-    const response = await fetchMangaDex(buildFeedUrl(mangaId, lang, limit, offset));
+  // Realizar el primer request para obtener la primera tanda de capítulos y el total
+  const firstResponse = await fetchMangaDex(buildFeedUrl(mangaId, lang, limit, offset));
 
-    if (!response.ok) {
-      throw new Error(response.status === 429 ? "RATE_LIMIT" : "CHAPTER_FEED_FAILED");
+  if (!firstResponse.ok) {
+    throw new Error(firstResponse.status === 429 ? "RATE_LIMIT" : "CHAPTER_FEED_FAILED");
+  }
+
+  const firstPayload = (await firstResponse.json()) as ChapterFeedResponse;
+  const chapters: ChapterFeedItem[] = [...(firstPayload.data ?? [])];
+  const total = firstPayload.total ?? chapters.length;
+  const limitReturned = firstPayload.limit ?? limit;
+
+  // Si hay más capítulos que el límite retornado, descargar el resto en paralelo
+  if (total > limitReturned) {
+    const promises: Promise<Response>[] = [];
+    offset = limitReturned;
+
+    while (offset < total) {
+      promises.push(fetchMangaDex(buildFeedUrl(mangaId, lang, limit, offset)));
+      offset += limitReturned;
     }
 
-    const payload = (await response.json()) as ChapterFeedResponse;
-    const batch = payload.data ?? [];
-    total = payload.total ?? batch.length;
-    chapters.push(...batch);
-    offset += payload.limit ?? limit;
-  } while (offset < total);
+    const responses = await Promise.all(promises);
+
+    for (const response of responses) {
+      if (!response.ok) {
+        throw new Error(response.status === 429 ? "RATE_LIMIT" : "CHAPTER_FEED_FAILED");
+      }
+      const payload = (await response.json()) as ChapterFeedResponse;
+      chapters.push(...(payload.data ?? []));
+    }
+  }
 
   return chapters;
 }
@@ -574,37 +653,33 @@ async function findReadableChapterWithPages(
   preferredChapter: ChapterFeedItem | null,
   mangaSegments: string[]
 ) {
-  const preferredIndex = preferredChapter
-    ? chapters.findIndex((chapter) => chapter.id === preferredChapter.id)
-    : -1;
-  const orderedChapters = [
-    ...(preferredChapter ? [preferredChapter] : []),
-    ...chapters.slice(Math.max(0, preferredIndex + 1)),
-    ...chapters.slice(0, Math.max(0, preferredIndex)),
-  ];
-  const seen = new Set<string>();
+  const targetChapter = preferredChapter ?? chapters[0] ?? null;
+  if (!targetChapter?.id) {
+    return { chapter: null, pages: [] };
+  }
 
-  for (const chapter of orderedChapters.slice(0, 8)) {
-    if (!chapter?.id || seen.has(chapter.id)) {
-      continue;
+  try {
+    const pages = await fetchChapterPages(targetChapter.id, { mangaSegments, chapter: targetChapter });
+    if (pages.length > 0) {
+      return { chapter: targetChapter, pages };
     }
-
-    seen.add(chapter.id);
-
-    try {
-      const pages = await fetchChapterPages(chapter.id, { mangaSegments, chapter });
-
-      if (pages.length > 0) {
-        return { chapter, pages };
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message === "RATE_LIMIT") {
-        throw error;
-      }
+  } catch (error) {
+    if (error instanceof Error && error.message === "RATE_LIMIT") {
+      throw error;
     }
   }
 
-  return { chapter: preferredChapter ?? chapters[0] ?? null, pages: [] };
+  // Fallback rápido: si el capítulo solicitado no tiene páginas, probamos con el primero de la lista
+  if (preferredChapter && chapters[0] && chapters[0].id !== preferredChapter.id) {
+    try {
+      const pages = await fetchChapterPages(chapters[0].id, { mangaSegments, chapter: chapters[0] });
+      if (pages.length > 0) {
+        return { chapter: chapters[0], pages };
+      }
+    } catch {}
+  }
+
+  return { chapter: targetChapter, pages: [] };
 }
 
 async function resolveChapterDetails(chapterId: string) {
@@ -629,6 +704,7 @@ async function resolveChapterByNumber(
   });
   search.set("chapter", chapterNumber);
   search.set("limit", "1");
+  appendReadableContentRatings(search);
 
   const response = await fetchMangaDex(`https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`);
 
@@ -642,6 +718,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const lang = normalizeLanguage(request.nextUrl.searchParams.get("lang"));
   const chapterId = request.nextUrl.searchParams.get("chapter");
+  const limit = Math.max(0, Number(request.nextUrl.searchParams.get('limit')) || 20);
+  const offset = Math.max(0, Number(request.nextUrl.searchParams.get('offset')) || 0);
+  const excludeChapters = request.nextUrl.searchParams.get("excludeChapters") === "true";
   const responseCacheKey = readResponseCacheKey(id, lang, chapterId);
   const cachedPayload = await getCached<ReaderApiPayload>(responseCacheKey);
 
@@ -655,24 +734,85 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const localManga = await fetchLocalMangaIdentity(id, lang);
 
     if (localManga) {
+      let mergedChapters = [...localManga.chapters];
+      let lcDetails: any = null;
+      let paginatedChapters = mergedChapters;
+
+      // Try to fetch and merge external chapters for Spanish language
+      if (lang === "es" && !excludeChapters) {
+        try {
+          const resolution = await resolveBestSource(id);
+          const [mdChapters, lcChapters] = await Promise.all([
+            resolution.mangadexId ? fetchMangaDexChaptersOnly(resolution.mangadexId, lang) : Promise.resolve([]),
+            resolution.leercapituloSlug ? fetchLeerCapituloChaptersOnly(resolution.leercapituloSlug) : Promise.resolve([])
+          ]);
+          
+          if (resolution.leercapituloSlug) {
+            lcDetails = resolution.leercapituloDetails || await fetchMangaVfDetailsBySlug(resolution.leercapituloSlug);
+          }
+
+          const localNumbers = new Set(
+            mergedChapters
+              .map((ch) => ch.attributes?.chapter?.trim())
+              .filter(Boolean)
+          );
+
+          // Add unique chapters from LeerCapitulo / MangaDex
+          const externalChapters = [...lcChapters, ...mdChapters];
+          const missingChapters = externalChapters.filter((ch) => {
+            const num = ch.attributes?.chapter?.trim();
+            return num && !localNumbers.has(num);
+          });
+
+          mergedChapters.push(...missingChapters);
+          mergedChapters.sort((a, b) => {
+            const aNum = parseFloat(a.attributes?.chapter || "0");
+            const bNum = parseFloat(b.attributes?.chapter || "0");
+            return bNum - aNum;
+          });
+          paginatedChapters = mergedChapters.slice(offset, offset + limit);
+        } catch (err) {
+          logger.error("Error merging external chapters for local manga", err);
+          paginatedChapters = mergedChapters.slice(offset, offset + limit);
+        }
+      } else {
+        paginatedChapters = excludeChapters ? [] : mergedChapters.slice(offset, offset + limit);
+      }
+
       const currentChapter =
-        localManga.chapters.find((chapter) => chapter.id === chapterId) ??
-        localManga.chapters[0] ??
+        mergedChapters.find((chapter) => chapter.id === chapterId) ??
+        mergedChapters[0] ??
         null;
-      const pages =
-        currentChapter?.localPages && currentChapter.localPages.length > 0
-          ? currentChapter.localPages
-          : currentChapter?.id
-            ? await fetchLocalChapterPages(currentChapter.id)
-            : [];
+
+      let pages: string[] = [];
+      if (currentChapter) {
+        const isLocalChapter = localManga.chapters.some((ch) => ch.id === currentChapter.id);
+        if (isLocalChapter) {
+          pages =
+            currentChapter.localPages && currentChapter.localPages.length > 0
+              ? currentChapter.localPages
+              : await fetchLocalChapterPages(currentChapter.id);
+        } else {
+          // External chapter pages resolution
+          const isMangaDexChapterId = isMangaDexUuid(currentChapter.id);
+          if (isMangaDexChapterId) {
+            pages = await fetchChapterPages(currentChapter.id, {
+              mangaSegments: [localManga.slug],
+              chapter: currentChapter,
+            });
+          } else if (lcDetails) {
+            pages = await fetchMangaVfPages(lcDetails, currentChapter.id);
+          }
+        }
+      }
 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle: localManga.title,
         comicSlug: localManga.slug,
         coverImage: localManga.coverImage,
-        chapters: stripChaptersForClient(localManga.chapters),
+        chapters: excludeChapters ? [] : stripChaptersForClient(paginatedChapters),
         currentChapter: stripChapterForClient(currentChapter),
-        pages,
+        pages: pages.map(normalizePageUrlToProxy),
         englishFallbackChapter: null,
         fallbackReason: null,
         isExternalSource: false,
@@ -680,7 +820,73 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       });
     }
 
-    if (!isMangaDexUuid(id)) {
+    const resolution = await resolveBestSource(id);
+
+    if (resolution.source === "leercapitulo" && resolution.leercapituloSlug) {
+      const details = resolution.leercapituloDetails || await fetchMangaVfDetailsBySlug(resolution.leercapituloSlug);
+
+      if (details) {
+        const chapters = mapMangaVfChapters(details);
+        
+        let requestedChapterNumber: string | null = null;
+        if (chapterId && isMangaDexUuid(chapterId)) {
+          try {
+            const mdChapter = await fetchChapterDetails(chapterId);
+            requestedChapterNumber = mdChapter?.attributes?.chapter ?? null;
+          } catch {}
+        }
+        
+        const currentChapter =
+          chapters.find((chapter) => chapter.id === chapterId) ??
+          (requestedChapterNumber ? chapters.find((chapter) => chapter.attributes?.chapter === requestedChapterNumber) : null) ??
+          chapters[0] ??
+          null;
+        const pages = currentChapter ? await fetchMangaVfPages(details, currentChapter.id) : [];
+
+        return cachedReadResponse(responseCacheKey, {
+          mangaTitle: details.manga_title || details.title || "MangaStoon",
+          comicSlug: id,
+          coverImage: details.cover || "",
+          chapters: excludeChapters ? [] : stripChaptersForClient(chapters),
+          currentChapter: stripChapterForClient(currentChapter),
+          pages: pages.map(normalizePageUrlToProxy),
+          englishFallbackChapter: null,
+          fallbackReason: null,
+          isExternalSource: false,
+          isLocal: true,
+        });
+      }
+
+      if (!isMangaDexUuid(id)) {
+        const pages = chapterId ? await fetchLocalChapterPages(chapterId) : [];
+
+        return cachedReadResponse(
+          responseCacheKey,
+          {
+            mangaTitle: "Mangastoon",
+            coverImage: "",
+            chapters: chapterId
+              ? [{ id: chapterId, attributes: { chapter: null, title: null, translatedLanguage: "es" } }]
+              : [],
+            currentChapter: chapterId
+              ? { id: chapterId, attributes: { chapter: null, title: null, translatedLanguage: "es" } }
+              : null,
+            pages: pages.map(normalizePageUrlToProxy),
+            englishFallbackChapter: null,
+            fallbackReason: null,
+            isExternalSource: false,
+            isLocal: true,
+            error: pages.length > 0 ? undefined : "No pudimos cargar las páginas locales.",
+            code: pages.length > 0 ? undefined : "LOCAL_PAGES_UNAVAILABLE",
+          },
+          { status: pages.length > 0 ? 200 : 404, cache: pages.length > 0 }
+        );
+      }
+    }
+
+    const targetMangaDexId = resolution.mangadexId || id;
+    
+    if (!isMangaDexUuid(targetMangaDexId)) {
       const pages = chapterId ? await fetchLocalChapterPages(chapterId) : [];
 
       return cachedReadResponse(
@@ -694,7 +900,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           currentChapter: chapterId
             ? { id: chapterId, attributes: { chapter: null, title: null, translatedLanguage: "es" } }
             : null,
-          pages,
+          pages: pages.map(normalizePageUrlToProxy),
           englishFallbackChapter: null,
           fallbackReason: null,
           isExternalSource: false,
@@ -706,20 +912,52 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
 
+    // Shortcut si se solicita excluir capítulos y tenemos el ID de capítulo actual
+    if (excludeChapters && chapterId && isMangaDexUuid(chapterId)) {
+      const [mangaIdentity, requestedChapter] = await Promise.all([
+        fetchMangaIdentity(targetMangaDexId, lang),
+        fetchChapterDetails(chapterId),
+      ]);
+
+      if (requestedChapter) {
+        const pages = await fetchChapterPages(chapterId, {
+          mangaSegments: mangaIdentity.segments,
+          chapter: requestedChapter,
+        });
+
+        return cachedReadResponse(responseCacheKey, {
+          mangaTitle: mangaIdentity.title,
+          coverImage: mangaIdentity.coverImage,
+          chapters: [],
+          currentChapter: stripChapterForClient(requestedChapter),
+          pages: pages.map(normalizePageUrlToProxy),
+          englishFallbackChapter: null,
+          fallbackReason: null,
+          isExternalSource: false,
+        });
+      }
+    }
+
+    let requestedChapterNumber: string | null = null;
+    if (chapterId && !isMangaDexUuid(chapterId)) {
+      const match = chapterId.match(/^(\d+(?:\.\d+)?)/);
+      requestedChapterNumber = match ? match[1] : null;
+    }
+
     const [mangaIdentity, chapters, requestedChapter] = await Promise.all([
-      fetchMangaIdentity(id, lang),
-      fetchAllChapters(id, lang),
-      chapterId ? fetchChapterDetails(chapterId) : Promise.resolve(null),
+      fetchMangaIdentity(targetMangaDexId, lang),
+      fetchAllChapters(targetMangaDexId, lang),
+      chapterId && isMangaDexUuid(chapterId) ? fetchChapterDetails(chapterId) : Promise.resolve(null),
     ]);
     const mangaTitle = mangaIdentity.title;
     const coverImage = mangaIdentity.coverImage;
     const mangaSegments = mangaIdentity.segments;
 
     let finalChapters = chapters;
+    let servedLanguage: SupportedLanguage = lang;
     let isExternalSource = false;
 
-    // Si MangaDex no devolvi? cap?tulos, intentamos con Consumet
-    if (finalChapters.length === 0) {
+    if (finalChapters.length === 0 && lang === "en") {
       const backupChapters = await fetchConsumetChapters(mangaTitle);
       if (backupChapters && backupChapters.length > 0) {
         finalChapters = backupChapters;
@@ -729,22 +967,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     let currentChapter = finalChapters.find((chapter) => chapter.id === chapterId) ?? null;
 
-    if (!currentChapter && requestedChapter?.attributes?.chapter) {
-      currentChapter = await findChapterByNumber(id, lang, requestedChapter.attributes.chapter);
+    if (!currentChapter && requestedChapterNumber) {
+      currentChapter = await findChapterByNumber(targetMangaDexId, servedLanguage, requestedChapterNumber);
+    } else if (!currentChapter && requestedChapter?.attributes?.chapter) {
+      currentChapter = await findChapterByNumber(targetMangaDexId, servedLanguage, requestedChapter.attributes.chapter);
     }
 
     let englishFallbackChapter: ChapterFeedItem | null = null;
     let fallbackReason: "english" | "unavailable" | null = null;
-
-    if (!currentChapter && chapterId && requestedChapter) {
-      englishFallbackChapter = await findChapterByNumber(id, "en", requestedChapter.attributes?.chapter);
-      fallbackReason = englishFallbackChapter ? "english" : "unavailable";
+    if (!currentChapter && chapterId && (requestedChapter || requestedChapterNumber)) {
+      englishFallbackChapter = null;
+      fallbackReason = "unavailable";
 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle,
         coverImage,
-        chapters: stripChaptersForClient(finalChapters),
-        currentChapter: stripChapterForClient(requestedChapter),
+        chapters: excludeChapters ? [] : stripChaptersForClient(finalChapters),
+        currentChapter: stripChapterForClient(requestedChapter ?? { id: chapterId, attributes: { chapter: requestedChapterNumber, translatedLanguage: "es" } } as any),
         pages: [],
         englishFallbackChapter,
         fallbackReason,
@@ -758,32 +997,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     currentChapter = readableChapter.chapter;
     let pages = readableChapter.pages;
 
-    if (pages.length === 0 && lang !== "en" && currentChapter?.attributes?.chapter) {
-      const englishChapter = await findChapterByNumber(id, "en", currentChapter.attributes.chapter);
-
-      if (englishChapter) {
-        const englishPages = await fetchChapterPages(englishChapter.id, {
-          mangaSegments,
-          chapter: englishChapter,
-        }).catch(() => []);
-
-        if (englishPages.length > 0) {
-          currentChapter = englishChapter;
-          pages = englishPages;
-        }
-      }
-    }
-
-    return cachedReadResponse(responseCacheKey, {
+    const payload = {
       mangaTitle,
       coverImage,
-      chapters: stripChaptersForClient(finalChapters),
+      chapters: excludeChapters ? [] : stripChaptersForClient(finalChapters),
       currentChapter: stripChapterForClient(currentChapter),
-      pages,
-      englishFallbackChapter: null,
-      fallbackReason: null,
+      pages: pages.map(normalizePageUrlToProxy),
+      englishFallbackChapter,
+      fallbackReason,
       isExternalSource,
-    });
+    };
+
+    const options = {
+      cache: finalChapters.length > 0 || pages.length > 0,
+    };
+
+    const readResponse = await cachedReadResponse(responseCacheKey, payload, options);
+
+    return readResponse;
   } catch (error) {
     const isRateLimit = error instanceof Error && error.message === "RATE_LIMIT";
 
@@ -802,18 +1033,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 async function fetchConsumetChapters(title: string) {
   try {
-    // Paso 1: Buscar el manga por t?tulo para obtener su ID en Manganato
+    // Paso 1: Buscar el manga por título para obtener su ID en Manganato
     const searchRes = await fetch(`${CONSUMET_API_URL}/${encodeURIComponent(title)}`);
     const searchData = await searchRes.json();
     const mangaId = searchData.results?.[0]?.id;
 
     if (!mangaId) return null;
 
-    // Paso 2: Obtener la lista de cap?tulos usando ese ID
+    // Paso 2: Obtener la lista de capítulos usando ese ID
     const infoRes = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/info?id=${mangaId}`);
     const infoData = await infoRes.json();
     
-    return infoData.chapters?.map((ch: any) => ({
+    type ConsumetChapter = {
+      id: string;
+      number?: string | number;
+      title?: string;
+    };
+
+    return (infoData.chapters as ConsumetChapter[])?.map((ch) => ({
       id: ch.id,
       attributes: {
         chapter: ch.number?.toString() || ch.title?.match(/\d+/)?.[0] || "1",

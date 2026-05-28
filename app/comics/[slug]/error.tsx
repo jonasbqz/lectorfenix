@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
 export default function MangaDetailError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <main className="flex min-h-[70vh] items-center justify-center bg-[#0a0a0a] px-4 text-center text-white">
+    <main className="flex min-h-[70vh] items-center justify-center bg-transparent px-4 text-center text-white">
       <section className="relative w-full max-w-xl overflow-hidden rounded-[32px] border border-white/10 bg-[#141519] p-8 shadow-2xl shadow-black/50">
         <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-40 -translate-x-1/2 rounded-full bg-orange-500/15 blur-3xl" />
         <div className="relative mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full border border-orange-500/30 bg-orange-500/10 text-orange-500">

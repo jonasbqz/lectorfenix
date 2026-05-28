@@ -1,10 +1,10 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { EyeOff, Eye, Palette, BookOpen, Scroll, ZoomIn, ZoomOut } from "lucide-react";
+import { EyeOff, Eye, Palette, BookOpen, Scroll, ZoomIn, ZoomOut, Crown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { PageSize } from "../../../../store/useReaderSettingsStore";
+import type { PageSize } from "../../../../../store/useReaderSettingsStore";
 import type { ReaderDictionary, ReaderTheme } from "../reader-client";
 
 // Import mapping block colors
@@ -165,8 +165,8 @@ export default function ReaderSettingsPanel({
                         title={theme.toUpperCase()}
                       >
                         {theme !== "dark" && !isPremium && (
-                          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-500 text-[6px] font-black text-black shadow-sm">
-                            👑
+                          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-yellow-500 shadow-sm">
+                            <Crown size={8} className="fill-black text-black shrink-0" />
                           </span>
                         )}
                       </motion.button>
@@ -183,19 +183,17 @@ export default function ReaderSettingsPanel({
             >
               <Palette className="h-5 w-5" />
               {readerTheme !== "dark" && (
-                <span className="absolute -right-1 -top-1 text-[10px]">
-                  👑
-                </span>
+                <Crown size={10} className="absolute -right-1 -top-1 fill-amber-500 text-amber-500 shrink-0" />
               )}
             </ToolButton>
           </div>
 
           {/* Reading mode toggle */}
           <ToolButton
-            title={readingMode === "vertical" ? `${dictionary.modeHorizontal} 👑` : dictionary.modeVertical}
+            title={readingMode === "vertical" ? `${dictionary.modeHorizontal} (Premium)` : dictionary.modeVertical}
             onClick={() => {
               if (readingMode === "vertical" && !isPremium) {
-                toast.error("El modo de lectura horizontal es un beneficio Premium. 👑", {
+                toast.error("El modo de lectura horizontal es un beneficio Premium.", {
                   description: "¡Activá tu Pase de Regalo gratis en tu perfil para habilitar esta opción!"
                 });
                 return;
@@ -213,9 +211,7 @@ export default function ReaderSettingsPanel({
               <Scroll className="h-5 w-5" />
             )}
             {readingMode === "vertical" && (
-              <span className="absolute -right-1 -top-1 text-[10px]">
-                👑
-              </span>
+              <Crown size={10} className="absolute -right-1 -top-1 fill-amber-500 text-amber-500 shrink-0" />
             )}
           </ToolButton>
 

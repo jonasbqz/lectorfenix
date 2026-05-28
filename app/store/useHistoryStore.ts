@@ -1,4 +1,4 @@
-﻿import { create } from "zustand";
+import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export type ReadingHistoryItem = {
@@ -30,7 +30,9 @@ export const useHistoryStore = create<HistoryState>()(
           }
 
           const withoutCurrentManga = state.history.filter(
-            (historyItem) => historyItem.mangaId !== item.mangaId
+            (historyItem) =>
+              historyItem.mangaId !== item.mangaId &&
+              historyItem.mangaTitle.toLowerCase().trim() !== item.mangaTitle.toLowerCase().trim()
           );
 
           return {

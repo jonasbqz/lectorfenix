@@ -104,9 +104,9 @@ export default function AdultToggle({ language }: { language: SupportedLanguage 
   return (
     <>
       <label
-        className="flex cursor-pointer items-center gap-2 text-left"
+        className="flex cursor-pointer items-center gap-1.5 sm:gap-2 text-left shrink-0"
       >
-        <span className="hidden text-sm text-gray-400 lg:inline">Contenido +18</span>
+        <span className="text-[11px] sm:text-xs font-bold text-gray-400 select-none">+18</span>
         <span className="relative inline-flex items-center">
           <input
             type="checkbox"
@@ -114,9 +114,9 @@ export default function AdultToggle({ language }: { language: SupportedLanguage 
             onChange={(event) => handleAdultToggle(event.target.checked)}
             className="peer sr-only"
           />
-          <span className="h-5 w-9 rounded-full bg-[#2c2d33] transition-colors peer-checked:bg-rose-600" />
+          <span className="h-4 w-7 rounded-full bg-[#2c2d33] transition-colors peer-checked:bg-rose-600" />
           <div
-            className="pointer-events-none absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-4"
+            className="pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"
           />
         </span>
       </label>

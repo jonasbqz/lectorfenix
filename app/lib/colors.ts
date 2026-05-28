@@ -1,0 +1,17 @@
+export const C = {
+  bgCard: "#131110",
+  bgInput: "rgba(247,242,232,0.03)",
+  border: "rgba(247,242,232,0.10)",
+  borderFocus: "rgba(255, 107, 0, 0.45)",
+  ringFocus: "rgba(255, 107, 0, 0.10)",
+  accent: "#ff6b00",
+  accentStrong: "#ff8833",
+  accentText: "#000000",
+  fg: "#f7f2e8",
+  muted: "#c2b8a6",
+  dim: "rgba(194,184,166,0.45)",
+  discord: "#5865F2",
+  discordHover: "#4752C4",
+  danger: "#ef4444",
+  dangerBg: "rgba(239, 68, 68, 0.1)",
+} as const;

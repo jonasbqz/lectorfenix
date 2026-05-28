@@ -1,0 +1,1636 @@
+"use client";
+import { useEffect, useRef, useState, useTransition, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  User, Check, AlertCircle, Clock, Edit3, 
+  Camera, Loader2, ArrowLeft, LogOut, Trash2, 
+  Mail, ShieldAlert, BookOpen, Settings, Crown, History, Heart, HeartCrack, Book, Key, Scroll,
+  Globe, Lock, Plus, Link as LinkIcon, Share2, FolderHeart, Sparkles, X
+} from "lucide-react";
+import { updateUsername, uploadAvatar, updateReadingDirection, deleteAccountAction, upgradeToPremiumAction } from "../actions/profile";
+import { getUserMangaLists, createMangaListAction, deleteMangaListAction } from "../actions/lists";
+import { createClient } from "../../utils/supabase/client";
+import { useReaderSettingsStore } from "../store/useReaderSettingsStore";
+import { useFavoritesStore } from "../store/useFavoritesStore";
+import { useHistoryStore } from "../store/useHistoryStore";
+import { buildComicPath } from "../utils/slugify";
+import MangaCard, { type MangaShowcaseItem } from "../components/MangaCard";
+import { C } from "../lib/colors";
+import Button from "../components/Button";
+import { toast } from "sonner";
+import { SupportedLanguage, useLanguage } from "../components/language-provider";
+
+
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+const MAX_BYTES = 1_048_576; // 1 MB
+
+interface ProfileData {
+  username: string | null;
+  avatar_url: string | null;
+  username_updated_at: string | null;
+  reading_direction: string | null;
+  is_premium?: boolean | null;
+  updated_at?: string | null;
+}
+
+interface UserData {
+  id?: string;
+  email: string | undefined;
+  app_metadata: { provider?: string };
+  user_metadata?: { scheduled_delete_at?: string | null };
+  created_at?: string;
+}
+
+interface Props {
+  profile: ProfileData | null;
+  user: UserData;
+}
+
+const PROFILE_FORM_COPY = {
+  es: {
+    backToHome: "Volver al Inicio",
+    userPanel: "Panel de Usuario",
+    myAccount: "Mi Cuenta",
+    library: "Biblioteca",
+    settings: "Ajustes",
+    noUsername: "Sin nombre de usuario",
+    discordAuth: "Discord Auth",
+    verifiedEmail: "Correo Verificado",
+    premium: "Premium",
+    readingPreference: "Preferencia de Lectura",
+    readingDesc: "Configurá cómo preferís leer los capítulos de tus cómics por defecto.",
+    cascadeWebtoon: "Cascada / Webtoon",
+    cascadeDesc: "Lectura vertical continua",
+    traditionalManga: "Manga Tradicional",
+    traditionalDesc: "Página por página horizontal",
+    premiumReadingNoticeTitle: "El modo de lectura horizontal es un beneficio Premium.",
+    premiumReadingNoticeDesc: "¡Activa tu Pase Premium gratis para habilitar esta opción!",
+    publicUsername: "Nombre de usuario público",
+    availableIn: "Disponible en {days} día{plural}",
+    usernamePlaceholder: "Tu usuario público",
+    saveUsername: "Guardar nombre de usuario",
+    upgradeToPremium: "Mejora tu cuenta a Premium",
+    upgradeDesc: "Accede a lecturas sin anuncios publicitarios, descargas extendidas de capítulos en PDF, temas visuales Pro y soporte prioritario.",
+    viewBenefits: "Ver beneficios & planes",
+    claimFreePass: "🎁 Reclamar Pase Gratis",
+    favorites: "Favoritos",
+    history: "Historial",
+    myLists: "Mis Listas",
+    noFavoritesTitle: "No tienes mangas favoritos",
+    noListsTitle: "No tienes listas creadas",
+    noListsDesc: "Crea listas para agrupar tus mangas favoritos y compartirlas con la comunidad de MangaStoon.",
+    noFavoritesDesc: "Navega por el catálogo y pulsa el botón de corazón para que aparezcan en tu biblioteca personal.",
+    goToCatalog: "Ir al catálogo →",
+    emptyHistoryTitle: "Tu historial está vacío",
+    emptyHistoryDesc: "Los cómics y capítulos que leas se irán guardando automáticamente aquí para que continúes donde lo dejaste.",
+    readOn: "Leído el",
+    read: "Leer",
+    noCover: "Sin portada",
+    security: "Seguridad",
+    securityDesc: "Tu información de acceso y opciones de seguridad.",
+    email: "Correo Electrónico",
+    password: "Contraseña de Cuenta",
+    changePassword: "Cambiar Contraseña",
+    accountManagement: "Gestión de Cuenta",
+    accountManagementDesc: "Cerrar sesión o eliminar tu cuenta de forma definitiva.",
+    logout: "Cerrar sesión",
+    deleteAccountPerm: "Eliminar cuenta permanentemente",
+    deleteModalTitle: "¿Quieres programar la eliminación de tu cuenta?",
+    deleteModalDesc: "Esta acción programará la eliminación definitiva de tu cuenta en 30 días. Durante este período, podrás iniciar sesión nuevamente para cancelar la solicitud y recuperar todos tus datos intactos.",
+    deleteModalConfirm: "Programar eliminación",
+    deleteModalCancel: "Cancelar",
+    giftModalTitle: "¡Reclama tu Pase Premium Gratis!",
+    giftModalDesc: "¡Queremos que pruebes la experiencia completa de MangaStoon! Te regalamos un Pase Premium Temporal totalmente gratis.\n\nDisfruta de lectura 100% libre de anuncios, descargas extendidas de capítulos en PDF y opciones Pro mientras terminamos de integrar Paddle/LemonSqueezy.",
+    giftModalActivating: "Activando...",
+    giftModalActivate: "🎁 Activar Regalo",
+    giftModalClose: "Cerrar",
+    avatarTypeErr: "Solo se permiten imágenes .jpg, .jpeg, .png o .webp.",
+    avatarSizeErr: "La imagen es demasiado pesada. El tamaño máximo permitido es de 1 MB.",
+    avatarSuccess: "¡Avatar actualizado correctamente!",
+    usernameMinErr: "El nombre de usuario debe tener al menos 3 caracteres.",
+    usernameMaxErr: "El nombre de usuario no puede superar los 30 caracteres.",
+    usernamePatternErr: "Solo se permiten letras, números, puntos, guiones y guiones bajos.",
+    usernameSuccessMsg: "¡Nombre de usuario actualizado correctamente!",
+    giftSuccessMsg: "¡Tu Pase Premium de Regalo ha sido activado con éxito! 👑",
+    giftErrorFallback: "Ocurrió un error al procesar tu solicitud.",
+    resetPasswordErr: "Error al enviar el correo de restablecimiento: ",
+    resetPasswordSuccess: "Correo de restablecimiento enviado. ¡Revisa tu casilla!",
+    resetPasswordErrFallback: "Ocurrió un error inesperado al intentar cambiar la contraseña.",
+    deleteAccountErrFallback: "Ocurrió un error inesperado al intentar borrar la cuenta.",
+  },
+  en: {
+    backToHome: "Back to Home",
+    userPanel: "User Panel",
+    myAccount: "My Account",
+    library: "Library",
+    settings: "Settings",
+    noUsername: "No username set",
+    discordAuth: "Discord Auth",
+    verifiedEmail: "Verified Email",
+    premium: "Premium",
+    readingPreference: "Reading Preference",
+    readingDesc: "Configure how you prefer to read your comic chapters by default.",
+    cascadeWebtoon: "Cascade / Webtoon",
+    cascadeDesc: "Continuous vertical reading",
+    traditionalManga: "Traditional Manga",
+    traditionalDesc: "Horizontal page-by-page reading",
+    premiumReadingNoticeTitle: "Horizontal reading mode is a Premium benefit.",
+    premiumReadingNoticeDesc: "Activate your free Premium Pass to enable this option!",
+    publicUsername: "Public Username",
+    availableIn: "Available in {days} day{plural}",
+    usernamePlaceholder: "Your public username",
+    saveUsername: "Save Username",
+    upgradeToPremium: "Upgrade to Premium",
+    upgradeDesc: "Get ad-free reading, extended chapter PDF downloads, Pro visual themes, and priority support.",
+    viewBenefits: "View benefits & plans",
+    claimFreePass: "🎁 Claim Free Pass",
+    favorites: "Favorites",
+    history: "History",
+    myLists: "My Lists",
+    noFavoritesTitle: "You have no favorite manga",
+    noListsTitle: "You have no lists created",
+    noListsDesc: "Create lists to group your favorite manga and share them with the MangaStoon community.",
+    noFavoritesDesc: "Browse the catalog and tap the heart button to add them to your personal library.",
+    goToCatalog: "Go to catalog →",
+    emptyHistoryTitle: "Your history is empty",
+    emptyHistoryDesc: "The comics and chapters you read will be automatically saved here so you can continue where you left off.",
+    readOn: "Read on",
+    read: "Read",
+    noCover: "No cover",
+    security: "Security",
+    securityDesc: "Your access information and security options.",
+    email: "Email Address",
+    password: "Account Password",
+    changePassword: "Change Password",
+    accountManagement: "Account Management",
+    accountManagementDesc: "Log out or delete your account permanently.",
+    logout: "Log out",
+    deleteAccountPerm: "Permanently delete account",
+    deleteModalTitle: "Schedule account deletion?",
+    deleteModalDesc: "This action will schedule your account for permanent deletion in 30 days. During this period, you can log back in at any time to cancel this request and restore all your data intact.",
+    deleteModalConfirm: "Schedule deletion",
+    deleteModalCancel: "Cancel",
+    giftModalTitle: "Claim Your Free Premium Pass!",
+    giftModalDesc: "We want you to try the full MangaStoon experience! We're gifting you a free temporary Premium Pass.\n\nEnjoy 100% ad-free reading, extended chapter PDF downloads, and Pro options while we finish integrating Paddle/LemonSqueezy.",
+    giftModalActivating: "Activating...",
+    giftModalActivate: "🎁 Activate Gift",
+    giftModalClose: "Close",
+    avatarTypeErr: "Only .jpg, .jpeg, .png or .webp images are allowed.",
+    avatarSizeErr: "The image is too heavy. Maximum size allowed is 1 MB.",
+    avatarSuccess: "Avatar updated successfully!",
+    usernameMinErr: "Username must be at least 3 characters long.",
+    usernameMaxErr: "Username cannot exceed 30 characters.",
+    usernamePatternErr: "Only letters, numbers, dots, hyphens, and underscores are allowed.",
+    usernameSuccessMsg: "Username updated successfully!",
+    giftSuccessMsg: "Your Gift Premium Pass has been activated successfully! 👑",
+    giftErrorFallback: "An error occurred while processing your request.",
+    resetPasswordErr: "Error sending reset email: ",
+    resetPasswordSuccess: "Reset email sent. Check your inbox!",
+    resetPasswordErrFallback: "An unexpected error occurred while trying to change your password.",
+    deleteAccountErrFallback: "An unexpected error occurred while trying to delete your account.",
+  },
+  pt: {
+    backToHome: "Voltar ao Início",
+    userPanel: "Painel do Usuário",
+    myAccount: "Minha Conta",
+    library: "Biblioteca",
+    settings: "Configurações",
+    noUsername: "Sem nome de usuário",
+    discordAuth: "Auth do Discord",
+    verifiedEmail: "E-mail Verificado",
+    premium: "Premium",
+    readingPreference: "Preferência de Leitura",
+    readingDesc: "Configure como você prefere ler os capítulos dos seus quadrinhos por padrão.",
+    cascadeWebtoon: "Cascata / Webtoon",
+    cascadeDesc: "Leitura vertical contínua",
+    traditionalManga: "Mangá Tradicional",
+    traditionalDesc: "Leitura horizontal página por página",
+    premiumReadingNoticeTitle: "O modo de leitura horizontal é um benefício Premium.",
+    premiumReadingNoticeDesc: "Ative seu Passe Premium gratuito para habilitar esta opção!",
+    publicUsername: "Nome de usuário público",
+    availableIn: "Disponível em {days} dia{plural}",
+    usernamePlaceholder: "Seu usuário público",
+    saveUsername: "Salvar nome de usuário",
+    upgradeToPremium: "Melhore sua conta para Premium",
+    upgradeDesc: "Tenha leitura sem anúncios, downloads de capítulos em PDF estendidos, temas visuais Pro e suporte prioritário.",
+    viewBenefits: "Ver benefícios & planos",
+    claimFreePass: "🎁 Resgatar Pase Grátis",
+    favorites: "Favoritos",
+    history: "Histórico",
+    myLists: "Minhas Listas",
+    noFavoritesTitle: "Você não tem mangás favoritos",
+    noListsTitle: "Você não tem listas criadas",
+    noListsDesc: "Crie listas para agrupar seus mangás favoritos e compartilhá-las com a comunidade do MangaStoon.",
+    noFavoritesDesc: "Navegue pelo catálogo e clique no botão de coração para adicioná-los à sua biblioteca pessoal.",
+    goToCatalog: "Ir para o catálogo →",
+    emptyHistoryTitle: "Seu histórico está vazio",
+    emptyHistoryDesc: "Os quadrinhos e capítulos que você ler serão salvos automaticamente aqui para você continuar de onde parou.",
+    readOn: "Lido em",
+    read: "Ler",
+    noCover: "Sem capa",
+    security: "Segurança",
+    securityDesc: "Suas informações de acesso e opções de segurança.",
+    email: "Endereço de E-mail",
+    password: "Senha da Conta",
+    changePassword: "Alterar Senha",
+    accountManagement: "Gerenciamento de Conta",
+    accountManagementDesc: "Sair ou excluir sua conta permanentemente.",
+    logout: "Sair",
+    deleteAccountPerm: "Excluir conta permanentemente",
+    deleteModalTitle: "Agendar exclusão da conta?",
+    deleteModalDesc: "Esta ação agendará a exclusão permanente de sua conta em 30 dias. Durante este período, você poderá fazer login novamente para cancelar a solicitação e recuperar todos os seus dados intactos.",
+    deleteModalConfirm: "Agendar exclusão",
+    deleteModalCancel: "Cancelar",
+    giftModalTitle: "Resgate seu Passe Premium Grátis!",
+    giftModalDesc: "Queremos que você experimente a experiência completa do MangaStoon! Estamos lhe dando um Passe Premium temporário totalmente grátis.\n\nAproveite leitura 100% livre de anúncios, downloads estendidos de capítulos em PDF e opções Pro enquanto terminamos a integração do Paddle/LemonSqueezy.",
+    giftModalActivating: "Ativando...",
+    giftModalActivate: "🎁 Ativar Presente",
+    giftModalClose: "Fechar",
+    avatarTypeErr: "Apenas imagens .jpg, .jpeg, .png ou .webp são permitidas.",
+    avatarSizeErr: "A imagem é muito pesada. O tamanho máximo permitido é de 1 MB.",
+    avatarSuccess: "Avatar atualizado com sucesso!",
+    usernameMinErr: "O nome de usuário deve ter pelo menos 3 caracteres.",
+    usernameMaxErr: "O nome de usuário não pode exceder 30 caracteres.",
+    usernamePatternErr: "Apenas letras, números, pontos, hífens e sublinhados são permitidos.",
+    usernameSuccessMsg: "Nome de usuário atualizado com sucesso!",
+    giftSuccessMsg: "Seu Passe Premium de Presente foi ativado com sucesso! 👑",
+    giftErrorFallback: "Ocorreu um erro ao processar sua solicitação.",
+    resetPasswordErr: "Erro ao enviar e-mail de redefinição: ",
+    resetPasswordSuccess: "E-mail de redefinição enviado. Verifique sua caixa de entrada!",
+    resetPasswordErrFallback: "Ocorreu um erro inesperado ao tentar alterar sua senha.",
+    deleteAccountErrFallback: "Ocorreu um erro inesperado ao tentar excluir sua conta.",
+  }
+};
+
+function getDaysLeft(updatedAt: string | null): number | null {
+  if (!updatedAt) return null;
+  const daysSince = (Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+  return daysSince >= 7 ? null : Math.ceil(7 - daysSince);
+}
+
+function toShowcaseItem(manga: any): MangaShowcaseItem {
+  const mangaDexId = manga.mangaDexId ?? manga.id ?? null;
+  const title = manga.title ?? manga.titleMap?.es ?? manga.titleMap?.en ?? "Manga";
+
+  return {
+    mal_id: 0,
+    title,
+    score: manga.score ?? null,
+    url: manga.url ?? (mangaDexId ? buildComicPath(title, mangaDexId) : "#"),
+    mangaDexId,
+    titleMap: manga.titleMap ?? (title ? { es: title, en: title, pt: title } : undefined),
+    altTitles: manga.altTitles,
+    originalLanguage: manga.originalLanguage,
+    themes: manga.themes,
+    tags: manga.tags,
+    genres: manga.genres,
+    isNsfw: manga.isNsfw,
+    latestChapters: manga.latestChapters,
+    images: manga.images ?? {},
+  };
+}
+
+function formatTimeSince(dateString: string | null | undefined, language: string): string {
+  if (!dateString) return "...";
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "...";
+
+  const diffMs = Math.max(0, Date.now() - date.getTime());
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+  const diffMonth = Math.floor(diffDay / 30);
+  const diffYear = Math.floor(diffDay / 365);
+
+  if (language === "en") {
+    if (diffYear >= 1) return `${diffYear} year${diffYear === 1 ? "" : "s"}`;
+    if (diffMonth >= 1) return `${diffMonth} month${diffMonth === 1 ? "" : "s"}`;
+    if (diffDay >= 1) return `${diffDay} day${diffDay === 1 ? "" : "s"}`;
+    if (diffHr >= 1) return `${diffHr} hour${diffHr === 1 ? "" : "s"}`;
+    if (diffMin >= 1) return `${diffMin} minute${diffMin === 1 ? "" : "s"}`;
+    return "a few seconds";
+  } else if (language === "pt") {
+    if (diffYear >= 1) return `${diffYear} ano${diffYear === 1 ? "" : "s"}`;
+    if (diffMonth >= 1) return `${diffMonth} me${diffMonth === 1 ? "s" : "ses"}`;
+    if (diffDay >= 1) return `${diffDay} dia${diffDay === 1 ? "" : "s"}`;
+    if (diffHr >= 1) return `${diffHr} hora${diffHr === 1 ? "" : "s"}`;
+    if (diffMin >= 1) return `${diffMin} minuto${diffMin === 1 ? "" : "s"}`;
+    return "alguns segundos";
+  } else { // Neutral Spanish
+    if (diffYear >= 1) return `${diffYear} año${diffYear === 1 ? "" : "s"}`;
+    if (diffMonth >= 1) return `${diffMonth} me${diffMonth === 1 ? "s" : "ses"}`;
+    if (diffDay >= 1) return `${diffDay} día${diffDay === 1 ? "" : "s"}`;
+    if (diffHr >= 1) return `${diffHr} hora${diffHr === 1 ? "" : "s"}`;
+    if (diffMin >= 1) return `${diffMin} minuto${diffMin === 1 ? "" : "s"}`;
+    return "unos segundos";
+  }
+}
+
+// ─── Banner de estado ─────────────────────────────────────────────────────
+function StatusBanner({ error, success }: { error?: string | null; success?: string | null }) {
+  if (error) return (
+    <div
+      className="flex items-start gap-3 rounded-xl px-4 py-3.5"
+      style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)" }}
+    >
+      <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-400" />
+      <p className="text-sm leading-relaxed text-red-300">{error}</p>
+    </div>
+  );
+  if (success) return (
+    <div
+      className="flex items-start gap-3 rounded-xl px-4 py-3.5 animate-fade-in"
+      style={{ background: "rgba(255, 107, 0, 0.08)", border: "1px solid rgba(255, 107, 0, 0.25)" }}
+    >
+      <Check size={16} className="mt-0.5 shrink-0" style={{ color: C.accent }} />
+      <p className="text-sm leading-relaxed" style={{ color: C.muted }}>{success}</p>
+    </div>
+  );
+  return null;
+}
+
+export default function ProfileForm({ profile, user }: Props) {
+  const { language } = useLanguage();
+  const copy = PROFILE_FORM_COPY[language];
+  const router = useRouter();
+  const supabase = createClient();
+
+  // ── Tabs State ───────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"account" | "library" | "settings">("account");
+
+  // ── Username state ───────────────────────────────────────────────────────
+  const [username, setUsername] = useState(profile?.username ?? "");
+  const [fieldFocused, setFieldFocused] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameSuccess, setUsernameSuccess] = useState<string | null>(null);
+  const [isUsernamePending, startUsernameTransition] = useTransition();
+
+  // ── Avatar state ─────────────────────────────────────────────────────────
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [isAvatarPending, startAvatarTransition] = useTransition();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Preferencias de lectura ──────────────────────────────────────────────
+  const [readingDirection, setReadingDirection] = useState<"vertical" | "horizontal">(
+    (profile?.reading_direction as "vertical" | "horizontal") ?? "vertical"
+  );
+  const [isPrefPending, startPrefTransition] = useTransition();
+  const [prefSuccess, setPrefSuccess] = useState(false);
+  const [prefError, setPrefError] = useState<string | null>(null);
+  const setStoreReadingMode = useReaderSettingsStore((s) => s.setReadingMode);
+
+  // Zustand stores para biblioteca
+  const { favorites } = useFavoritesStore();
+  const { history } = useHistoryStore();
+  const [librarySubTab, setLibrarySubTab] = useState<"favorites" | "history" | "lists">("favorites");
+
+  // Listas de manga
+  const [userLists, setUserLists] = useState<any[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newListName, setNewListName] = useState("");
+  const [newListDesc, setNewListDesc] = useState("");
+  const [newListPublic, setNewListPublic] = useState(true);
+  const [creatingList, setCreatingList] = useState(false);
+
+  const loadLists = useCallback(() => {
+    setLoadingLists(true);
+    getUserMangaLists()
+      .then((res) => {
+        if (res.lists) {
+          setUserLists(res.lists);
+        }
+      })
+      .catch((err) => console.error(err))
+      .finally(() => setLoadingLists(false));
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "library" && librarySubTab === "lists") {
+      loadLists();
+    }
+  }, [activeTab, librarySubTab, loadLists]);
+
+  // Restablecimiento de contraseña
+  const [sendingReset, setSendingReset] = useState(false);
+
+  // Sync Supabase reading_direction → local Zustand store on mount
+  useEffect(() => {
+    const direction = (profile?.reading_direction as "vertical" | "horizontal") ?? "vertical";
+    setStoreReadingMode(direction);
+  }, [profile?.reading_direction, setStoreReadingMode]);
+
+  // ── Acciones de Cuenta (Logout & Delete) ─────────────────────────────────
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [confirmUsername, setConfirmUsername] = useState("");
+
+  // ── Gifting Premium ──────────────────────────────────────────────────────
+  const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
+  const [isClaimingGift, setIsClaimingGift] = useState(false);
+  const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
+  const [giftError, setGiftError] = useState<string | null>(null);
+
+  const handleClaimGift = async () => {
+    setIsClaimingGift(true);
+    setGiftError(null);
+    setGiftSuccess(null);
+    try {
+      const res = await upgradeToPremiumAction("gifted");
+      if (res.error) {
+        setGiftError(res.error);
+      } else {
+        setGiftSuccess(copy.giftSuccessMsg);
+        window.dispatchEvent(new Event("profile-updated"));
+        setTimeout(() => {
+          setIsGiftModalOpen(false);
+        }, 2500);
+      }
+    } catch {
+      setGiftError(copy.giftErrorFallback);
+    } finally {
+      setIsClaimingGift(false);
+    }
+  };
+
+  const daysLeft = getDaysLeft(profile?.username_updated_at ?? null);
+  const isLocked = daysLeft !== null;
+  const isDiscord = (user.app_metadata?.provider ?? "email") === "discord";
+  const initials = (profile?.username ?? user.email ?? "?").charAt(0).toUpperCase();
+  const displayAvatar = avatarPreview ?? avatarUrl;
+  const isPremium = !!profile?.is_premium;
+
+  // ── Avatar: validación cliente + envío ───────────────────────────────────
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAvatarError(null);
+
+    // Validación de tipo
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setAvatarError(copy.avatarTypeErr);
+      e.target.value = "";
+      return;
+    }
+
+    // Validación de tamaño
+    if (file.size > MAX_BYTES) {
+      setAvatarError(copy.avatarSizeErr);
+      e.target.value = "";
+      return;
+    }
+
+    // Preview inmediato
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarPreview(objectUrl);
+
+    // Subida al servidor
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    startAvatarTransition(async () => {
+      const result = await uploadAvatar(formData);
+      if (result.error) {
+        console.error('[ProfileForm] avatar upload error:', result.error);
+        setAvatarError(result.error);
+        setAvatarPreview(null);
+      } else if (result.url) {
+        setAvatarUrl(result.url);
+        window.dispatchEvent(new Event("profile-updated"));
+        router.refresh();
+      }
+      e.target.value = "";
+    });
+  };
+
+  // ── Username: guardar ─────────────────────────────────────────────────────
+  const handleUsernameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setUsernameError(null);
+    setUsernameSuccess(null);
+
+    if (isLocked) {
+      setUsernameError(
+        copy.availableIn
+          .replace("{days}", String(daysLeft))
+          .replace("{plural}", daysLeft === 1 ? "" : "s")
+      );
+      return;
+    }
+
+    startUsernameTransition(async () => {
+      const result = await updateUsername(username);
+      if (result.error) {
+        console.error('[ProfileForm] username update error:', result.error);
+        setUsernameError(result.error);
+      } else {
+        setUsernameSuccess(copy.usernameSuccessMsg);
+        window.dispatchEvent(new Event("profile-updated"));
+        router.refresh();
+        setTimeout(() => {
+          setUsernameSuccess(null);
+        }, 4000);
+      }
+    });
+  };
+
+  // ── Preferencias de lectura: guardar al cambiar ──────────────────────────
+  const handlePrefChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value as "vertical" | "horizontal";
+    setReadingDirection(val);
+    setStoreReadingMode(val);
+    setPrefError(null);
+    setPrefSuccess(false);
+
+    startPrefTransition(async () => {
+      const result = await updateReadingDirection(val);
+      if (result.error) {
+        setPrefError(result.error);
+      } else {
+        setPrefSuccess(true);
+        window.dispatchEvent(new Event("profile-updated"));
+        router.refresh();
+        setTimeout(() => {
+          setPrefSuccess(false);
+        }, 3000);
+      }
+    });
+  };
+
+  // ── Restablecimiento de contraseña ───────────────────────────────────────
+  const handleResetPassword = async () => {
+    if (!user.email) return;
+    setSendingReset(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        toast.error(copy.resetPasswordErr + error.message);
+      } else {
+        toast.success(copy.resetPasswordSuccess);
+      }
+    } catch (err) {
+      console.error("[ProfileForm] reset password error:", err);
+      toast.error(copy.resetPasswordErrFallback);
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
+  // ── Cerrar Sesión ────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await supabase.auth.signOut();
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      console.error("[ProfileForm] logout error:", err);
+      setIsLoggingOut(false);
+    }
+  };
+
+  // ── Eliminar Cuenta ──────────────────────────────────────────────────────
+  const handleDeleteAccount = async () => {
+    if (confirmUsername !== profile?.username) return;
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      
+      const result = await deleteAccountAction();
+      
+      if (result.error) {
+        setDeleteError(result.error);
+        setIsDeleting(false);
+      } else {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "scheduledDeleteDate",
+            result.targetDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+          );
+        }
+        await supabase.auth.signOut();
+        setIsDeleteModalOpen(false);
+        setConfirmUsername("");
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("[ProfileForm] delete account error:", err);
+      setDeleteError(copy.deleteAccountErrFallback);
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-8 text-left">
+      <div className="flex items-center justify-between gap-3 border-b pb-5" style={{ borderColor: C.border }}>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors w-fit"
+          style={{ color: C.dim }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.fg; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.dim; }}
+        >
+          <ArrowLeft size={14} className="shrink-0" style={{ color: C.accent }} />
+          {copy.backToHome}
+        </Link>
+        <div className="flex items-center gap-2.5">
+          <span className="text-xs font-extrabold uppercase tracking-widest text-right shrink-0" style={{ color: C.accent }}>
+            {copy.userPanel}
+          </span>
+        </div>
+      </div>
+
+      {/* Tabs Selector Segmentado Premium */}
+      <div 
+        className="relative flex rounded-2xl p-1 border backdrop-blur-md bg-white/[0.01] overflow-hidden" 
+        style={{ borderColor: C.border }}
+      >
+        {(["account", "library", "settings"] as const).map((tab) => {
+          const isActive = activeTab === tab;
+          const TabIcon = tab === "account" ? User : tab === "library" ? BookOpen : Settings;
+          const label = tab === "account" ? copy.myAccount : tab === "library" ? copy.library : copy.settings;
+
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="relative flex-1 flex items-center justify-center gap-1 py-2 sm:py-3 text-[9px] sm:text-xs md:text-sm font-heading font-bold uppercase tracking-tighter sm:tracking-wider transition-colors duration-300 rounded-xl"
+              style={{
+                color: isActive ? C.fg : C.dim,
+              }}
+            >
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabBackground"
+                  className="absolute inset-0.5 z-0 rounded-xl bg-gradient-to-r from-orange-600/25 to-orange-500/12 border border-orange-500/30"
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-1">
+                <TabIcon size={13} className="hidden sm:inline-block shrink-0" style={{ color: isActive ? C.accent : undefined }} />
+                <span>{label}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── CONTENIDO TABS ────────────────────────────────────────────────────── */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.2 }}
+          className="w-full flex flex-col gap-8"
+        >
+          {/* TAB 1: MI CUENTA */}
+          {activeTab === "account" && (
+            <div className="flex flex-col gap-8">
+              {/* Avatar y Datos Básicos */}
+              <div className="flex items-center gap-6">
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isAvatarPending}
+                    className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl transition-all active:scale-95"
+                    style={{ border: `2px solid ${C.border}` }}
+                    aria-label="Cambiar foto de perfil"
+                  >
+                    {displayAvatar ? (
+                      <img src={displayAvatar} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <div
+                        className="flex h-full w-full items-center justify-center text-3xl font-bold"
+                        style={{ background: "rgba(255, 107, 0, 0.12)", color: C.accent }}
+                      >
+                        {initials}
+                      </div>
+                    )}
+                    {isAvatarPending && (
+                      <div className="absolute inset-0 flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.65)" }}>
+                        <Loader2 size={26} className="animate-spin" style={{ color: C.accent }} />
+                      </div>
+                    )}
+                  </button>
+                  {!isAvatarPending && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full shadow-xl transition-transform active:scale-90"
+                      style={{
+                        background: C.accent,
+                        border: `2px solid #131110`,
+                      }}
+                      aria-label="Cambiar foto"
+                      tabIndex={-1}
+                    >
+                      <Camera size={15} style={{ color: C.accentText }} />
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2.5">
+                    <p className="truncate text-xl font-extrabold" style={{ color: C.fg }}>
+                      {profile?.username ?? copy.noUsername}
+                    </p>
+                    {isPremium && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 px-2 py-0.5 text-[9px] font-heading font-bold uppercase tracking-wider text-black border border-yellow-300/30 shadow-[0_0_8px_rgba(245,158,11,0.2)] shrink-0 select-none" title="Premium">
+                        <Crown size={8} className="fill-black" />
+                        <span>Premium</span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-sm font-semibold" style={{ color: C.dim }}>{user.email}</p>
+                  <p className="text-xs font-semibold mt-1" style={{ color: isPremium ? "rgb(245, 158, 11)" : "rgba(194,184,166,0.55)" }}>
+                    {isPremium 
+                      ? (language === "en" ? `Premium member for ${formatTimeSince(profile?.updated_at, "en")}` : language === "pt" ? `Você é premium há ${formatTimeSince(profile?.updated_at, "pt")}` : `Eres premium desde hace ${formatTimeSince(profile?.updated_at, "es")}`)
+                      : (language === "en" ? `Member for ${formatTimeSince(user.created_at, "en")}` : language === "pt" ? `Você é membro há ${formatTimeSince(user.created_at, "pt")}` : `Eres miembro desde hace ${formatTimeSince(user.created_at, "es")}`)
+                    }
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest"
+                      style={{
+                        background: isDiscord ? "rgba(88,101,242,0.12)" : "rgba(255, 107, 0, 0.10)",
+                        color: isDiscord ? "#8b95f5" : C.accent,
+                        border: `1px solid ${isDiscord ? "rgba(88,101,242,0.25)" : "rgba(255, 107, 0, 0.2)"}`,
+                      }}
+                    >
+                      {isDiscord ? copy.discordAuth : copy.verifiedEmail}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {avatarError && <StatusBanner error={avatarError} />}
+
+              {/* Preferencias de Lectura */}
+              <div className="flex flex-col gap-4 border-t pt-6" style={{ borderColor: C.border }}>
+                <div>
+                  <h2 className="text-sm font-heading font-bold uppercase tracking-wider" style={{ color: C.fg }}>
+                    {copy.readingPreference}
+                  </h2>
+                  <p className="text-sm mt-1 leading-normal" style={{ color: C.dim }}>
+                    {copy.readingDesc}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {(["vertical", "horizontal"] as const).map((direction) => {
+                    const isActive = readingDirection === direction;
+                    const Icon = direction === "vertical" ? Scroll : BookOpen;
+                    const title = direction === "vertical" ? copy.cascadeWebtoon : copy.traditionalManga;
+                    const desc = direction === "vertical" ? copy.cascadeDesc : copy.traditionalDesc;
+
+                    return (
+                      <button
+                        key={direction}
+                        type="button"
+                        disabled={isPrefPending}
+                        onClick={() => {
+                          if (isActive || isPrefPending) return;
+                          if (direction === "horizontal" && !isPremium) {
+                            toast.error(copy.premiumReadingNoticeTitle, {
+                              description: copy.premiumReadingNoticeDesc
+                            });
+                            setIsGiftModalOpen(true);
+                            return;
+                          }
+                          const fakeEvent = {
+                            target: { value: direction }
+                          } as unknown as React.ChangeEvent<HTMLSelectElement>;
+                          handlePrefChange(fakeEvent);
+                        }}
+                        className="flex flex-col items-center text-center gap-4 rounded-2xl p-6 border transition-all duration-300 disabled:opacity-50 relative overflow-hidden"
+                        style={{
+                          background: isActive ? "rgba(255, 107, 0, 0.05)" : C.bgInput,
+                          borderColor: isActive ? C.accent : C.border,
+                          boxShadow: isActive ? "0 4px 20px rgba(255, 107, 0, 0.08)" : "none",
+                        }}
+                      >
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeReadingPrefBorder"
+                            className="absolute inset-0 border border-orange-500 pointer-events-none rounded-2xl"
+                            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                          />
+                        )}
+                        <div 
+                          className="flex h-14 w-14 items-center justify-center rounded-xl transition-all duration-300"
+                          style={{
+                            background: isActive ? "rgba(255, 107, 0, 0.12)" : "rgba(255,255,255,0.03)",
+                            color: isActive ? C.accent : C.muted,
+                          }}
+                        >
+                          <Icon size={28} />
+                        </div>
+                        <div>
+                          <h4 className="text-base md:text-lg font-heading font-bold tracking-tight animate-fade-in flex items-center justify-center gap-1.5" style={{ color: isActive ? C.fg : C.muted }}>
+                            <span>{title}</span>
+                            {direction === "horizontal" && (
+                              <Crown size={14} className="text-amber-500 fill-amber-500 shrink-0" />
+                            )}
+                          </h4>
+                          <p className="text-sm font-semibold text-neutral-400 mt-1 md:mt-2" style={{ color: C.dim }}>
+                            {desc}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {prefError && <StatusBanner error={prefError} />}
+              </div>
+
+              {/* Formulario de Username */}
+              <div className="border-t pt-6" style={{ borderColor: C.border }}>
+                <form onSubmit={handleUsernameSubmit} className="flex flex-col gap-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <label className="text-xs font-heading font-bold uppercase tracking-wider" style={{ color: C.dim }}>
+                        {copy.publicUsername}
+                      </label>
+                      {isLocked && (
+                        <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: C.accent }}>
+                          <Clock size={12} />
+                          {copy.availableIn
+                            .replace("{days}", String(daysLeft))
+                            .replace("{plural}", daysLeft === 1 ? "" : "s")}
+                        </span>
+                      )}
+                    </div>
+
+                    <div
+                      className="flex items-center gap-3 rounded-xl px-4 py-3.5 transition-all duration-200"
+                      style={{
+                        background: isLocked ? "rgba(247,242,232,0.01)" : C.bgInput,
+                        border: `1px solid ${fieldFocused && !isLocked ? C.borderFocus : C.border}`,
+                        boxShadow: fieldFocused && !isLocked ? `0 0 0 3px ${C.ringFocus}` : "none",
+                        opacity: isLocked ? 0.6 : 1,
+                      }}
+                    >
+                      <User size={16} style={{ color: fieldFocused && !isLocked ? C.accent : C.dim }} className="shrink-0" />
+                      <input
+                        type="text"
+                        required
+                        disabled={isLocked}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        onFocus={() => setFieldFocused(true)}
+                        onBlur={() => setFieldFocused(false)}
+                        placeholder={copy.usernamePlaceholder}
+                        className="flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed"
+                        style={{ color: C.fg }}
+                      />
+                      {isLocked && <Clock size={15} style={{ color: C.dim }} className="shrink-0" />}
+                    </div>
+                  </div>
+
+                  <StatusBanner error={usernameError} success={usernameSuccess} />
+
+                  {!isLocked && (
+                    <Button
+                      type="submit"
+                      loading={isUsernamePending}
+                      icon={<Edit3 size={16} />}
+                      className="w-full"
+                    >
+                      {copy.saveUsername}
+                    </Button>
+                  )}
+                </form>
+              </div>
+
+              {/* Banner de Invitación Premium (si es Free) */}
+              {!isPremium && (
+                <div className="relative overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 to-amber-500/5 p-6 mt-4">
+                  <div className="absolute right-0 top-0 h-28 w-28 -translate-y-6 translate-x-6 rounded-full bg-yellow-500/10 blur-xl pointer-events-none" />
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-500/10 text-yellow-500">
+                      <Crown size={22} className="fill-yellow-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-heading font-bold text-yellow-400">{copy.upgradeToPremium}</h4>
+                      <p className="mt-1.5 text-sm leading-relaxed" style={{ color: C.muted }}>
+                        {copy.upgradeDesc}
+                      </p>
+                      <div className="flex flex-wrap gap-3 mt-4">
+                        <Link
+                          href="/premium"
+                          className="inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-5 py-2.5 text-xs font-heading font-bold text-black hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-yellow-500/20"
+                        >
+                          {copy.viewBenefits}
+                        </Link>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setGiftError(null);
+                            setGiftSuccess(null);
+                            setIsGiftModalOpen(true);
+                          }}
+                          className="px-5 py-2.5 text-xs font-semibold"
+                        >
+                          {copy.claimFreePass}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+      {/* TAB 2: BIBLIOTECA */}
+      {activeTab === "library" && (
+        <div className="flex flex-col gap-5 animate-fade-in">
+          {/* Sub-selector: Favoritos vs Historial vs Listas */}
+          <div className="flex gap-2 rounded-xl bg-transparent p-1 border overflow-x-auto" style={{ borderColor: C.border }}>
+            <button
+              onClick={() => setLibrarySubTab("favorites")}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-heading font-semibold rounded-xl transition-all shrink-0 min-w-[90px]"
+              style={{
+                background: librarySubTab === "favorites" ? "rgba(255, 107, 0, 0.1)" : "transparent",
+                color: librarySubTab === "favorites" ? C.accent : C.dim,
+              }}
+            >
+              <Heart size={14} className={librarySubTab === "favorites" ? "fill-orange-500" : ""} />
+              <span>{copy.favorites} ({favorites.length})</span>
+            </button>
+            <button
+              onClick={() => setLibrarySubTab("history")}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-heading font-semibold rounded-xl transition-all shrink-0 min-w-[90px]"
+              style={{
+                background: librarySubTab === "history" ? "rgba(255, 107, 0, 0.1)" : "transparent",
+                color: librarySubTab === "history" ? C.accent : C.dim,
+              }}
+            >
+              <History size={14} />
+              <span>{copy.history} ({history.length})</span>
+            </button>
+            <button
+              onClick={() => setLibrarySubTab("lists")}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-heading font-semibold rounded-xl transition-all shrink-0 min-w-[90px]"
+              style={{
+                background: librarySubTab === "lists" ? "rgba(255, 107, 0, 0.1)" : "transparent",
+                color: librarySubTab === "lists" ? C.accent : C.dim,
+              }}
+            >
+              <FolderHeart size={14} />
+              <span>{copy.myLists} ({userLists.length})</span>
+            </button>
+          </div>
+
+          {/* Sub-tab 1: Favoritos */}
+          {librarySubTab === "favorites" && (
+            <div className="mt-2 min-h-[300px]">
+              {favorites.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500">
+                  <HeartCrack size={56} className="mb-4 opacity-30 text-orange-500" />
+                  <p className="text-sm font-bold text-neutral-300">{copy.noFavoritesTitle}</p>
+                  <p className="mt-2 text-sm max-w-xs text-neutral-500 leading-relaxed">
+                    {copy.noFavoritesDesc}
+                  </p>
+                  <Link
+                    href="/explore"
+                    className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold"
+                    style={{ color: C.accent }}
+                  >
+                    {copy.goToCatalog}
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 max-h-[600px] overflow-y-auto pr-1">
+                  {favorites.map((manga) => {
+                    const item = toShowcaseItem(manga);
+                    return (
+                      <div key={item.mangaDexId ?? item.title} className="scale-[0.96] origin-top-left transition-transform hover:scale-98">
+                        <MangaCard manga={item} variant="grid" />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sub-tab 2: Historial */}
+          {librarySubTab === "history" && (
+            <div className="mt-2 min-h-[300px]">
+              {history.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500">
+                  <History size={56} className="mb-4 opacity-30 text-rose-500" />
+                  <p className="text-sm font-bold text-neutral-300">{copy.emptyHistoryTitle}</p>
+                  <p className="mt-2 text-sm max-w-xs text-neutral-500 leading-relaxed">
+                    {copy.emptyHistoryDesc}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3.5 max-h-[600px] overflow-y-auto pr-1">
+                  {history.map((item) => {
+                    const localeMap = { es: "es-ES", en: "en-US", pt: "pt-BR" };
+                    const currentLocale = localeMap[language] || "es-ES";
+                    const timeString = new Date(item.timestamp).toLocaleDateString(currentLocale, {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                    const slugifiedTitle = item.mangaTitle
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, "-")
+                      .replace(/(^-|-$)/g, "");
+
+                    return (
+                      <div
+                        key={item.mangaId + item.timestamp}
+                        className="flex items-center gap-4 rounded-xl p-3 transition-all hover:bg-neutral-900 border"
+                        style={{ borderColor: C.border }}
+                      >
+                        {/* Cover thumbnail */}
+                        <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-lg bg-neutral-800">
+                          {item.coverImage ? (
+                            <img 
+                              src={
+                                item.coverImage.startsWith("/api/proxy-image")
+                                  ? item.coverImage
+                                  : `/api/proxy-image?url=${encodeURIComponent(item.coverImage)}`
+                              }
+                              alt={item.mangaTitle}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-neutral-600">
+                              {copy.noCover}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Text info */}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="truncate text-sm font-bold text-neutral-100">{item.mangaTitle}</h4>
+                          <p className="truncate text-xs font-semibold mt-1" style={{ color: C.accent }}>
+                            Capítulo {item.chapterNumber}
+                          </p>
+                          <span className="text-xs block mt-1" style={{ color: C.dim }}>
+                            {copy.readOn} {timeString}
+                          </span>
+                        </div>
+
+                        {/* Continue reading link */}
+                        <Link
+                          href={`/comics/${slugifiedTitle}-${item.mangaId}/chapters/${item.chapterId}`}
+                          className="shrink-0 flex items-center justify-center rounded-xl bg-orange-500/10 px-4 py-2.5 text-xs font-bold text-orange-400 hover:bg-orange-500 hover:text-black transition-colors"
+                        >
+                          <Book size={12} className="mr-1.5" />
+                          <span>{copy.read}</span>
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sub-tab 3: Listas de Cómics */}
+          {librarySubTab === "lists" && (
+            <div className="mt-2 min-h-[300px]">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  {copy.myLists}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 px-3.5 py-2 text-xs font-heading font-bold text-orange-500 hover:bg-orange-500 hover:text-black transition-all active:scale-95"
+                >
+                  <Plus size={14} />
+                  <span>Crear Lista</span>
+                </button>
+              </div>
+
+              {loadingLists ? (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-500 gap-2">
+                  <Loader2 size={32} className="animate-spin text-orange-500" />
+                  <span className="text-xs">Cargando tus listas...</span>
+                </div>
+              ) : userLists.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-20 text-gray-500 border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
+                  <FolderHeart size={56} className="mb-4 opacity-30 text-orange-500" />
+                  <p className="text-sm font-bold text-neutral-300">{copy.noListsTitle}</p>
+                  <p className="mt-2 text-sm max-w-xs text-neutral-500 leading-relaxed px-4">
+                    {copy.noListsDesc}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2.5 text-xs font-heading font-bold text-black hover:bg-orange-600 transition-all active:scale-95 shadow-lg shadow-orange-500/10"
+                  >
+                    <Plus size={14} />
+                    <span>Crear mi primera lista</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-h-[600px] overflow-y-auto pr-1">
+                  {userLists.map((list) => {
+                    const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/lists/${list.id}` : "";
+                    const copyShareLink = () => {
+                      if (!shareUrl) return;
+                      navigator.clipboard.writeText(shareUrl);
+                      toast.success(language === "es" ? "¡Enlace copiado al portapapeles!" : language === "pt" ? "Link copiado!" : "Link copied to clipboard!");
+                    };
+
+                    const handleDelete = async () => {
+                      if (!confirm(language === "es" ? "¿Seguro que querés eliminar esta lista?" : language === "pt" ? "Tem certeza?" : "Delete this list?")) return;
+                      try {
+                        const res = await deleteMangaListAction(list.id);
+                        if (res.success) {
+                          toast.success(language === "es" ? "Lista eliminada" : "List deleted");
+                          loadLists();
+                        } else {
+                          toast.error(res.error || "Error");
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        toast.error("Error");
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={list.id}
+                        className="flex flex-col gap-3 rounded-2xl border bg-[#141519]/40 p-4 transition-all hover:bg-neutral-900/60"
+                        style={{ borderColor: C.border }}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              {list.is_public ? (
+                                <span title="Pública"><Globe size={14} className="text-gray-500 shrink-0" /></span>
+                              ) : (
+                                <span title="Privada"><Lock size={14} className="text-gray-500 shrink-0" /></span>
+                              )}
+                              <h4 className="truncate font-heading text-sm font-bold text-neutral-100">
+                                {list.name}
+                              </h4>
+                            </div>
+                            {list.description && (
+                              <p className="mt-1 line-clamp-2 text-xs text-neutral-500 leading-normal">
+                                {list.description}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {list.is_public && (
+                              <button
+                                type="button"
+                                onClick={copyShareLink}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.02] text-gray-400 hover:border-orange-500/20 hover:text-orange-500 transition-colors"
+                                title="Copiar enlace"
+                              >
+                                <Share2 size={13} />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={handleDelete}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-white/[0.02] text-gray-400 hover:border-red-500/20 hover:text-red-500 transition-colors"
+                              title="Eliminar lista"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-auto border-t border-white/5 pt-2 flex items-center justify-between text-[11px] text-gray-500">
+                          <span>{list.items_count === 1 ? "1 cómic" : `${list.items_count} cómics`}</span>
+                          {list.is_public ? (
+                            <Link
+                              href={`/lists/${list.id}`}
+                              className="font-semibold text-orange-500 hover:text-orange-400"
+                            >
+                              Ver pública →
+                            </Link>
+                          ) : (
+                            <span className="font-medium text-gray-600">Privada</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Modal de creación de lista */}
+              <AnimatePresence>
+                {showCreateModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="w-full max-w-md rounded-2xl border bg-[#141519] p-6 shadow-2xl"
+                      style={{ borderColor: C.border }}
+                    >
+                      <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-4">
+                        <h3 className="font-heading text-base font-bold text-orange-500">
+                          Crear Nueva Lista
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCreateModal(false);
+                            setNewListName("");
+                            setNewListDesc("");
+                          }}
+                          className="text-gray-400 hover:text-white"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          if (!newListName.trim()) return;
+                          setCreatingList(true);
+                          try {
+                            const res = await createMangaListAction(newListName, newListDesc, newListPublic);
+                            if (res.success) {
+                              toast.success("Lista creada con éxito");
+                              setNewListName("");
+                              setNewListDesc("");
+                              setShowCreateModal(false);
+                              loadLists();
+                            } else {
+                              toast.error(res.error || "Error al crear lista");
+                            }
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("Error al crear la lista");
+                          } finally {
+                            setCreatingList(false);
+                          }
+                        }}
+                        className="flex flex-col gap-4"
+                      >
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Nombre de la Lista
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={newListName}
+                            onChange={(e) => setNewListName(e.target.value)}
+                            placeholder="Ej. Favoritos de Romance"
+                            className="w-full rounded-xl border border-white/5 bg-black/40 px-3.5 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-orange-500/50"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
+                            Descripción (opcional)
+                          </label>
+                          <textarea
+                            value={newListDesc}
+                            onChange={(e) => setNewListDesc(e.target.value)}
+                            placeholder="Ej. Mis mangas favoritos del género romance y recuentos de la vida."
+                            rows={3}
+                            className="w-full rounded-xl border border-white/5 bg-black/40 px-3.5 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-orange-500/50 resize-none"
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 border-t border-white/5 pt-3">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                            <input
+                              type="radio"
+                              name="list_privacy"
+                              checked={newListPublic}
+                              onChange={() => setNewListPublic(true)}
+                              className="accent-orange-500"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <Globe size={13} className="text-gray-500" />
+                              <span>Pública (se comparte en la comunidad)</span>
+                            </div>
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                            <input
+                              type="radio"
+                              name="list_privacy"
+                              checked={!newListPublic}
+                              onChange={() => setNewListPublic(false)}
+                              className="accent-orange-500"
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <Lock size={13} className="text-gray-500" />
+                              <span>Privada (solo vos podés verla)</span>
+                            </div>
+                          </label>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-3 border-t border-white/5 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCreateModal(false);
+                              setNewListName("");
+                              setNewListDesc("");
+                            }}
+                            className="rounded-xl px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={creatingList || !newListName.trim()}
+                            className="rounded-xl bg-orange-500 px-5 py-2 text-xs font-heading font-bold text-black hover:bg-orange-600 disabled:opacity-50 transition-colors shadow-lg shadow-orange-500/10"
+                          >
+                            {creatingList ? "Creando..." : "Crear Lista"}
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: AJUSTES */}
+          {activeTab === "settings" && (
+            <div className="flex flex-col gap-6">
+              {/* Seguridad */}
+              <div className="flex flex-col gap-4">
+                <div>
+                  <h2 className="text-sm font-heading font-bold uppercase tracking-wider" style={{ color: C.fg }}>
+                    {copy.security}
+                  </h2>
+                  <p className="text-sm mt-1 leading-normal" style={{ color: C.dim }}>
+                    {copy.securityDesc}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl p-5 flex flex-col gap-4 border" style={{ background: "rgba(247,242,232,0.01)", borderColor: C.border }}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm min-w-0">
+                    <span className="flex items-center gap-2 font-bold" style={{ color: C.dim }}>
+                      <Mail size={16} /> {copy.email}
+                    </span>
+                    <span className="font-extrabold truncate text-neutral-200">
+                      {user.email}
+                    </span>
+                  </div>
+
+                  {!isDiscord && (
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t pt-4 text-sm" style={{ borderColor: C.border }}>
+                      <span className="flex items-center gap-2 font-bold" style={{ color: C.dim }}>
+                        <Key size={16} /> {copy.password}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        loading={sendingReset}
+                        onClick={handleResetPassword}
+                        className="px-4 py-2.5 text-xs"
+                        icon={<Key size={13} />}
+                      >
+                        {copy.changePassword}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t pt-6" style={{ borderColor: C.border }}>
+                <h2 className="text-sm font-heading font-bold uppercase tracking-wider" style={{ color: C.fg }}>
+                  {copy.accountManagement}
+                </h2>
+                <p className="text-sm mt-1 leading-normal" style={{ color: C.dim }}>
+                  {copy.accountManagementDesc}
+                </p>
+              </div>
+
+              {/* Acciones de Cuenta */}
+              <div className="flex flex-col gap-4 pt-2">
+                <Button
+                  variant="secondary"
+                  loading={isLoggingOut}
+                  onClick={handleLogout}
+                  className="w-full border-zinc-800"
+                  icon={<LogOut size={16} style={{ color: C.accent }} />}
+                >
+                  {copy.logout}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => setIsDeleteModalOpen(true)}
+                  className="w-full mt-2 text-red-500/70 hover:text-red-500 py-3"
+                  icon={<Trash2 size={14} />}
+                >
+                  {copy.deleteAccountPerm}
+                </Button>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* ── MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE CUENTA ───────────────────── */}
+      <AnimatePresence>
+        {isDeleteModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+            style={{ background: "rgba(0, 0, 0, 0.8)" }}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-3xl p-7 text-left"
+              style={{
+                background: "#131110",
+                border: "1px solid rgba(239, 68, 68, 0.3)",
+                boxShadow: "0 24px 50px rgba(0, 0, 0, 0.9)"
+              }}
+            >
+              <div className="flex items-center gap-3.5 text-red-500 mb-4">
+                <ShieldAlert size={32} className="shrink-0" />
+                <h3 className="text-xl font-bold" style={{ color: C.fg }}>
+                  {copy.deleteModalTitle}
+                </h3>
+              </div>
+
+              <p className="text-sm leading-relaxed mb-4" style={{ color: C.muted }}>
+                {copy.deleteModalDesc}
+              </p>
+
+              <div className="mb-6">
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-2 text-red-400">
+                  {language === "es" 
+                    ? "Para confirmar, escribe tu nombre de usuario exacto:" 
+                    : language === "pt" 
+                      ? "Para confirmar, digite seu nome de usuário exato:" 
+                      : "To confirm, enter your exact username:"}
+                </label>
+                <input
+                  type="text"
+                  value={confirmUsername}
+                  onChange={(e) => setConfirmUsername(e.target.value)}
+                  placeholder={profile?.username || ""}
+                  disabled={isDeleting}
+                  className="w-full px-4 py-2.5 rounded-xl border bg-neutral-900/60 text-sm font-medium focus:outline-none transition-all"
+                  style={{
+                    borderColor: confirmUsername === profile?.username ? "rgba(239, 68, 68, 0.6)" : "rgba(247,242,232,0.15)",
+                    color: C.fg,
+                  }}
+                />
+              </div>
+
+              {deleteError && (
+                <div className="mb-4">
+                  <StatusBanner error={deleteError} />
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3.5">
+                <Button
+                  variant="danger"
+                  loading={isDeleting}
+                  disabled={confirmUsername !== profile?.username || isDeleting}
+                  onClick={handleDeleteAccount}
+                  className="flex-1"
+                >
+                  {copy.deleteModalConfirm}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  disabled={isDeleting}
+                  onClick={() => {
+                    setIsDeleteModalOpen(false);
+                    setDeleteError(null);
+                    setConfirmUsername("");
+                  }}
+                  className="flex-1"
+                >
+                  {copy.deleteModalCancel}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MODAL PARA RECLAMAR EL PASE PREMIUM DE REGALO ───────────────────────────── */}
+      <AnimatePresence>
+        {isGiftModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md"
+            style={{ background: "rgba(0, 0, 0, 0.8)" }}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md rounded-3xl p-7 text-left relative overflow-hidden"
+              style={{
+                background: "#131110",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                boxShadow: "0 24px 50px rgba(0, 0, 0, 0.9)"
+              }}
+            >
+              <div className="absolute right-0 top-0 h-32 w-32 -translate-y-8 translate-x-8 rounded-full bg-yellow-500/5 blur-2xl pointer-events-none" />
+
+              <div className="flex items-center gap-3 text-yellow-500 mb-4">
+                <Crown size={32} className="shrink-0 fill-yellow-500 animate-pulse" />
+                <h3 className="text-xl font-bold" style={{ color: C.fg }}>
+                  {copy.giftModalTitle}
+                </h3>
+              </div>
+
+              <p className="text-sm leading-relaxed mb-6" style={{ color: C.muted }}>
+                {copy.giftModalDesc}
+              </p>
+
+              {giftError && (
+                <div className="mb-4">
+                  <StatusBanner error={giftError} />
+                </div>
+              )}
+              {giftSuccess && (
+                <div className="mb-4">
+                  <StatusBanner success={giftSuccess} />
+                </div>
+              )}
+
+              {!giftSuccess && (
+                <div className="flex flex-col sm:flex-row gap-3.5">
+                  <button
+                    type="button"
+                    disabled={isClaimingGift}
+                    onClick={handleClaimGift}
+                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-heading font-bold text-black transition-all bg-yellow-500 hover:brightness-110 active:scale-95 shadow-lg shadow-yellow-500/10 cursor-pointer"
+                  >
+                    {isClaimingGift ? (
+                      <><Loader2 size={16} className="animate-spin" /> {copy.giftModalActivating}</>
+                    ) : (
+                      copy.giftModalActivate
+                    )}
+                  </button>
+
+                  <Button
+                    variant="secondary"
+                    disabled={isClaimingGift}
+                    onClick={() => {
+                      setIsGiftModalOpen(false);
+                      setGiftError(null);
+                    }}
+                    className="flex-1"
+                  >
+                    {copy.giftModalClose}
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

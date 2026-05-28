@@ -1,10 +1,8 @@
-﻿import { logger } from "./logger";
+import { logger } from "./logger";
 import { getCached, setCached, stableCacheKey } from "./server-cache";
-const MONLINE_API_URL = (
-  process.env.MONLINE_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://46.224.213.127:8085"
-).replace(/\/$/, "");
+import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
+
+const MONLINE_API_URL = MONLINE_CONFIG_API_URL;
 
 const MONLINE_TIMEOUT_MS = 8000; // 👈 LO SUBIMOS A 8 SEGUNDOS (Hetzner lo necesita)
 
@@ -56,6 +54,15 @@ export function isMonlineChapterPageUrl(value: string) {
   if (normalized.includes("zonaolympus")) return false;
   if (normalized.includes("z (reporte)") || normalized.includes("z%20(reporte)")) return false;
   if (normalized.includes("reporte).webp")) return false;
+
+  // Filtrar píxeles de rastreo y anuncios de terceros
+  if (
+    normalized.includes("yandex") ||
+    normalized.includes("analytics") ||
+    normalized.includes("ads")
+  ) {
+    return false;
+  }
 
   return true;
 }

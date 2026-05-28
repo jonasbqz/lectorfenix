@@ -58,7 +58,7 @@ export default async function SearchPage() {
   const currentLanguage = normalizeLanguage(cookieStore.get("lang")?.value);
 
   return (
-    <main className="min-h-screen bg-[#141519] text-white">
+    <main className="min-h-screen bg-transparent text-white">
       <SiteHeader language={currentLanguage} />
       <Suspense fallback={<SearchPageFallback />}>
         <SearchResultsContent />

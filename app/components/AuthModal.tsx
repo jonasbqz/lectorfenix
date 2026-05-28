@@ -1,0 +1,727 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { X, Mail, Lock, User, ArrowLeft, CheckCircle2, AlertCircle, Sparkles, LogIn, UserPlus } from "lucide-react";
+import { createClient } from "../../utils/supabase/client";
+import { toast } from "sonner";
+
+import { C } from "../lib/colors";
+
+
+// ─── Traducción de errores de Supabase ────────────────────────────────────
+function translateError(raw: string): string {
+  const msg = raw.toLowerCase();
+  if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+    return "El correo o la contraseña son incorrectos. Inténtalo de nuevo.";
+  }
+  if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
+    return "Primero verifica tu correo electrónico para poder acceder.";
+  }
+  if (msg.includes("user already registered") || msg.includes("already registered")) {
+    return "Ya existe una cuenta con este correo electrónico.";
+  }
+  if (msg.includes("password should be at least")) {
+    return "La contraseña debe tener al menos 6 caracteres.";
+  }
+  if (msg.includes("rate limit") || msg.includes("too many requests")) {
+    return "Demasiados intentos. Espera unos minutos antes de volver a intentarlo.";
+  }
+  if (msg.includes("network") || msg.includes("fetch")) {
+    return "Error de conexión. Comprueba tu internet e inténtalo de nuevo.";
+  }
+  return raw;
+}
+
+const DISCORD_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="shrink-0">
+    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
+
+const USERNAME_PREFIXES = [
+  "Goku", "Luffy", "Naruto", "Zoro", "Sasuke", "Deku", "Ichigo", "Eren", "Mikasa", 
+  "Light", "Saitama", "Kaneki", "Guts", "Tanjiro", "Nezuko", "Gojo", "Sukuna", "Itadori", 
+  "Megumi", "Nobara", "Rimuru", "Asta", "Killua", "Gon", "Hisoka", "Kira", "Otaku", 
+  "Manga", "Anime", "Manhwa", "Shadow", "Solo", "Hiei", "Kurama", "Yusuke"
+];
+
+const USERNAME_SUFFIXES = [
+  "Sama", "Kun", "Chan", "Senpai", "Hokage", "Saiyan", "Shinigami", "Ghoul", "Hunter", 
+  "Alchemist", "Hero", "Titan", "Ninja", "Pirate", "Sorcerer", "King", "God", "Slayer", 
+  "Weeb", "Reader", "Lover", "Fan", "Sensei", "Rider", "Buster", "Knight"
+];
+
+function generateRandomUsername(): string {
+  const pref = USERNAME_PREFIXES[Math.floor(Math.random() * USERNAME_PREFIXES.length)];
+  const suff = USERNAME_SUFFIXES[Math.floor(Math.random() * USERNAME_SUFFIXES.length)];
+  const num = Math.floor(Math.random() * 90) + 10;
+  return `${pref}${suff}${num}`;
+}
+
+type Tab = "signin" | "signup";
+type View = "main" | "forgot" | "forgot-sent";
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  defaultTab?: "signin" | "signup";
+}
+
+declare global {
+  interface Window {
+    turnstile: any;
+  }
+}
+
+export default function AuthModal({ open, onClose, defaultTab }: Props) {
+  const supabase = createClient();
+  const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [tab, setTab] = useState<Tab>("signin");
+  const [view, setView] = useState<View>("main");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<React.ReactNode | null>(null);
+
+  const signinTurnstileContainerRef = useRef<HTMLDivElement>(null);
+  const signupTurnstileContainerRef = useRef<HTMLDivElement>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const isCaptchaEnabled = false;
+
+  useEffect(() => {
+    if (!open || !isCaptchaEnabled) return;
+    if (document.getElementById("turnstile-script")) return;
+
+    const script = document.createElement("script");
+    script.id = "turnstile-script";
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }, [open, isCaptchaEnabled]);
+
+  useEffect(() => {
+    if (!open || !isCaptchaEnabled) {
+      setCaptchaToken(null);
+      turnstileWidgetId.current = null;
+      return;
+    }
+
+    setCaptchaToken(null);
+
+    const interval = setInterval(() => {
+      const activeContainer = tab === "signin" 
+        ? signinTurnstileContainerRef.current 
+        : signupTurnstileContainerRef.current;
+
+      if (window.turnstile && activeContainer) {
+        clearInterval(interval);
+        try {
+          if (turnstileWidgetId.current !== null) {
+            try {
+              window.turnstile.remove(turnstileWidgetId.current);
+            } catch (e) {
+              // Ignore
+            }
+            turnstileWidgetId.current = null;
+          }
+
+          console.log("[Turnstile] Rendering with siteKey:", siteKey);
+
+          turnstileWidgetId.current = window.turnstile.render(activeContainer, {
+            sitekey: siteKey,
+            callback: (token: string) => {
+              setCaptchaToken(token);
+            },
+            "error-callback": () => {
+              setCaptchaToken(null);
+            },
+            "expired-callback": () => {
+              setCaptchaToken(null);
+            },
+            theme: "dark",
+          });
+        } catch (err) {
+          console.error("Turnstile render error:", err);
+        }
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [open, tab, isCaptchaEnabled, siteKey]);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (open && defaultTab) {
+      setTab(defaultTab);
+    }
+  }, [open, defaultTab]);
+
+  useEffect(() => {
+    document.body.style.overflow = open ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      const t = setTimeout(() => {
+        setTab("signin"); setView("main");
+        setEmail(""); setPassword(""); setConfirmPassword(""); setUsername(""); setForgotEmail("");
+        setLoading(false); setErrorMsg(null);
+      }, 300);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  const clearError = () => setErrorMsg(null);
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+
+    if (isCaptchaEnabled && !captchaToken) {
+      setErrorMsg("Por favor completá la verificación de seguridad (Captcha).");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      ...(isCaptchaEnabled && captchaToken ? {
+        options: {
+          captchaToken: captchaToken,
+        },
+      } : {}),
+    });
+    setLoading(false);
+
+    if (error) {
+      setErrorMsg(translateError(error.message));
+      return;
+    }
+
+    if (!data.user?.email_confirmed_at) {
+      await supabase.auth.signOut();
+      setErrorMsg("Primero verifica tu correo electrónico para poder acceder.");
+      return;
+    }
+
+    onClose();
+    if (typeof window !== "undefined") {
+      if (window.location.pathname === "/premium") {
+        router.refresh();
+      } else if (window.location.pathname === "/" || window.location.pathname === "/auth") {
+        router.push("/profile");
+      } else {
+        router.refresh();
+      }
+    } else {
+      router.push("/profile");
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+    const cleanUsername = username.trim();
+    if (!cleanUsername) { setErrorMsg("Ingresá un nombre de usuario."); return; }
+    if (password !== confirmPassword) { setErrorMsg("Las contraseñas no coinciden. Verificalas e inténtalo de nuevo."); return; }
+
+    if (isCaptchaEnabled && !captchaToken) {
+      setErrorMsg("Por favor completá la verificación de seguridad (Captcha).");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data: existingUser, error: checkError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", cleanUsername)
+      .maybeSingle();
+
+    if (existingUser) {
+      setErrorMsg("El nombre de usuario ya está en uso. Elige otro o usa el dado para generar uno nuevo.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { username: cleanUsername },
+        ...(isCaptchaEnabled && captchaToken ? { captchaToken } : {}),
+      },
+    });
+    setLoading(false);
+
+    if (error) {
+      const errMsg = error.message.toLowerCase();
+      if (errMsg.includes("already registered") || errMsg.includes("user already registered")) {
+        setErrorMsg(
+          <span className="block text-xs leading-relaxed text-red-300">
+            Ya estás registrado con este correo electrónico.{" "}
+            <button
+              type="button"
+              onClick={() => {
+                setTab("signin");
+                clearError();
+              }}
+              className="font-bold underline cursor-pointer text-[#ff6b00] hover:text-[#ff8833] ml-1"
+            >
+              Inicia sesión aquí
+            </button>
+          </span>
+        );
+      } else {
+        setErrorMsg(translateError(error.message));
+      }
+      return;
+    }
+
+    toast.success("¡Cuenta creada! Revisa tu correo para verificarla.");
+    onClose();
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback?next=/reset-password`
+        : undefined,
+    });
+    setLoading(false);
+    if (error) { setErrorMsg(translateError(error.message)); return; }
+    setView("forgot-sent");
+  };
+
+  const handleDiscord = async () => {
+    clearError();
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "/profile";
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: {
+        redirectTo: typeof window !== "undefined"
+          ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(currentPath)}`
+          : undefined,
+      },
+    });
+    if (error) setErrorMsg(translateError(error.message));
+  };
+
+  if (!mounted) return null;
+
+  const currentPath = typeof window !== "undefined" ? window.location.pathname : "";
+
+  const modal = (
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-transparent">
+          {/* Backdrop con Blur */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="absolute inset-0"
+            style={{ background: "rgba(5, 4, 3, 0.82)", backdropFilter: "blur(12px)" }}
+            onClick={onClose}
+          />
+
+          {/* Glow radial ambiental en el fondo de la tarjeta */}
+          <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none overflow-hidden">
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1.1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="w-[280px] h-[280px] sm:w-[360px] sm:h-[360px] rounded-full bg-gradient-to-r from-orange-600/15 via-[#ff6b00]/8 to-transparent blur-[70px] sm:blur-[90px]"
+            />
+          </div>
+
+          {/* Tarjeta de Modal Premium */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+            className="relative z-10 w-full max-w-[390px] overflow-hidden rounded-3xl border border-white/[0.07] bg-[#121110]/95 shadow-[0_30px_70px_rgba(0,0,0,0.85),_0_0_0_1px_rgba(255,107,0,0.06)] backdrop-blur-md"
+          >
+            {/* Botón de Cerrar Flotante */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 shadow-md border border-white/5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 hover:border-white/10 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+
+            {/* ── VISTA PRINCIPAL (SIGN IN / SIGN UP) ──────────────────────── */}
+            {view === "main" && (
+              <div className="flex flex-col">
+                {/* Cabecera Estética */}
+                <div className="flex flex-col items-center pt-8 pb-3 px-6 text-center select-none">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/10 text-[#ff6b00] border border-orange-500/15 mb-3 shadow-[0_0_15px_rgba(255,107,0,0.1)]">
+                    {tab === "signin" ? <LogIn size={20} className="ml-0.5" /> : <UserPlus size={20} />}
+                  </div>
+                  <h2 className="text-xl font-heading font-extrabold tracking-tight text-gray-100">
+                    {tab === "signin" ? "¡Hola de vuelta!" : "Unirse a MangaStoon"}
+                  </h2>
+                  <p className="mt-1 text-xs text-neutral-400 leading-normal">
+                    {tab === "signin" 
+                      ? "Inicia sesión para ver tu lista de lectura e historial." 
+                      : "Crea tu cuenta gratis para interactuar y guardar favoritos."}
+                  </p>
+                </div>
+
+                {/* Switcher de Pestañas Segmentado */}
+                <div className="flex bg-neutral-950/60 p-1 rounded-2xl border border-white/[0.04] mb-4 mx-6 relative">
+                  {(["signin", "signup"] as Tab[]).map((t) => {
+                    const label = t === "signin" ? "Ingresar" : "Registrarse";
+                    const active = tab === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => { setTab(t); clearError(); }}
+                        className="relative flex-1 py-2 text-xs font-heading font-extrabold uppercase tracking-widest rounded-xl transition-all cursor-pointer z-10"
+                        style={{ color: active ? C.fg : C.dim }}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="activeAuthTabSegment"
+                            className="absolute inset-0 rounded-lg bg-orange-500/10 border border-orange-500/20 shadow-[0_0_8px_rgba(255,107,0,0.15)]"
+                            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Contenedor con Transiciones Animadas de Formulario */}
+                <div className="px-6 pb-6 pt-1 overflow-hidden relative">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={tab}
+                      initial={{ opacity: 0, x: tab === "signin" ? -15 : 15 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: tab === "signin" ? 15 : -15 }}
+                      transition={{ duration: 0.18, ease: "easeInOut" }}
+                      className="flex flex-col gap-4"
+                    >
+                      {/* Banner de Errores */}
+                      <ErrorBanner message={errorMsg} />
+
+                      {tab === "signin" && (
+                        <form onSubmit={handleSignIn} className="flex flex-col gap-3">
+                          <Field 
+                            icon={<Mail size={13} />} 
+                            label="Correo electrónico" 
+                            type="email"
+                            value={email} 
+                            onChange={setEmail} 
+                            placeholder="nombre@correo.com" 
+                          />
+                          <div className="flex flex-col gap-1.5">
+                            <Field 
+                              icon={<Lock size={13} />} 
+                              label="Contraseña" 
+                              type="password"
+                              value={password} 
+                              onChange={setPassword} 
+                              placeholder="••••••••" 
+                            />
+                            <button
+                              type="button"
+                              onClick={() => { setForgotEmail(email); clearError(); setView("forgot"); }}
+                              className="self-end text-[11px] font-bold text-gray-500 hover:text-orange-400 transition-colors mt-0.5 cursor-pointer"
+                            >
+                              ¿Olvidaste tu contraseña?
+                            </button>
+                          </div>
+
+                          {isCaptchaEnabled && (
+                            <div className="flex flex-col items-center justify-center my-1 min-h-[65px] w-full">
+                              <div ref={signinTurnstileContainerRef} />
+                            </div>
+                          )}
+
+                          <PrimaryButton loading={loading}>Iniciar Sesión</PrimaryButton>
+                          <Divider />
+                          <DiscordButton onClick={handleDiscord} />
+                        </form>
+                      )}
+
+                      {tab === "signup" && (
+                        <form onSubmit={handleSignUp} className="flex flex-col gap-3">
+                          <Field
+                            icon={<User size={13} />}
+                            label="Nombre de usuario"
+                            type="text"
+                            value={username}
+                            onChange={setUsername}
+                            placeholder="Tu usuario público"
+                            suffixAction={
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const rand = generateRandomUsername();
+                                  setUsername(rand);
+                                  toast.info(`Sugerencia: ${rand} 🎲`);
+                                }}
+                                className="text-gray-500 hover:text-orange-500 hover:bg-orange-500/10 p-1.5 rounded-lg transition-all cursor-pointer mr-0.5"
+                                title="Generar nombre aleatorio"
+                              >
+                                🎲
+                              </button>
+                            }
+                          />
+                          <Field 
+                            icon={<Mail size={13} />} 
+                            label="Correo electrónico" 
+                            type="email"
+                            value={email} 
+                            onChange={setEmail} 
+                            placeholder="nombre@correo.com" 
+                          />
+                          <Field 
+                            icon={<Lock size={13} />} 
+                            label="Contraseña" 
+                            type="password"
+                            value={password} 
+                            onChange={setPassword} 
+                            placeholder="Mínimo 8 caracteres" 
+                          />
+                          <Field 
+                            icon={<Lock size={13} />} 
+                            label="Confirmar contraseña" 
+                            type="password"
+                            value={confirmPassword} 
+                            onChange={setConfirmPassword} 
+                            placeholder="Repite tu contraseña" 
+                          />
+
+                          {isCaptchaEnabled && (
+                            <div className="flex flex-col items-center justify-center my-1 min-h-[65px] w-full">
+                              <div ref={signupTurnstileContainerRef} />
+                            </div>
+                          )}
+
+                          <PrimaryButton loading={loading}>Crear Cuenta</PrimaryButton>
+                          <Divider />
+                          <DiscordButton onClick={handleDiscord} />
+                        </form>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+
+            {/* ── VISTA DE RECUPERAR CONTRASEÑA ────────────────────────────────── */}
+            {view === "forgot" && (
+              <div className="p-6 flex flex-col gap-4">
+                <button
+                  type="button"
+                  onClick={() => { setView("main"); clearError(); }}
+                  className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-white transition-colors w-fit cursor-pointer"
+                >
+                  <ArrowLeft size={13} /> Volver
+                </button>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 shadow-md">
+                    <Lock size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-heading font-extrabold text-gray-100">
+                      Recuperar contraseña
+                    </h2>
+                    <p className="text-xs text-neutral-400 leading-relaxed">
+                      Te enviaremos un enlace seguro para restablecerla.
+                    </p>
+                  </div>
+                </div>
+                <ErrorBanner message={errorMsg} />
+                <form onSubmit={handleForgot} className="flex flex-col gap-4 mt-2">
+                  <Field 
+                    icon={<Mail size={13} />} 
+                    label="Correo electrónico" 
+                    type="email"
+                    value={forgotEmail} 
+                    onChange={setForgotEmail} 
+                    placeholder="nombre@correo.com" 
+                  />
+                  <PrimaryButton loading={loading}>Enviar enlace de recuperación</PrimaryButton>
+                </form>
+              </div>
+            )}
+
+            {/* ── VISTA DE ENLACE ENVIADO ───────────────────────────────────── */}
+            {view === "forgot-sent" && (
+              <div className="p-8 flex flex-col items-center text-center gap-5">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl animate-pulse"
+                  style={{ background: "rgba(255, 107, 0, 0.08)", border: "1px solid rgba(255, 107, 0, 0.2)" }}
+                >
+                  <CheckCircle2 size={28} style={{ color: C.accent }} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-heading font-extrabold text-gray-100">¡Correo enviado!</h2>
+                  <p className="text-xs leading-relaxed max-w-[270px] text-neutral-400 mt-1">
+                    Revisa tu bandeja en{" "}
+                    <span className="font-bold text-gray-200">{forgotEmail}</span>{" "}
+                    para continuar con el restablecimiento.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-2 w-full rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all border border-white/5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
+  return createPortal(modal, document.body);
+}
+
+// ─── Subcomponentes Internos Refinados ─────────────────────────────────────
+
+function ErrorBanner({ message }: { message: React.ReactNode | null }) {
+  if (!message) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-start gap-2.5 rounded-xl px-4 py-3.5"
+      style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.18)" }}
+    >
+      <AlertCircle size={14} className="mt-0.5 shrink-0 text-red-400" />
+      <div className="text-xs leading-relaxed text-red-300 flex-1">{message}</div>
+    </motion.div>
+  );
+}
+
+function Field({
+  icon, label, type, value, onChange, placeholder, suffixAction,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  type: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  suffixAction?: React.ReactNode;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div className="flex flex-col gap-1.5 w-full text-left">
+      <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+        {label}
+      </label>
+      <div
+        className="flex items-center gap-2.5 rounded-xl px-3.5 py-3 transition-all duration-200 bg-neutral-900/60"
+        style={{
+          border: `1px solid ${focused ? "rgba(255, 107, 0, 0.45)" : "rgba(247,242,232,0.10)"}`,
+          boxShadow: focused ? "0 0 12px rgba(255, 107, 0, 0.15)" : "none",
+        }}
+      >
+        <span className="shrink-0 transition-colors" style={{ color: focused ? "#ff6b00" : "rgba(194,184,166,0.4)" }}>
+          {icon}
+        </span>
+        <input
+          type={type}
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent text-sm outline-none border-none p-0 focus:ring-0 focus:outline-none"
+          style={{ color: C.fg }}
+        />
+        {suffixAction}
+      </div>
+    </div>
+  );
+}
+
+function PrimaryButton({ children, loading }: { children: React.ReactNode; loading: boolean }) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      className="relative w-full overflow-hidden rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 disabled:opacity-50 shadow-md shadow-orange-500/10 cursor-pointer text-black hover:brightness-110 active:scale-[0.98]"
+      style={{
+        background: `linear-gradient(135deg, ${C.accent}, ${C.accentStrong})`,
+      }}
+    >
+      {loading ? (
+        <span className="flex items-center justify-center gap-2">
+          <svg className="h-4 w-4 animate-spin text-black" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          <span>Procesando...</span>
+        </span>
+      ) : children}
+    </button>
+  );
+}
+
+function Divider() {
+  return (
+    <div className="flex items-center gap-3 py-1 select-none">
+      <div className="h-px flex-1 bg-white/[0.06]" />
+      <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">o bien</span>
+      <div className="h-px flex-1 bg-white/[0.06]" />
+    </div>
+  );
+}
+
+function DiscordButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex w-full items-center justify-center gap-3 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
+      style={{
+        background: hovered ? C.discordHover : C.discord,
+        color: "#ffffff",
+        boxShadow: hovered ? "0 4px 20px rgba(88,101,242,0.3)" : "none",
+      }}
+    >
+      {DISCORD_ICON}
+      <span>Discord</span>
+    </button>
+  );
+}

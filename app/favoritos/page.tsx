@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { HeartCrack } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -33,42 +33,45 @@ function toShowcaseItem(manga: FavoriteManga): MangaShowcaseItem {
 
 export default function FavoritosPage() {
   const { language } = useLanguage();
-  const { favorites } = useFavoritesStore();
+  const { favorites, syncWithServer } = useFavoritesStore();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    syncWithServer();
+  }, [syncWithServer]);
 
   if (!mounted) {
     return (
-      <main className="min-h-screen bg-[#141519] text-white">
+      <main className="min-h-screen bg-transparent text-white">
         <SiteHeader language={language} />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#141519] text-white">
+    <main className="min-h-screen bg-transparent text-white">
       <SiteHeader language={language} />
       <div className="mx-auto min-h-[70vh] max-w-[1600px] px-4 py-12 md:px-8">
         <BackButton />
 
         <h1 className="mb-8 border-l-4 border-[#ff6b00] pl-4 text-xl font-semibold text-white md:text-xl">
-        Mis Guardados
+          Mis Favoritos
         </h1>
 
         {favorites.length === 0 ? (
-        <div className="mt-20 flex flex-col items-center justify-center text-gray-500">
-          <HeartCrack size={64} className="mb-4 opacity-50" />
-          <p className="text-xl font-medium">Aún no tienes mangas guardados</p>
-          <p className="mt-2 text-sm">Explora el catálogo y dale al corazón para guardarlos aquí.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 md:gap-6 lg:grid-cols-5 xl:grid-cols-6">
-          {favorites.map((manga) => {
-            const item = toShowcaseItem(manga);
-            return <MangaCard key={item.mangaDexId ?? item.title} manga={item} variant="grid" />;
-          })}
-        </div>
+          <div className="mt-20 flex flex-col items-center justify-center text-gray-500">
+            <HeartCrack size={64} className="mb-4 opacity-50" />
+            <p className="text-xl font-medium">Aún no tienes mangas favoritos</p>
+            <p className="mt-2 text-sm">Explora el catálogo y dale al corazón para agregarlos aquí.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 md:gap-6 lg:grid-cols-5 xl:grid-cols-6">
+            {favorites.map((manga) => {
+              const item = toShowcaseItem(manga);
+              return <MangaCard key={item.mangaDexId ?? item.title} manga={item} variant="grid" />;
+            })}
+          </div>
         )}
       </div>
     </main>

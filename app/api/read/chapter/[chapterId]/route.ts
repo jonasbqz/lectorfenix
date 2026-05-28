@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../../utils/mangadex-config";
 import { filterMonlineChapterPageUrls, fetchMonlinePagesFromRoute, toMonlineSegment, uniqueNonEmpty } from "../../../../utils/monline";
+import { MONLINE_API_URL } from "../../../../utils/monline-config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const LOCAL_API_URL = (
-  process.env.MONLINE_API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://46.224.213.127:8085"
-).replace(/\/$/, "");
+const LOCAL_API_URL = MONLINE_API_URL;
 
 type AtHomeResponse = {
   baseUrl: string;
@@ -120,11 +117,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
       const res = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/read?chapterId=${chapterId}`);
       if (!res.ok) throw new Error();
-      const data = await res.json();
-      const pages = data?.map((p: any) => p.img) || [];
+      const data = (await res.json()) as Array<{ img?: string }> | null;
+      const pages = data?.map((p) => p.img).filter((img): img is string => typeof img === "string") || [];
       return NextResponse.json({ pages }, { headers: { "Cache-Control": "no-store" } });
     } catch {
-      return NextResponse.json({ pages: [], error: "No se pudieron cargar las p?ginas", code: "CONSUMET_FAILED" }, { status: 503 });
+      return NextResponse.json({ pages: [], error: "No se pudieron cargar las páginas", code: "CONSUMET_FAILED" }, { status: 503 });
     }
   }
 

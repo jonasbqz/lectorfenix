@@ -25,16 +25,16 @@ export default function AppFeedback() {
         position="bottom-right"
         toastOptions={{
           style: {
-            background: "#141519",
-            border: "1px solid rgba(255,255,255,0.1)",
-            color: "#fff",
+            background: "#131110",
+            border: "1px solid rgba(247,242,232,0.10)",
+            color: "#f7f2e8",
           },
         }}
       />
 
       {showCookieBanner ? (
         <div className="fixed inset-x-0 bottom-0 z-[9998] px-4 pb-4">
-          <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-2xl border border-white/10 bg-[#101116]/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+          <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-2xl border border-[rgba(247,242,232,0.10)] bg-[#131110]/95 p-4 shadow-2xl shadow-black/50 backdrop-blur-xl md:flex-row md:items-center md:justify-between">
             <p className="text-sm leading-6 text-gray-300">
               Usamos cookies técnicas y almacenamiento local para guardar idioma, preferencias +18 y progreso de lectura.
             </p>

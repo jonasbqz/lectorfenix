@@ -8,7 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import MangaLoader from "./MangaLoader";
 
 export type SupportedLanguage = "es" | "en" | "pt";
 
@@ -34,10 +35,30 @@ function normalizeLanguage(value: string | null | undefined): SupportedLanguage 
   return "es";
 }
 
+const CHANGING_LANG_MESSAGES: Record<SupportedLanguage, string> = {
+  es: "Cambiando idioma a Español...",
+  en: "Changing language to English...",
+  pt: "Alterando o idioma para Português...",
+};
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [language, setLanguageState] = useState<SupportedLanguage>("es");
   const [isAdult, setIsAdult] = useState(false);
+  const [isChangingLanguage, setIsChangingLanguage] = useState<SupportedLanguage | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedPrev = window.sessionStorage.getItem("mangastoon:current-path");
+      if (pathname === "/explore") {
+        if (storedPrev !== "/explore" && (!storedPrev || !storedPrev.startsWith("/comics/"))) {
+          window.sessionStorage.removeItem("mangastoon:explore-state");
+        }
+      }
+      window.sessionStorage.setItem("mangastoon:current-path", pathname);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const storedLanguage = normalizeLanguage(window.localStorage.getItem(STORAGE_KEY));
@@ -69,10 +90,14 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     () => ({
       language,
       setLanguage: (nextLanguage) => {
+        setIsChangingLanguage(nextLanguage);
         setLanguageState(nextLanguage);
         window.localStorage.setItem(STORAGE_KEY, nextLanguage);
         document.cookie = `${COOKIE_NAME}=${nextLanguage}; path=/; max-age=31536000; samesite=lax`;
         router.refresh();
+        setTimeout(() => {
+          setIsChangingLanguage(null);
+        }, 800);
       },
       isAdult,
       setAdult: (nextAdult) => {
@@ -85,7 +110,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     [isAdult, language, router]
   );
 
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+      {isChangingLanguage !== null && (
+        <MangaLoader
+          fullScreen
+          language={isChangingLanguage}
+          message={CHANGING_LANG_MESSAGES[isChangingLanguage]}
+        />
+      )}
+    </LanguageContext.Provider>
+  );
 }
 
 export function useLanguage() {

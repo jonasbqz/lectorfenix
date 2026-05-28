@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, ArrowRight, Search, SlidersHorizontal, ChevronUp, ChevronDown } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { MangaCard } from "../components/home-carousel";
 import type { MangaShowcaseItem } from "../components/home-carousel";
 import SiteHeader from "../components/site-header";
 import { useLanguage, type SupportedLanguage } from "../components/language-provider";
 import {
+  appendStandardMangaDexFilters,
   extractLocalApiComics,
   fetchLocalChapterPreviews,
   fetchMangaDexStatistics,
@@ -96,20 +98,6 @@ const DEFAULT_TYPE = "all";
 const EXPLORE_STATE_STORAGE_KEY = "mangastoon:explore-state";
 const MANGADEX_MAX_OFFSET = 10_000;
 const MANGADEX_FALLBACK_TOTAL = 12_000;
-const SAFE_EXPLORE_CONTENT_RATINGS = ["safe", "suggestive"];
-const ADULT_EXPLORE_CONTENT_RATINGS = ["erotica", "pornographic"];
-
-function appendExploreMangaDexFilters(params: URLSearchParams, isAdult: boolean) {
-  params.append("includes[]", "cover_art");
-
-  const ratings = isAdult
-    ? [...SAFE_EXPLORE_CONTENT_RATINGS, ...ADULT_EXPLORE_CONTENT_RATINGS]
-    : SAFE_EXPLORE_CONTENT_RATINGS;
-
-  ratings.forEach((rating) => {
-    params.append("contentRating[]", rating);
-  });
-}
 
 type OrderByValue = (typeof ORDER_OPTIONS)[number]["value"];
 type SortDirValue = "asc" | "desc";
@@ -364,6 +352,11 @@ export default function ExplorePage() {
   const [lastVisiblePage, setLastVisiblePage] = useState(1);
   const [error, setError] = useState("");
   const [urlHydrated, setUrlHydrated] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [showGenres, setShowGenres] = useState(false);
+  const [showSpecialTags, setShowSpecialTags] = useState(false);
+  const [showDesktopGenres, setShowDesktopGenres] = useState(false);
+  const [showDesktopSpecialTags, setShowDesktopSpecialTags] = useState(false);
 
   useEffect(() => {
     if (!initializedFromUrlRef.current && !searchParams.toString()) {
@@ -583,8 +576,7 @@ export default function ExplorePage() {
         }]`,
         sortDir
       );
-      appendExploreMangaDexFilters(mangaDexParams, isAdult);
-      mangaDexParams.set("skipLanguageFilter", "1");
+      appendStandardMangaDexFilters(mangaDexParams, isAdult, language);
 
       if (normalizedQuery) {
         mangaDexParams.set("title", normalizedQuery);
@@ -852,20 +844,525 @@ export default function ExplorePage() {
           </div>
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="order-1 xl:order-1">
+        {/* Control Bar de m├│vil (Oculta en lg+) */}
+        <div className="lg:hidden mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#111316] p-3 rounded-2xl border border-white/5">
+          <div className="flex w-full md:max-w-xl gap-2">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    handleSearch();
+                  }
+                }}
+                placeholder={copy.searchPlaceholder}
+                className="h-11 w-full rounded-2xl border border-white/10 bg-[#141519] pl-11 pr-4 text-xs sm:text-sm text-white outline-none transition-all placeholder:text-gray-500 focus:border-[#ff6b00]/50"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSearch}
+              className="rounded-2xl bg-[#ff6b00] px-5 py-2.5 text-xs sm:text-sm font-semibold text-white transition-all hover:bg-orange-600 active:scale-95 shadow-md shadow-orange-600/10"
+            >
+              {copy.searchButton}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+            <button
+              type="button"
+              onClick={() => setIsFiltersOpen((prev) => !prev)}
+              className={`flex h-11 items-center gap-2 rounded-2xl border px-4 text-xs sm:text-sm font-semibold transition-all active:scale-95 ${
+                isFiltersOpen
+                  ? "border-orange-500/40 bg-orange-500/10 text-orange-400"
+                  : "border-white/10 bg-[#141519] text-gray-300 hover:border-white/20 hover:text-white"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>{copy.filters}</span>
+              {(selectedGenres.length > 0 || selectedSpecialTags.length > 0 || selectedType !== "all" || orderBy !== DEFAULT_ORDER_BY || sortDir !== DEFAULT_SORT_DIR) && (
+                <span className="flex h-4.5 min-w-[18px] items-center justify-center rounded-full bg-[#ff6b00] px-1 text-[9px] font-bold text-white">
+                  {[
+                    selectedType !== "all" ? 1 : 0,
+                    orderBy !== DEFAULT_ORDER_BY ? 1 : 0,
+                    sortDir !== DEFAULT_SORT_DIR ? 1 : 0,
+                    selectedGenres.length,
+                    selectedSpecialTags.length
+                  ].reduce((a, b) => a + b, 0)}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="h-11 rounded-2xl border border-white/5 bg-white/5 px-4 text-xs sm:text-sm font-semibold text-gray-400 transition-all hover:border-red-500/20 hover:bg-red-500/5 hover:text-red-400 active:scale-95"
+            >
+              {copy.clearFilters}
+            </button>
+          </div>
+        </div>
+
+        {/* Panel de filtros colapsable de m├│vil (Oculta en lg+) */}
+        <div className="lg:hidden">
+          <AnimatePresence>
+            {isFiltersOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="w-full overflow-hidden mb-6"
+              >
+                <div className="rounded-2xl border border-white/6 bg-[#111316] p-4 sm:p-5 shadow-2xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    {/* Tipo */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">
+                        {copy.typeTitle}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {TYPE_FILTERS.map((typeOption) => {
+                          const active = selectedType === typeOption.value;
+                          return (
+                            <button
+                              key={typeOption.value}
+                              type="button"
+                              onClick={() => {
+                                setSelectedType(typeOption.value);
+                                setCurrentPage(1);
+                              }}
+                              className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
+                                active
+                                  ? "border-orange-500 bg-orange-500/10 text-orange-400 shadow-[0_0_12px_rgba(249,115,22,0.1)]"
+                                  : "border-white/10 bg-[#171a1f] text-gray-400 hover:border-orange-500/30 hover:text-orange-400"
+                              }`}
+                            >
+                              {typeOption.label[language]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Ordenar */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">
+                        {copy.orderBy}
+                      </span>
+                      <select
+                        value={orderBy}
+                        onChange={(event) => {
+                          if (isOrderByValue(event.target.value)) {
+                            setOrderBy(event.target.value);
+                            setCurrentPage(1);
+                          }
+                        }}
+                        className="h-9 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
+                      >
+                        {ORDER_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label[language]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Direcci├│n */}
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-gray-500">
+                        {copy.direction}
+                      </span>
+                      <select
+                        value={sortDir}
+                        onChange={(event) => {
+                          if (isSortDirValue(event.target.value)) {
+                            setSortDir(event.target.value);
+                            setCurrentPage(1);
+                          }
+                        }}
+                        className="h-9 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
+                      >
+                        <option value="desc">{copy.descending}</option>
+                        <option value="asc">{copy.ascending}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Sub-selectores de G├®neros y Tags */}
+                  <div className="mt-5 border-t border-white/5 pt-5 flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowGenres((prev) => !prev);
+                        setShowSpecialTags(false);
+                      }}
+                      className={`flex-1 flex items-center justify-between gap-3 rounded-xl border px-4 py-2 text-xs font-semibold transition-all ${
+                        showGenres
+                          ? "border-orange-500/40 bg-orange-500/5 text-orange-400"
+                          : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-white/20"
+                      }`}
+                    >
+                      <span>{copy.genreTitle} ({selectedGenres.length})</span>
+                      {showGenres ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSpecialTags((prev) => !prev);
+                        setShowGenres(false);
+                      }}
+                      className={`flex-1 flex items-center justify-between gap-3 rounded-xl border px-4 py-2 text-xs font-semibold transition-all ${
+                        showSpecialTags
+                          ? "border-orange-500/40 bg-orange-500/5 text-orange-400"
+                          : "border-white/10 bg-[#171a1f] text-gray-300 hover:border-white/20"
+                      }`}
+                    >
+                      <span>{copy.specialTagTitle} ({selectedSpecialTagGroupCount}/3)</span>
+                      {showSpecialTags ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Desplegable: G├®neros */}
+                  <AnimatePresence>
+                    {showGenres && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden mt-4 border-t border-white/5 pt-4"
+                      >
+                        <div className="flex flex-wrap gap-1.5 max-h-[180px] lg:max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                          {GENRE_TAGS.map((genre) => {
+                            const active = selectedGenres.includes(genre.id);
+                            const label = getTranslatedFilterLabel(genre.label, language);
+                            const selectedIndex = selectedGenres.indexOf(genre.id);
+                            return (
+                              <button
+                                key={genre.id}
+                                type="button"
+                                onClick={() => toggleGenre(genre.id)}
+                                className={`rounded-xl border px-3 py-1.5 text-xs transition-all ${
+                                  active
+                                    ? "border-orange-500 bg-orange-500 text-white"
+                                    : "border-gray-800 bg-[#171a1f] text-gray-400 hover:border-orange-500/30 hover:text-orange-400"
+                                }`}
+                              >
+                                {active ? `${label} +${selectedIndex + 1}` : label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Desplegable: Tags Especiales */}
+                  <AnimatePresence>
+                    {showSpecialTags && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="overflow-hidden mt-4 border-t border-white/5 pt-4"
+                      >
+                        <p className="mb-2.5 text-[10px] text-gray-500">{copy.selectedGenres}</p>
+                        <div className="flex flex-wrap gap-1.5 max-h-[180px] lg:max-h-[260px] overflow-y-auto pr-2 custom-scrollbar">
+                          {getSpecialTagGroups(language).map((tag) => {
+                            const active = tag.ids.some((tagId) => selectedSpecialTags.includes(tagId));
+                            const selectedIndex = getSpecialTagGroups(language)
+                              .filter((group) => group.ids.some((tagId) => selectedSpecialTags.includes(tagId)))
+                              .findIndex((group) => group.label === tag.label);
+                            return (
+                              <button
+                                key={tag.label}
+                                type="button"
+                                onClick={() => toggleSpecialTagGroup(tag.ids)}
+                                className={`rounded-xl border px-3 py-1.5 text-xs transition-all ${
+                                  active
+                                    ? "border-orange-500 bg-orange-500 text-white"
+                                    : "border-gray-800 bg-[#171a1f] text-gray-400 hover:border-orange-500/30 hover:text-orange-400"
+                                }`}
+                              >
+                                {active ? `${tag.label} +${selectedIndex + 1}` : tag.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Layout principal flexible: Sidebar de filtros y b├║squeda a la izquierda en lg+ */}
+        <div className="flex flex-col lg:flex-row gap-8 items-start">
+          
+          {/* SIDEBAR DE FILTROS (Izquierda en lg+, ancho completo en m├│vil) */}
+          <aside className="hidden lg:block w-full lg:w-72 shrink-0 rounded-2xl border border-white/6 bg-[#111316] p-5 shadow-2xl lg:sticky lg:top-24">
+            <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="rounded-full bg-[#ff6b00]/12 p-2 text-[#ff6b00]">
+                  <SlidersHorizontal className="h-4 w-4" />
+                </div>
+                <h2 className="text-base font-semibold text-white">{copy.filters}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-gray-300 transition-colors hover:border-[#ff6b00]/30 hover:text-orange-400"
+              >
+                {copy.clearFilters}
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* Buscador */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+                  {copy.searchTitle}
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type="text"
+                      value={searchDraft}
+                      onChange={(event) => {
+                        setSearchDraft(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          handleSearch();
+                        }
+                      }}
+                      placeholder={copy.searchPlaceholder}
+                      className="h-10 w-full rounded-xl border border-white/10 bg-[#171a1f] pl-9 pr-3 text-xs text-white outline-none transition-colors placeholder:text-gray-500 focus:border-[#ff6b00]/40"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    className="rounded-xl bg-[#ff6b00] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
+                  >
+                    {copy.searchButton}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tipo de c├│mic */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+                  {copy.typeTitle}
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TYPE_FILTERS.map((typeOption) => {
+                    const active = selectedType === typeOption.value;
+
+                    return (
+                      <button
+                        key={typeOption.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedType(typeOption.value);
+                          setCurrentPage(1);
+                        }}
+                        className={`rounded-xl border px-3 py-1.5 text-xs transition-all ${
+                          active
+                            ? "border-orange-500 bg-orange-500 text-white"
+                            : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
+                        }`}
+                      >
+                        {typeOption.label[language]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Ordenar por */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+                  {copy.orderBy}
+                </label>
+                <select
+                  value={orderBy}
+                  onChange={(event) => {
+                    if (isOrderByValue(event.target.value)) {
+                      setOrderBy(event.target.value);
+                      setCurrentPage(1);
+                    }
+                  }}
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
+                >
+                  {ORDER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label[language]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Direcci├│n de orden */}
+              <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
+                  {copy.direction}
+                </label>
+                <select
+                  value={sortDir}
+                  onChange={(event) => {
+                    if (isSortDirValue(event.target.value)) {
+                      setSortDir(event.target.value);
+                      setCurrentPage(1);
+                    }
+                  }}
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
+                >
+                  <option value="desc">{copy.descending}</option>
+                  <option value="asc">{copy.ascending}</option>
+                </select>
+              </div>
+
+              {/* Géneros */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowDesktopGenres((prev) => !prev)}
+                  className="w-full flex items-center justify-between py-2 text-left group"
+                >
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500 cursor-pointer group-hover:text-gray-300 transition-colors">
+                      {copy.genreTitle}
+                    </label>
+                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#ff6b00]">
+                      {selectedGenres.length}
+                    </span>
+                  </div>
+                  {showDesktopGenres ? (
+                    <ChevronUp className="h-4 w-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showDesktopGenres && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: "easeInOut" }}
+                      className="overflow-hidden mt-2"
+                    >
+                      <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-wrap gap-1.5 border border-white/5 bg-[#171a1f]/50 p-2 rounded-xl custom-scrollbar">
+                        {GENRE_TAGS.map((genre) => {
+                          const active = selectedGenres.includes(genre.id);
+                          const label = getTranslatedFilterLabel(genre.label, language);
+                          const selectedIndex = selectedGenres.indexOf(genre.id);
+
+                          return (
+                            <button
+                              key={genre.id}
+                              type="button"
+                              onClick={() => toggleGenre(genre.id)}
+                              className={`rounded-xl border px-2.5 py-1 text-[11px] transition-all cursor-pointer ${
+                                active
+                                  ? "border-orange-500 bg-orange-500 text-white"
+                                  : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
+                              }`}
+                            >
+                              {active ? `${label} +${selectedIndex + 1}` : label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Tags Especiales */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowDesktopSpecialTags((prev) => !prev)}
+                  className="w-full flex items-center justify-between py-2 text-left group"
+                >
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500 cursor-pointer group-hover:text-gray-300 transition-colors">
+                      {copy.specialTagTitle}
+                    </label>
+                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#ff6b00]">
+                      {selectedSpecialTagGroupCount}/3
+                    </span>
+                  </div>
+                  {showDesktopSpecialTags ? (
+                    <ChevronUp className="h-4 w-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-500 group-hover:text-gray-300 transition-colors" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showDesktopSpecialTags && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.18, ease: "easeInOut" }}
+                      className="overflow-hidden mt-2"
+                    >
+                      <p className="mb-2 text-[10px] text-gray-500">{copy.selectedGenres}</p>
+                      <div className="max-h-[160px] overflow-y-auto pr-1 flex flex-wrap gap-1.5 border border-white/5 bg-[#171a1f]/50 p-2 rounded-xl custom-scrollbar">
+                        {getSpecialTagGroups(language).map((tag) => {
+                          const active = tag.ids.some((tagId) => selectedSpecialTags.includes(tagId));
+                          const selectedIndex = getSpecialTagGroups(language)
+                            .filter((group) => group.ids.some((tagId) => selectedSpecialTags.includes(tagId)))
+                            .findIndex((group) => group.label === tag.label);
+
+                          return (
+                            <button
+                              key={tag.label}
+                              type="button"
+                              onClick={() => toggleSpecialTagGroup(tag.ids)}
+                              className={`rounded-xl border px-2.5 py-1 text-[11px] transition-all cursor-pointer ${
+                                active
+                                  ? "border-orange-500 bg-orange-500 text-white"
+                                  : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
+                              }`}
+                            >
+                              {active ? `${tag.label} +${selectedIndex + 1}` : tag.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </aside>
+
+          {/* CONTENEDOR DERECHO: T├¡tulos, Grilla de mangas y resultados */}
+          <section className="flex-1 w-full min-w-0">
             <div className="mb-6">
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#ff6b00]">
-                {copy.title}
-              </p>
-              <h1 className="mt-3 text-xl font-semibold text-white md:text-xl">{copy.title}</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-400 md:text-base">
+              <h1 className="text-2xl font-bold text-white md:text-3xl">{copy.title}</h1>
+              <p className="mt-2.5 max-w-2xl text-sm leading-7 text-gray-400 md:text-base">
                 {copy.subtitle}
               </p>
             </div>
 
             {isLoading ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
                 {Array.from({ length: 12 }).map((_, index) => (
                   <div
                     key={`explore-skeleton-${index}`}
@@ -885,7 +1382,7 @@ export default function ExplorePage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5">
                 {mangas.map((manga, index) => (
                   <MangaCard
                     key={manga.mangaDexId ? `${manga.mangaDexId}-${index}` : `${manga.mal_id}-${index}`}
@@ -898,211 +1395,6 @@ export default function ExplorePage() {
               </div>
             )}
           </section>
-
-          <aside className="order-2 xl:order-2">
-            <div className="rounded-2xl border border-white/6 bg-[#111316] p-4 shadow-2xl shadow-black/20 xl:sticky xl:top-24">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-[#ff6b00]/12 p-2 text-[#ff6b00]">
-                    <SlidersHorizontal className="h-4 w-4" />
-                  </div>
-                  <h2 className="text-lg font-semibold text-white">{copy.filters}</h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleClearFilters}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-gray-300 transition-colors hover:border-[#ff6b00]/30 hover:text-orange-400"
-                >
-                  {copy.clearFilters}
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                    {copy.typeTitle}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {TYPE_FILTERS.map((typeOption) => {
-                      const active = selectedType === typeOption.value;
-
-                      return (
-                        <button
-                          key={typeOption.value}
-                          type="button"
-                          onClick={() => {
-                            setSelectedType(typeOption.value);
-                            setCurrentPage(1);
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
-                            active
-                              ? "border-orange-500 bg-orange-500 text-white"
-                              : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
-                          }`}
-                        >
-                          {typeOption.label[language]}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                    {copy.searchTitle}
-                  </label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                      <input
-                        type="text"
-                        value={searchDraft}
-                        onChange={(event) => {
-                          setSearchDraft(event.target.value);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            handleSearch();
-                          }
-                        }}
-                        placeholder={copy.searchPlaceholder}
-                        className="h-10 w-full rounded-full border border-white/10 bg-[#171a1f] pl-9 pr-3 text-xs text-white outline-none transition-colors placeholder:text-gray-500 focus:border-[#ff6b00]/40"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSearch}
-                      className="rounded-full bg-[#ff6b00] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
-                    >
-                      {copy.searchButton}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                    {copy.orderBy}
-                  </label>
-                  <select
-                    value={orderBy}
-                    onChange={(event) => {
-                      if (isOrderByValue(event.target.value)) {
-                        setOrderBy(event.target.value);
-                        setCurrentPage(1);
-                      }
-                    }}
-                    className="h-10 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
-                  >
-                    {ORDER_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label[language]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                    {copy.direction}
-                  </label>
-                  <select
-                    value={sortDir}
-                    onChange={(event) => {
-                      if (isSortDirValue(event.target.value)) {
-                        setSortDir(event.target.value);
-                        setCurrentPage(1);
-                      }
-                    }}
-                    className="h-10 w-full rounded-xl border border-white/10 bg-[#171a1f] px-3 text-xs text-white outline-none transition-colors focus:border-[#ff6b00]/40"
-                  >
-                    <option value="desc">{copy.descending}</option>
-                    <option value="asc">{copy.ascending}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                      {copy.genreTitle}
-                    </label>
-                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#ff6b00]">
-                      {selectedGenres.length}
-                    </span>
-                  </div>
-
-                  <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex flex-wrap gap-2">
-                    {GENRE_TAGS.map((genre) => {
-                      const active = selectedGenres.includes(genre.id);
-                      const label = getTranslatedFilterLabel(genre.label, language);
-                      const selectedIndex = selectedGenres.indexOf(genre.id);
-
-                      return (
-                        <button
-                          key={genre.id}
-                          type="button"
-                          onClick={() => toggleGenre(genre.id)}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
-                            active
-                              ? "border-orange-500 bg-orange-500 text-white"
-                              : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
-                          }`}
-                        >
-                          {active ? `${label} +${selectedIndex + 1}` : label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label className="text-xs font-bold uppercase tracking-[0.18em] text-gray-500">
-                      {copy.specialTagTitle}
-                    </label>
-                    <span className="rounded-full border border-[#ff6b00]/20 bg-[#ff6b00]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#ff6b00]">
-                      {selectedSpecialTagGroupCount}/3
-                    </span>
-                  </div>
-
-                  <p className="mb-2 text-[11px] text-gray-500">{copy.selectedGenres}</p>
-
-                  <div className="max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex flex-wrap gap-2">
-                    {getSpecialTagGroups(language).map((tag) => {
-                      const active = tag.ids.some((tagId) => selectedSpecialTags.includes(tagId));
-                      const selectedIndex = getSpecialTagGroups(language)
-                        .filter((group) => group.ids.some((tagId) => selectedSpecialTags.includes(tagId)))
-                        .findIndex((group) => group.label === tag.label);
-
-                      return (
-                        <button
-                          key={tag.label}
-                          type="button"
-                          onClick={() => toggleSpecialTagGroup(tag.ids)}
-                          className={`rounded-full border px-3 py-1.5 text-xs transition-all ${
-                            active
-                              ? "border-orange-500 bg-orange-500 text-white"
-                              : "border-gray-700 bg-gray-800/50 text-gray-300 hover:bg-orange-500 hover:text-white"
-                          }`}
-                        >
-                          {active ? `${tag.label} +${selectedIndex + 1}` : tag.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <button
-                    type="button"
-                    onClick={handleSearch}
-                    className="w-full rounded-full bg-[#ff6b00] px-5 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-orange-600"
-                  >
-                    {copy.searchButton}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </aside>
         </div>
       </div>
     </main>

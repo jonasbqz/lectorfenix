@@ -1,17 +1,23 @@
 import { logger } from "../../utils/logger";
 import { cookies } from "next/headers";
 import type { Metadata } from "next";
+import { cache } from "react";
 import Link from "next/link";
+import { FolderHeart } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import BackButton from "../../components/BackButton";
 import ContinueReadingButton from "../../components/ContinueReadingButton";
 import FavoriteButton from "../../components/FavoriteButton";
+import AddToListButton from "../../components/AddToListButton";
+import LikeButton from "../../components/LikeButton";
+import { createClient } from "../../../utils/supabase/server";
 import { MangaCard, type MangaShowcaseItem } from "../../components/MangaCard";
 import SiteHeader, { type SupportedLanguage } from "../../components/site-header";
 import SeoSynopsis from "./synopsis";
 import ChapterList from "./chapter-list";
 import ComicCoverImage from "./cover-image";
+import MangaComments from "./manga-comments";
 import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
@@ -22,6 +28,8 @@ import {
   fetchMangaDexCollection,
   fetchMangaDexStatistics,
   mapToShowcaseItems,
+  fetchMangaDetails,
+  fetchMangaChapters as fetchMangaChaptersExternal,
 } from "../../utils/mangadex";
 import { SITE_IMAGE, SITE_NAME, absoluteUrl } from "../../utils/seo";
 import { buildChapterPath, buildComicPath, extractComicIdFromSlugId } from "../../utils/slugify";
@@ -388,7 +396,11 @@ export async function generateMetadata({
   const fallbackCanonicalUrl = absoluteUrl(`/comics/${slug}`);
 
   try {
-    const manga = await fetchMangaDetails(id);
+    const cookieStore = await cookies();
+    const rawCookieLang = cookieStore.get("lang")?.value;
+    const cookieLang = normalizeLanguage(rawCookieLang);
+
+    const manga = await cachedFetchMangaDetails(id, cookieLang);
 
     if (!manga) {
       return {
@@ -404,9 +416,11 @@ export async function generateMetadata({
       };
     }
 
-    const titleEs = await getLocalizedTitleAsync(manga, "es");
-    const titleEn = await getLocalizedTitleAsync(manga, "en");
-    const titlePt = await getLocalizedTitleAsync(manga, "pt");
+    const [titleEs, titleEn, titlePt] = await Promise.all([
+      cachedGetLocalizedTitleAsync(manga, "es"),
+      cachedGetLocalizedTitleAsync(manga, "en"),
+      cachedGetLocalizedTitleAsync(manga, "pt"),
+    ]);
 
     const canonicalEs = absoluteUrl(buildComicPath(titleEs, manga.id));
     const canonicalEn = absoluteUrl(buildComicPath(titleEn, manga.id));
@@ -422,16 +436,17 @@ export async function generateMetadata({
 
     const canonicalUrl = pageLang === "pt" ? canonicalPt : pageLang === "en" ? canonicalEn : canonicalEs;
     const displayTitle = pageLang === "pt" ? titlePt : pageLang === "en" ? titleEn : titleEs;
-    const originalContent = (await getOriginalContent(manga, pageLang, UI_COPY[pageLang]))
+    const originalContent = (await cachedGetOriginalContent(manga, pageLang, UI_COPY[pageLang]))
       .replace(/\s+/g, " ")
       .trim();
+
     const description = originalContent.length > 155 ? `${originalContent.slice(0, 155)}...` : originalContent;
     const imageUrl = getCoverUrl(manga.id, manga.relationships) || SITE_IMAGE;
     const socialTitle = `${displayTitle} | ${SITE_NAME}`;
     const metaTitlePrefix = pageLang === "pt" ? "Ler" : pageLang === "en" ? "Read" : "Leer";
-    const metaTitleSuffix = pageLang === "pt" ? "Online Gr\u00e1tis" : pageLang === "en" ? "Online Free" : "Online Gratis";
+    const metaTitleSuffix = pageLang === "pt" ? "Online Grátis" : pageLang === "en" ? "Online Free" : "Online Gratis";
     const languageKeyword =
-      pageLang === "pt" ? `${displayTitle} em portugu\u00eas` : pageLang === "en" ? `${displayTitle} in english` : `${displayTitle} en espa\u00f1ol`;
+      pageLang === "pt" ? `${displayTitle} em português` : pageLang === "en" ? `${displayTitle} in english` : `${displayTitle} en español`;
     const genericKeyword =
       pageLang === "pt" ? "ler manga online" : pageLang === "en" ? "read manga online" : "leer manga online";
 
@@ -974,34 +989,6 @@ function buildChapterNumberLabel(
   return `${chapterPrefix} ${chapterNumber}.${suffix}`;
 }
 
-async function fetchMangaDetails(id: string) {
-  const localComic = await fetchLocalComicBySlug(id);
-  const localManga = localComic ? mapLocalComicToMangaDetails(localComic) : null;
-
-  if (localManga) {
-    return localManga;
-  }
-
-  try {
-    const response = await fetchMangaDex(
-      `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const payload = (await response.json()) as MangaDetailsResponse;
-    if (!payload.data) {
-      logger.warn(`[MangaStoon] MangaDex devolvio detalles vacios para manga ${id}`);
-    }
-
-    return payload.data ?? null;
-  } catch {
-    return null;
-  }
-}
-
 async function fetchMangaChapters(id: string, language: SupportedLanguage) {
   const localComic = await fetchLocalComicBySlug(id);
 
@@ -1009,39 +996,7 @@ async function fetchMangaChapters(id: string, language: SupportedLanguage) {
     return getLocalComicScanChapters(localComic);
   }
 
-  const limit = 100;
-  let offset = 0;
-  let total = 0;
-  const chapters: ChapterFeedItem[] = [];
-
-  try {
-    do {
-      const params = new URLSearchParams();
-      getChapterLanguageVariants(language).forEach((variant) => {
-        params.append("translatedLanguage[]", variant);
-      });
-      params.set("order[chapter]", "desc");
-      params.set("limit", String(limit));
-      params.set("offset", String(offset));
-      params.append("includes[]", "scanlation_group");
-
-      const response = await fetchMangaDex(`https://api.mangadex.org/manga/${id}/feed?${params.toString()}`);
-
-      if (!response.ok) {
-        return chapters;
-      }
-
-      const payload = (await response.json()) as ChapterFeedResponse;
-      const batch = payload.data ?? [];
-      total = payload.total ?? batch.length;
-      chapters.push(...batch);
-      offset += payload.limit ?? limit;
-    } while (offset < total);
-  } catch {
-    return chapters;
-  }
-
-  return chapters;
+  return fetchMangaChaptersExternal(id, language);
 }
 
 async function fetchChapterLanguageFallback(
@@ -1212,6 +1167,16 @@ function MangaMaintenance({ language }: { language: SupportedLanguage }) {
   );
 }
 
+const cachedFetchMangaDetails = cache(fetchMangaDetails);
+const cachedGetLocalizedTitleAsync = cache(getLocalizedTitleAsync);
+const cachedFetchMangaChapters = cache(fetchMangaChapters);
+const cachedFetchMangaRatingSummary = cache(fetchMangaRatingSummary);
+const cachedGetOriginalContent = cache(getOriginalContent);
+const cachedFetchSimilarMangas = cache(fetchSimilarMangas);
+const cachedFetchSuggestedLocalMangas = cache(fetchSuggestedLocalMangas);
+const cachedShouldUseFallbackCover = cache(shouldUseFallbackCover);
+const cachedFetchAuthorName = cache(fetchAuthorName);
+
 export default async function MangaDetailsPage({
   params,
 }: {
@@ -1225,16 +1190,18 @@ export default async function MangaDetailsPage({
   const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
 
   // 1. Obtener detalles primero para poder calcular los slugs de cada idioma
-  const manga = await fetchMangaDetails(id);
+  const manga = await cachedFetchMangaDetails(id, cookieLang);
 
   if (!manga) {
     return <MangaMaintenance language={cookieLang} />;
   }
 
   // 2. Sincronizar el idioma real comparando el slug de la URL actual
-  const titleEs = await getLocalizedTitleAsync(manga, "es");
-  const titleEn = await getLocalizedTitleAsync(manga, "en");
-  const titlePt = await getLocalizedTitleAsync(manga, "pt");
+  const [titleEs, titleEn, titlePt] = await Promise.all([
+    cachedGetLocalizedTitleAsync(manga, "es"),
+    cachedGetLocalizedTitleAsync(manga, "en"),
+    cachedGetLocalizedTitleAsync(manga, "pt"),
+  ]);
 
   const slugEs = buildComicPath(titleEs, manga.id).replace(/^\/comics\//, "");
   const slugEn = buildComicPath(titleEn, manga.id).replace(/^\/comics\//, "");
@@ -1252,9 +1219,36 @@ export default async function MangaDetailsPage({
 
   // 3. Traer los capítulos correspondientes al idioma real resuelto
   const [initialChapters, ratingSummary] = await Promise.all([
-    fetchMangaChapters(id, currentLanguage),
-    fetchMangaRatingSummary(id),
+    cachedFetchMangaChapters(id, currentLanguage),
+    cachedFetchMangaRatingSummary(id),
   ]);
+
+  // Obtener cliente Supabase Server y chequear valoración de likes
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+
+  let dbLikesCount = 0;
+  let userHasLiked = false;
+  try {
+    const { count } = await supabase
+      .from("likes")
+      .select("*", { count: "exact", head: true })
+      .eq("manga_id", manga.id);
+    dbLikesCount = count || 0;
+
+    if (userId) {
+      const { data: likeRecord } = await supabase
+        .from("likes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("manga_id", manga.id)
+        .maybeSingle();
+      userHasLiked = !!likeRecord;
+    }
+  } catch (err) {
+    logger.error(`[MangaStoon] Error al cargar likes para ${manga.id}:`, err);
+  }
 
   let chapters = initialChapters;
 
@@ -1278,31 +1272,51 @@ export default async function MangaDetailsPage({
   if (displayTitle === "Título Desconocido") {
     logger.warn(`[MangaStoon] Manga sin titulo utilizable: ${manga.id}`);
   }
+
   const tags = (manga.attributes?.tags ?? [])
     .filter((tag) => tag.attributes?.group === "genre")
     .map((tag) => ({
-    id: tag.id,
-    name: translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage),
-  }));
-  const description = await getOriginalContent(manga, currentLanguage, copy);
-  const similarMangas = await fetchSimilarMangas(
-    manga.id,
-    tags.map((tag) => tag.id),
-    currentLanguage,
-    isAdult
-  );
-  const fallbackSuggestedMangas = await fetchSuggestedLocalMangas(manga.id);
+      id: tag.id,
+      name: translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage),
+    }));
+
+  const coverUrl = getCoverUrl(manga.id, manga.relationships);
+  const fallbackCoverPages = chapters.flatMap((chapter) => chapter.localPages ?? []);
+  const fallbackCoverUrl = fallbackCoverPages[1] ?? fallbackCoverPages[0] ?? "";
+  const manualCoverUrl = getManualCoverOverride(manga.id, displayTitle);
+
+  const databaseAuthor =
+    manga.author &&
+    manga.author.trim() &&
+    manga.author !== "MangaStoon" &&
+    manga.author.toLowerCase() !== "autor desconocido"
+      ? manga.author.trim()
+      : null;
+
+  // Ejecutar todas las solicitudes asíncronas restantes en paralelo para eliminar waterfalls
+  const [
+    description,
+    similarMangas,
+    fallbackSuggestedMangas,
+    shouldUseFallback,
+    realAuthorResolved
+  ] = await Promise.all([
+    cachedGetOriginalContent(manga, currentLanguage, copy),
+    cachedFetchSimilarMangas(manga.id, tags.map((tag) => tag.id), currentLanguage, isAdult),
+    cachedFetchSuggestedLocalMangas(manga.id),
+    (manualCoverUrl || !fallbackCoverUrl) ? Promise.resolve(false) : cachedShouldUseFallbackCover(coverUrl),
+    databaseAuthor ? Promise.resolve(databaseAuthor) : cachedFetchAuthorName(displayTitle)
+  ]);
+
   const suggestedMangas = similarMangas.length > 0 ? similarMangas.slice(0, 12) : fallbackSuggestedMangas.slice(0, 12);
   const isExplicitContent =
     manga.attributes?.contentRating === "erotica" ||
     manga.attributes?.contentRating === "pornographic" ||
     hasSensitiveAdultTag(manga.attributes?.tags);
-  const coverUrl = getCoverUrl(manga.id, manga.relationships);
-  const fallbackCoverPages = chapters.flatMap((chapter) => chapter.localPages ?? []);
-  const fallbackCoverUrl = fallbackCoverPages[1] ?? fallbackCoverPages[0] ?? "";
-  const manualCoverUrl = getManualCoverOverride(manga.id, displayTitle);
+
   const primaryCoverUrl =
-    manualCoverUrl || (fallbackCoverUrl && (await shouldUseFallbackCover(coverUrl)) ? fallbackCoverUrl : coverUrl);
+    manualCoverUrl || (fallbackCoverUrl && shouldUseFallback ? fallbackCoverUrl : coverUrl);
+
   const favoriteManga = {
     id: manga.id,
     mangaDexId: manga.id,
@@ -1318,14 +1332,8 @@ export default async function MangaDetailsPage({
     genres: tags.map((tag, index) => ({ mal_id: index, name: tag.name })),
     images: primaryCoverUrl ? { webp: { large_image_url: primaryCoverUrl } } : {},
   };
-  const databaseAuthor =
-    manga.author &&
-    manga.author.trim() &&
-    manga.author !== "MangaStoon" &&
-    manga.author.toLowerCase() !== "autor desconocido"
-      ? manga.author.trim()
-      : null;
-  const realAuthor = databaseAuthor ?? (await fetchAuthorName(displayTitle));
+
+  const realAuthor = realAuthorResolved;
   const authorSearchQuery = realAuthor ? `${realAuthor} manga creator` : `${displayTitle} ${copy.authorFallbackSearchSuffix}`;
   const activeScanGroup = getScanGroupName(chapters[0] ?? null) ?? copy.noScan;
   const scanGroups = Array.from(
@@ -1473,7 +1481,20 @@ export default async function MangaDetailsPage({
       <SiteHeader language={currentLanguage} />
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-5 md:px-6 md:py-8 lg:px-8">
-        <BackButton />
+        <div className="flex items-center justify-between mb-4 w-full">
+          <BackButton />
+          <a
+            href="https://t.me/+dtPKjcBfiDUyOWQx"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-2 text-xs font-heading font-bold text-sky-400 hover:bg-sky-500 hover:text-white transition-all active:scale-95 shadow-md shadow-sky-500/5 cursor-pointer"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-1-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.02-1.96 1.25-5.54 3.69-.52.36-1 .53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.35-.49.97-.74 3.79-1.65 6.32-2.73 7.57-3.26 3.6-1.52 4.35-1.78 4.84-1.79.11 0 .35.03.5.16.13.1.17.24.19.34.02.09.02.26 0 .38z"/>
+            </svg>
+            <span>{currentLanguage === "es" ? "Comunidad" : currentLanguage === "pt" ? "Comunidade" : "Community"}</span>
+          </a>
+        </div>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-8">
           <aside className="md:col-span-4 lg:col-span-3">
             <div className="grid grid-cols-[112px_minmax(0,1fr)] items-start gap-4 sm:grid-cols-[150px_minmax(0,1fr)] md:block">
@@ -1491,11 +1512,26 @@ export default async function MangaDetailsPage({
                 )}
               </div>
 
-              <div className="rounded-xl border border-white/5 bg-[#141519] p-3 text-center md:mt-4 md:p-4 md:text-left">
+              <div className="rounded-xl border border-white/5 bg-[#141519] p-3 text-center md:mt-4 md:p-4 md:text-left flex flex-col gap-2">
                 <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
+                <LikeButton
+                  mangaId={manga.id}
+                  initialLikesCount={dbLikesCount}
+                  initialUserHasLiked={userHasLiked}
+                  apiLikesCount={parseInt(ratingSummary?.ratingCount || "0", 10) || 0}
+                  userId={userId}
+                  label={currentLanguage === "es" ? "Me gusta" : currentLanguage === "pt" ? "Curtir" : "Like"}
+                  likedLabel={currentLanguage === "es" ? "Te gusta" : currentLanguage === "pt" ? "Curtiu" : "Liked"}
+                />
                 <ContinueReadingButton mangaId={manga.id} />
+                <AddToListButton
+                  mangaId={manga.id}
+                  mangaTitle={displayTitle}
+                  coverImage={primaryCoverUrl || fallbackCoverUrl || null}
+                  language={currentLanguage}
+                />
 
-                <div className="mt-4 md:mt-5">
+                <div className="mt-2 md:mt-3">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-500 md:text-[11px]">
                     {copy.author}
                   </p>
@@ -1556,13 +1592,22 @@ export default async function MangaDetailsPage({
             />
 
             <section id="chapters" className="mt-8 scroll-mt-28">
-              <div className="mb-4 flex flex-col items-center justify-center gap-2 md:flex-row md:justify-between md:gap-4">
+              <div className="mb-4 flex flex-col items-center justify-center gap-3 md:flex-row md:justify-between md:gap-4 w-full flex-wrap">
                 <div className="border-b-4 border-[#ff6b00] px-3 pb-2 md:border-b-0 md:border-l-4 md:pb-0 md:pl-3">
                   <h2 className="text-2xl font-semibold text-white md:text-2xl">{copy.chapters}</h2>
                 </div>
-                <p className="text-base leading-relaxed text-gray-400">
-                  {chapters.length} {copy.totalChapters}
-                </p>
+                <div className="flex items-center gap-3.5 flex-wrap justify-center">
+                  <p className="text-base leading-relaxed text-gray-400">
+                    {chapters.length} {copy.totalChapters}
+                  </p>
+                  <Link
+                    href="/lists"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-xs font-heading font-bold text-orange-500 hover:bg-orange-500 hover:text-black transition-all active:scale-95 shadow-md"
+                  >
+                    <FolderHeart size={14} className="text-orange-400" />
+                    <span>{currentLanguage === "es" ? "Listas de la Comunidad" : currentLanguage === "pt" ? "Listas da Comunidade" : "Community Lists"}</span>
+                  </Link>
+                </div>
               </div>
               {chapters.length === 0 ? (
                 <div className="rounded-xl bg-[#141519] p-6 text-base leading-relaxed text-gray-400">
@@ -1582,6 +1627,7 @@ export default async function MangaDetailsPage({
                 <ChapterList
                   mangaId={manga.id}
                   mangaTitle={displayTitle}
+                  language={slugLanguage}
                   chapterRows={chapterRows}
                   showMoreLabel={copy.showMoreChapters}
                   totalLabel={`${chapters.length} ${copy.totalSuffix}`}
@@ -1593,6 +1639,8 @@ export default async function MangaDetailsPage({
                 />
               )}
             </section>
+
+            <MangaComments mangaId={manga.id} />
 
             {suggestedMangas.length > 0 ? (
               <section className="mt-16 border-t border-gray-800 pt-10">

@@ -40,7 +40,7 @@ export default function ContinueReadingButton({ mangaId }: { mangaId: string }) 
   return (
     <Link
       href={buildChapterPath(progress.mangaTitle, mangaId, progress.chapterId)}
-      className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#ff6b00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#ff6b00] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
     >
       <BookOpen className="h-4 w-4" />
       Continuar leyendo - {progress.chapterLabel}

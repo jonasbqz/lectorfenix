@@ -42,15 +42,15 @@ export default function LanguagePreferencePicker() {
       <button
         type="button"
         onClick={() => setShowLangMenu((current) => !current)}
-        className="flex cursor-pointer items-center gap-1 text-sm font-medium text-gray-300 transition-colors hover:text-white"
+        className="flex cursor-pointer items-center gap-1.5 text-xs sm:text-sm font-semibold text-gray-300 transition-colors hover:text-white"
       >
-        <Languages className="h-4 w-4" />
-        <span>{language.toUpperCase()}</span>
-        <ChevronDown className="h-3.5 w-3.5" />
+        <Languages className="h-4 w-4 shrink-0" />
+        <span className="text-[11px] sm:text-sm">{language.toUpperCase()}</span>
+        <ChevronDown className="h-3.5 w-3.5 hidden sm:inline shrink-0" />
       </button>
 
       {showLangMenu ? (
-        <div className="absolute right-0 z-50 mt-2 w-40 rounded-md border border-white/10 bg-[#141519] py-1 shadow-xl">
+        <div className="absolute right-0 z-50 mt-2 w-40 rounded-xl border border-[rgba(247,242,232,0.08)] bg-[#131110] py-1 shadow-2xl">
           {LANGUAGE_OPTIONS.map((option) => {
             const active = option.code === language;
 
@@ -59,10 +59,10 @@ export default function LanguagePreferencePicker() {
                 key={option.code}
                 type="button"
                 onClick={() => handleSelect(option.code)}
-                className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
+                className={`block w-full px-4 py-2 text-left text-xs font-semibold transition-colors cursor-pointer ${
                   active
-                    ? "bg-orange-500/10 font-medium text-orange-500"
-                    : "text-gray-300 hover:bg-orange-500/10 hover:text-orange-400"
+                    ? "bg-[rgba(255,107,0,0.10)] text-[#ff6b00]"
+                    : "text-gray-300 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
                 {option.label}

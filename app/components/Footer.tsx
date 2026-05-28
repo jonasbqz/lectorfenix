@@ -3,10 +3,10 @@ import BrandLogo from "./BrandLogo";
 
 export default function Footer() {
   return (
-    <footer className="mt-20 w-full border-t border-white/5 bg-[#0a0a0a] pb-8 pt-12">
-      <div className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-6 px-4 md:flex-row md:px-8">
-        <div className="text-center md:text-left">
-          <div className="flex justify-center md:justify-start">
+    <footer suppressHydrationWarning={true} className="mt-20 w-full border-t border-white/5 bg-[#0a0a0a] pb-[calc(env(safe-area-inset-bottom)+76px)] md:pb-8 pt-12">
+      <div suppressHydrationWarning={true} className="mx-auto flex max-w-[1600px] flex-col items-center justify-between gap-6 px-4 md:flex-row md:px-8">
+        <div suppressHydrationWarning={true} className="text-center md:text-left">
+          <div suppressHydrationWarning={true} className="flex justify-center md:justify-start">
             <BrandLogo />
           </div>
           <p className="mt-2 max-w-sm text-sm text-gray-500">
@@ -14,7 +14,10 @@ export default function Footer() {
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-400">
+        <div suppressHydrationWarning={true} className="flex flex-wrap justify-center gap-6 text-sm font-medium text-gray-400">
+          <a href="https://t.me/+dtPKjcBfiDUyOWQx" target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-orange-500">
+            Comunidad
+          </a>
           <Link href="/terminos" className="transition-colors hover:text-orange-500">
             Terminos de Servicio
           </Link>
@@ -26,7 +29,7 @@ export default function Footer() {
           </Link>
         </div>
       </div>
-      <div className="mx-auto mt-10 max-w-[1600px] px-4 text-center text-xs text-gray-600 md:px-8">
+      <div suppressHydrationWarning={true} className="mx-auto mt-10 max-w-[1600px] px-4 text-center text-xs text-gray-600 md:px-8">
         &copy; {new Date().getFullYear()} MangaStoon. Todos los derechos reservados. Este sitio no
         almacena ningun archivo en su servidor. Todo el contenido es provisto por terceros no afiliados.
       </div>

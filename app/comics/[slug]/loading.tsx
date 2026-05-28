@@ -1,7 +1,10 @@
+import MangaLoader from "../../components/MangaLoader";
+
 export default function MangaDetailsLoading() {
   return (
-    <main className="min-h-screen bg-[#0a0a0a] px-4 py-8 text-white">
-      <div className="mx-auto max-w-7xl animate-pulse">
+    <main className="relative min-h-screen bg-transparent px-4 py-8 text-white">
+      {/* Blurred details skeleton */}
+      <div className="pointer-events-none mx-auto max-w-7xl opacity-25 blur-xs">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
           <div className="md:col-span-4 lg:col-span-3">
             <div className="aspect-[2/3] rounded-xl bg-white/5" />
@@ -33,6 +36,11 @@ export default function MangaDetailsLoading() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Centered Manga/Anime loader overlay */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <MangaLoader />
       </div>
     </main>
   );

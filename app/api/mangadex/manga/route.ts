@@ -31,8 +31,16 @@ async function fetchWithRetry(url: string, retries = 1) {
 
 export async function GET(request: NextRequest) {
   try {
-    const params = new URLSearchParams(request.nextUrl.searchParams);
-    const hasLanguageFilter = params.has("availableTranslatedLanguage[]");
+    const rawParams = new URLSearchParams(request.nextUrl.searchParams);
+    
+    // Normalizar las llaves para evitar duplicados o errores debido a la codificación URL (%5B%5D -> [])
+    const params = new URLSearchParams();
+    for (const [key, value] of rawParams.entries()) {
+      const normalizedKey = key.replace(/%5B%5D/gi, "[]");
+      params.append(normalizedKey, value);
+    }
+
+    const hasLanguageFilter = params.has("availableTranslatedLanguage[]") || params.has("availableTranslatedLanguage");
     const skipLanguageFilter = params.get("skipLanguageFilter") === "1";
     const language = normalizeMangaStoonLanguage(
       params.get("lang") ?? request.cookies.get("lang")?.value
@@ -43,6 +51,11 @@ export async function GET(request: NextRequest) {
 
     if (!skipLanguageFilter && !hasLanguageFilter) {
       appendMangaDexAvailableLanguageFilters(params, language);
+    }
+
+    // Asegurarse de que hasAvailableChapters esté en true si no hay filtros específicos de bypass
+    if (!params.has("hasAvailableChapters")) {
+      params.set("hasAvailableChapters", "true");
     }
 
     const response = await fetchWithRetry(

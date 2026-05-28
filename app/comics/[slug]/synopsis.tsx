@@ -16,7 +16,7 @@ const COPY = {
     ),
     details: (title: string) => (
       <>
-        En esta página podés continuar <strong className="font-semibold text-white">{title}</strong>{" "}
+        En esta página puedes continuar <strong className="font-semibold text-white">{title}</strong>{" "}
         desde una ficha clara, revisar su sinopsis, encontrar los capítulos disponibles y volver cuando
         haya nuevas actualizaciones sin perder el hilo de la historia.
       </>
@@ -25,28 +25,28 @@ const COPY = {
     freeLabel: "Lectura gratuita:",
     freeText: (title: string) => (
       <>
-        avanzá por los capítulos de <strong className="font-semibold text-white">{title}</strong>{" "}
+        avanza por los capítulos de <strong className="font-semibold text-white">{title}</strong>{" "}
         con una navegación rápida y sin muros que interrumpan el ritmo.
       </>
     ),
     qualityLabel: "Calidad HD:",
     qualityText: (title: string) => (
       <>
-        disfrutá mejor el arte de <strong className="font-semibold text-white">{title}</strong>{" "}
+        disfruta mejor el arte de <strong className="font-semibold text-white">{title}</strong>{" "}
         con imágenes nítidas, buen contraste y una interfaz cómoda en móvil y escritorio.
       </>
     ),
     downloadsLabel: "Descargas cuando estén disponibles:",
     downloadsText: (title: string) => (
       <>
-        llevá <strong className="font-semibold text-white">{title}</strong>{" "}
-        con vos para leer sin conexión y retomar la historia a tu ritmo.
+        lleva <strong className="font-semibold text-white">{title}</strong>{" "}
+        contigo para leer sin conexión y retomar la historia a tu ritmo.
       </>
     ),
     closing: (title: string) => (
       <>
-        Sumergite en <strong className="font-semibold text-white">{title}</strong>{" "}
-        desde el primer capítulo o continuá desde el último disponible en MangaStoon.
+        Sumérgete en <strong className="font-semibold text-white">{title}</strong>{" "}
+        desde el primer capítulo o continúa desde el último disponible en MangaStoon.
       </>
     ),
     readLess: "Leer menos",
@@ -150,7 +150,7 @@ const COPY = {
 
 const cleanSynopsis = (text: string) => {
   if (!text) return "";
-  return text.replace(/^(?:[\[\{\(<【『].*?[\]\}\)>】』]\s*)+/g, "").trim();
+  return text.replace(/^(?:[\[\{\(【『].*?[\]\}\)】』]\s*)+/g, "").trim();
 };
 
 export default function SeoSynopsis({

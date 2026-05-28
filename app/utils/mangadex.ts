@@ -1285,7 +1285,7 @@ export async function resolveBestSource(idOrSlug: string): Promise<ResolvedSourc
         const titleMap = payload.data?.attributes?.title ?? {};
         const title = titleMap.es || titleMap.en || Object.values(titleMap)[0] as string || "";
         if (title) {
-          leercapituloSlug = await searchLeerCapituloByTitle(title);
+          leercapituloSlug = (await searchLeerCapituloByTitle(title)) ?? undefined;
         }
       }
     } catch {}

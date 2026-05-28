@@ -18,7 +18,7 @@ export default function OpenGraphImage() {
           position: "relative",
           overflow: "hidden",
           background:
-            "radial-gradient(circle at top, rgba(214,162,94,0.18), transparent 28%), linear-gradient(180deg, #120f0d 0%, #0a0908 55%, #050505 100%)",
+            "radial-gradient(circle at top, rgba(255, 107, 0, 0.18), transparent 28%), linear-gradient(180deg, #120f0d 0%, #0a0908 55%, #050505 100%)",
           color: "#fff8f0",
           fontFamily: "serif",
         }}
@@ -40,7 +40,7 @@ export default function OpenGraphImage() {
             width: 240,
             height: 240,
             borderRadius: 9999,
-            background: "rgba(214,162,94,0.14)",
+            background: "rgba(255, 107, 0, 0.14)",
             filter: "blur(22px)",
           }}
         />
@@ -62,9 +62,9 @@ export default function OpenGraphImage() {
                 alignSelf: "flex-start",
                 padding: "10px 18px",
                 borderRadius: 9999,
-                border: "1px solid rgba(214,162,94,0.28)",
-                background: "rgba(214,162,94,0.12)",
-                color: "#f4c27a",
+                border: "1px solid rgba(255, 107, 0, 0.28)",
+                background: "rgba(255, 107, 0, 0.12)",
+                color: "#ff8833",
                 fontSize: 24,
                 letterSpacing: "0.28em",
                 textTransform: "uppercase",

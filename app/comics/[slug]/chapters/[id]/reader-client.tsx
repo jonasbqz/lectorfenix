@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Download, Eye, EyeOff, FileText, List, ImageOff, RefreshCw, BookOpen, Scroll, Palette, Sparkles, Lock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Eye, EyeOff, FileText, List, ImageOff, RefreshCw, BookOpen, Scroll, Palette, Sparkles, Lock, Crown } from "lucide-react";
 import { SupportedLanguage, useLanguage } from "../../../../components/language-provider";
 import { useHistoryStore } from "../../../../store/useHistoryStore";
 import { useReaderSettingsStore, type ReadingMode, type PageSize } from "../../../../store/useReaderSettingsStore";
@@ -72,10 +72,10 @@ const THEME_CLASSES: Record<ReaderTheme, { bg: string; text: string; headerBg: s
 };
 
 const PAGE_SIZE_CLASSES: Record<PageSize, string> = {
-  small: "max-w-xl",
-  medium: "max-w-3xl",
-  large: "max-w-5xl",
-  full: "max-w-full",
+  small: "w-full md:max-w-xl",
+  medium: "w-full md:max-w-3xl",
+  large: "w-full md:max-w-5xl",
+  full: "w-full",
 };
 
 const MAX_IMAGE_RETRIES = 3;
@@ -174,7 +174,7 @@ type SuggestedComic = {
 const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
   es: {
     reader: "Lector Mangastoon",
-    backHome: "Volver al inicio",
+    backHome: "Volver",
     chapterUnavailable: "Capítulo no disponible en este idioma",
     chapterUnavailableBody: "No encontramos un capítulo legible para este idioma.",
     chapterAvailableInEnglish: "Este capítulo no está disponible en español, pero sí existe en inglés.",
@@ -207,7 +207,7 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     controls: "Mostrar controles",
     hideControls: "Ocultar controles",
     nextChapterCta: "Siguiente Capítulo",
-    backToSeries: "Volver a la serie",
+    backToSeries: "Volver",
     endReachedTitle: "Llegaste al último capítulo disponible",
     endReachedBody: "Por ahora no hay más episodios publicados. Te dejamos lecturas de MangaStoon para que sigas con el ritmo.",
     suggestedTitle: "Seguir leyendo en MangaStoon",
@@ -527,8 +527,8 @@ function ChapterNavButton({
 }) {
   const className =
     variant === "primary"
-      ? "h-11 w-11 rounded-xl bg-orange-600 text-white shadow-lg transition-all hover:bg-orange-500 hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
-      : "h-11 w-11 rounded-xl border border-white/10 bg-[#141519]/75 text-gray-300 hover:border-orange-500/30 hover:text-orange-400 disabled:cursor-not-allowed disabled:opacity-40 shadow-sm";
+      ? "h-11 w-11 rounded-xl bg-[#ff6b00] text-white shadow-lg transition-all hover:bg-[#ff8833] hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40"
+      : "h-11 w-11 rounded-xl border border-white/10 bg-[#141519]/75 text-gray-300 hover:border-[#ff6b00]/30 hover:text-[#ff6b00] disabled:cursor-not-allowed disabled:opacity-40 shadow-sm";
   const hiddenClass = disabled && hiddenWhenDisabled ? "hidden" : "";
 
   return (
@@ -606,7 +606,26 @@ function RetryableSuggestedImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-
+const REG_BANNER_COPY = {
+  es: {
+    title: "¡Te está gustando la lectura! 📖",
+    body: "Regístrate gratis en MangaStoon para guardar tu historial, marcar tus favoritos y crear listas personalizadas.",
+    cta: "Crear Cuenta Gratis",
+    dismiss: "Cerrar"
+  },
+  en: {
+    title: "Enjoying the read? 📖",
+    body: "Sign up free on MangaStoon to save your progress, bookmark favorites, and create custom manga lists.",
+    cta: "Create Free Account",
+    dismiss: "Dismiss"
+  },
+  pt: {
+    title: "Está gostando da leitura? 📖",
+    body: "Cadastre-se grátis no MangaStoon para salvar seu progresso, favoritar mangás e criar listas personalizadas.",
+    cta: "Criar Conta Grátis",
+    dismiss: "Fechar"
+  }
+};
 
 type ReaderClientProps = {
   initialData?: ReaderApiResponse | null;
@@ -698,6 +717,19 @@ export default function ReaderClient({
   const [currentProfile, setCurrentProfile] = useState<any | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authLoaded, setAuthLoaded] = useState(false);
+  const [dismissedRegBanner, setDismissedRegBanner] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("mangastoon:dismiss-reg-banner") === "true";
+    }
+    return false;
+  });
+
+  const handleDismissRegBanner = () => {
+    setDismissedRegBanner(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("mangastoon:dismiss-reg-banner", "true");
+    }
+  };
 
   useEffect(() => {
     async function loadPremiumAndTheme() {
@@ -717,9 +749,9 @@ export default function ReaderClient({
 
         const { data } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, username, avatar_url, is_premium")
           .eq("id", user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setCurrentProfile(data);
@@ -739,7 +771,7 @@ export default function ReaderClient({
   useEffect(() => {
     if (authLoaded && !isPremium && readingMode === "horizontal") {
       setReadingMode("vertical");
-      toast.info("El modo horizontal es exclusivo para usuarios Premium. 👑", {
+      toast.info("El modo horizontal es exclusivo para usuarios Premium.", {
         description: "Se ha restablecido la lectura al modo cascada."
       });
     }
@@ -1276,7 +1308,7 @@ export default function ReaderClient({
       }
       setIsPremium(true);
       setShowPremiumModal(false);
-      toast.success("¡Bienvenido al Club Premium de MangaStoon! 🎉 Disfrutá de todos tus beneficios.");
+      toast.success("¡Bienvenido al Club Premium de MangaStoon! 🎉 Disfruta de todos tus beneficios.");
     } catch {
       toast.error("Ocurrió un error al activar tu cuenta Premium.");
     }
@@ -1329,7 +1361,7 @@ export default function ReaderClient({
 
   return (
     <main
-      className={`min-h-screen ${THEME_CLASSES[readerTheme].bg} ${THEME_CLASSES[readerTheme].text} px-4 pb-10 pt-2 sm:px-4 md:px-6 md:pt-3 transition-colors duration-300`}
+      className={`min-h-screen ${THEME_CLASSES[readerTheme].bg} ${THEME_CLASSES[readerTheme].text} px-0 pb-10 pt-2 transition-colors duration-300`}
     >
       <ReaderHeader
         isAtTop={isAtTop}
@@ -1374,19 +1406,19 @@ export default function ReaderClient({
       />
 
       {loading ? (
-        <section className="flex min-h-[70vh] items-center justify-center">
+        <section className="flex min-h-[70vh] items-center justify-center px-4 md:px-6">
           <div className="flex flex-col items-center gap-5">
-            <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-orange-500" />
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-white/15 border-t-[#ff6b00]" />
             <p className="text-sm uppercase tracking-[0.28em] text-gray-400">{dictionary.loadingChapter}</p>
           </div>
         </section>
       ) : error ? (
         <>
-          <section className="mx-auto max-w-5xl pt-0">
+          <section className="mx-auto max-w-5xl pt-0 px-4 md:px-6">
             <div className="mb-2 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
               <Link
                 href="/"
-                className="flex min-h-10 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-2 text-xs font-bold text-gray-300 shadow-md transition-all duration-300 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400"
+                className="flex min-h-10 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-2 text-xs font-heading font-semibold text-gray-300 shadow-md transition-all duration-300 hover:border-[#ff6b00]/30 hover:bg-[#ff6b00]/10 hover:text-[#ff6b00]"
               >
                 <ArrowLeft size={18} />
                 <span className="hidden font-bold sm:inline">{dictionary.backHome}</span>
@@ -1403,7 +1435,7 @@ export default function ReaderClient({
             </div>
 
             <div className="mb-2 flex flex-col items-center justify-center px-3 text-center">
-              <h1 className="mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-bold leading-tight tracking-tight text-orange-500 md:text-2xl">
+              <h1 className="mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-bold leading-tight tracking-tight text-[#ff6b00] md:text-2xl">
                 {mangaTitle}
               </h1>
               <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400 mt-1">
@@ -1421,32 +1453,41 @@ export default function ReaderClient({
             />
           </section>
 
-          <section className="flex min-h-[38vh] items-center justify-center px-1">
+          <section className="flex min-h-[38vh] items-center justify-center px-4 md:px-6">
             <div className={`w-full max-w-3xl rounded-3xl border ${THEME_CLASSES[readerTheme].border} ${THEME_CLASSES[readerTheme].card} p-6 text-center sm:p-8 transition-colors duration-300`}>
               <h2 className="text-2xl font-semibold text-white">{dictionary.chapterUnavailable}</h2>
               <p className="mt-4 text-sm leading-7 text-gray-400">{error}</p>
-              {englishFallbackChapter ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAutoScroll(false);
-                    router.push(buildReaderUrl(routeSlug, englishFallbackChapter.id, "en"));
-                  }}
-                  className="mt-6 inline-flex items-center justify-center rounded-xl bg-orange-500 px-6 py-3 text-sm font-semibold text-black transition hover:bg-orange-400"
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+                {englishFallbackChapter ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoScroll(false);
+                      router.push(buildReaderUrl(routeSlug, englishFallbackChapter.id, "en"));
+                    }}
+                    className="inline-flex items-center justify-center rounded-xl bg-[#ff6b00] px-6 py-3 text-sm font-heading font-bold text-black transition hover:bg-[#ff8833]"
+                  >
+                    {dictionary.readInEnglish}
+                  </button>
+                ) : null}
+                <Link
+                  href={`/comics/${routeSlug}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-6 py-3 text-sm font-heading font-bold text-gray-300 hover:bg-white/10 transition-colors"
                 >
-                  {dictionary.readInEnglish}
-                </button>
-              ) : null}
+                  <ArrowLeft size={16} />
+                  <span>{dictionary.backToSeries}</span>
+                </Link>
+              </div>
             </div>
           </section>
         </>
       ) : (
         <>
-          <section className="mx-auto max-w-5xl pt-0">
+          <section className="mx-auto max-w-5xl pt-0 px-4 md:px-6">
             <div className="mb-2 flex w-full items-center justify-between px-1 sm:px-2 md:px-4">
               <Link
                 href={`/comics/${routeSlug}`}
-                className="group inline-flex cursor-pointer items-center gap-2 rounded-full border border-orange-500/25 bg-orange-500/10 px-4 py-2 text-xs font-bold text-orange-400 backdrop-blur transition-all hover:border-orange-500/50 hover:bg-orange-500 hover:text-black shadow-md"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#ff6b00]/25 bg-[#ff6b00]/10 px-4 py-2.5 text-xs font-heading font-bold text-[#ff6b00] backdrop-blur transition-all hover:border-[#ff6b00]/50 hover:bg-[#ff6b00] hover:text-black shadow-md"
               >
                 <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
                 <span>{dictionary.backToSeries}</span>
@@ -1456,7 +1497,7 @@ export default function ReaderClient({
                 type="button"
                 onClick={() => setShowPdfModal(true)}
                 disabled={downloading || pages.length === 0}
-                className="flex min-h-10 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-2 text-xs font-bold text-gray-300 shadow-md transition-all duration-300 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-40 disabled:pointer-events-none"
+                className="flex min-h-10 items-center gap-2 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-2 text-xs font-heading font-semibold text-gray-300 shadow-md transition-all duration-300 hover:border-[#ff6b00]/30 hover:bg-[#ff6b00]/10 hover:text-[#ff6b00] disabled:opacity-40 disabled:pointer-events-none"
               >
                 <Download size={18} />
                 <span className="hidden font-bold sm:inline">
@@ -1466,11 +1507,11 @@ export default function ReaderClient({
             </div>
 
             <div className="mb-2 flex flex-col items-center justify-center px-3 text-center">
-              <h1 className="flex items-center justify-center gap-1.5 mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-bold leading-tight tracking-tight text-orange-500 md:text-2xl">
+              <h1 className="flex items-center justify-center gap-1.5 mb-1 line-clamp-1 max-w-3xl hyphens-auto text-xl font-bold leading-tight tracking-tight text-[#ff6b00] md:text-2xl">
                 {mangaTitle}
                 {isPremium && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-black border border-yellow-300/40 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
-                    👑 Premium
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 px-2.5 py-1 text-[10px] font-heading font-bold uppercase tracking-wider text-black border border-yellow-300/40 shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+                    <Crown size={10} className="fill-black mr-0.5" /> Premium
                   </span>
                 )}
               </h1>
@@ -1514,19 +1555,19 @@ export default function ReaderClient({
             )}
           </section>
 
-          <section className="mx-auto max-w-5xl px-4">
+          <section className="mx-auto max-w-5xl px-4 md:px-6">
             {nextChapter ? (
               <div className={`mt-14 mb-24 mx-auto max-w-2xl rounded-2xl border ${THEME_CLASSES[readerTheme].border} ${THEME_CLASSES[readerTheme].card} p-8 text-center shadow-xl shadow-black/45 transition-colors duration-300`}>
-                <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-orange-500">Capítulo Completado</span>
+                <span className="text-[10px] font-heading font-bold uppercase tracking-[0.25em] text-[#ff6b00]">Capítulo Completado</span>
                 <h3 className="mt-2 text-lg font-bold text-white">{getChapterLabel(currentChapter, dictionary)}</h3>
-                <p className="mt-1 text-xs text-gray-400">¿Querés seguir con la lectura? El siguiente capítulo ya está listo.</p>
+                <p className="mt-1 text-xs text-gray-400">¿Quieres seguir con la lectura? El siguiente capítulo ya está listo.</p>
                 
                 <div className="mt-6 flex items-center justify-center gap-4">
                   {previousChapter ? (
                     <button
                       type="button"
                       onClick={() => handleChapterNavigation(previousChapter.id)}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-orange-500/30 hover:text-orange-400 transition-colors"
+                      className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-[#ff6b00]/30 hover:text-[#ff6b00] transition-colors"
                       title={dictionary.previousChapter}
                     >
                       <ArrowLeft size={18} />
@@ -1536,7 +1577,7 @@ export default function ReaderClient({
                   <button
                     type="button"
                     onClick={() => handleChapterNavigation(nextChapter.id)}
-                    className="flex items-center gap-2.5 rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-orange-950/20 hover:bg-orange-500 hover:scale-[1.02] active:scale-95 transition-all"
+                    className="flex items-center gap-2.5 rounded-xl bg-[#ff6b00] px-6 py-3 text-sm font-heading font-bold text-black hover:bg-[#ff8833] hover:scale-[1.02] active:scale-95 transition-all"
                   >
                     <span>{dictionary.nextChapterCta} · {getChapterLabel(nextChapter, dictionary)}</span>
                     <ArrowRight size={16} strokeWidth={2.5} />
@@ -1545,7 +1586,7 @@ export default function ReaderClient({
               </div>
             ) : (
               <div className={`mx-auto my-16 max-w-3xl rounded-3xl border ${THEME_CLASSES[readerTheme].border} ${THEME_CLASSES[readerTheme].card} p-8 text-center shadow-2xl shadow-black/50 md:p-10 transition-colors duration-300`}>
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-orange-500">MangaStoon</span>
+                <span className="text-[10px] font-heading font-bold uppercase tracking-[0.3em] text-[#ff6b00]">MangaStoon</span>
                 <h2 className="mt-3 text-2xl font-black text-white md:text-3xl tracking-tight">{dictionary.endReachedTitle}</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-gray-400">{dictionary.endReachedBody}</p>
 
@@ -1559,7 +1600,7 @@ export default function ReaderClient({
                           href={buildComicPath(comic.title, comic.slug)}
                           className={`group block ${index >= 4 ? "hidden lg:block" : ""}`}
                         >
-                          <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-[#0f1015] shadow-md transition-all duration-300 group-hover:border-orange-500/40 group-hover:shadow-[0_0_15px_rgba(249,115,22,0.15)] group-hover:scale-[1.03]">
+                          <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-[#0f1015] shadow-md transition-all duration-300 group-hover:border-[#ff6b00]/40 group-hover:shadow-[0_0_15px_rgba(255,107,0,0.15)] group-hover:scale-[1.03]">
                             {comic.coverImage ? (
                               <RetryableSuggestedImage
                                 src={comic.coverImage}
@@ -1567,7 +1608,7 @@ export default function ReaderClient({
                               />
                             ) : null}
                           </div>
-                          <p className="mt-2 line-clamp-2 text-xs font-bold text-gray-300 group-hover:text-orange-400 transition-colors leading-tight">
+                          <p className="mt-2 line-clamp-2 text-xs font-bold text-gray-300 group-hover:text-[#ff6b00] transition-colors leading-tight">
                             {comic.title}
                           </p>
                         </a>
@@ -1579,7 +1620,7 @@ export default function ReaderClient({
                 <div className="mt-10 pt-6 border-t border-white/5">
                   <a
                     href="/explore"
-                    className="inline-flex rounded-xl border border-orange-500/20 bg-orange-500/5 px-6 py-2.5 text-xs font-bold text-orange-400 hover:bg-orange-500 hover:text-black transition-all duration-300 active:scale-95"
+                    className="inline-flex rounded-xl border border-[#ff6b00]/20 bg-[#ff6b00]/5 px-6 py-2.5 text-xs font-heading font-bold text-[#ff6b00] hover:bg-[#ff6b00] hover:text-black transition-all duration-300 active:scale-95"
                   >
                     {dictionary.exploreMore}
                   </a>
@@ -1588,7 +1629,7 @@ export default function ReaderClient({
             )}
           </section>
 
-          <section className="mx-auto max-w-3xl px-4 mt-6">
+          <section className="mx-auto max-w-3xl px-4 md:px-6 mt-6">
             <CommentsSection
               chapterId={routeChapterId}
               mangaId={mangaId}
@@ -1601,7 +1642,7 @@ export default function ReaderClient({
           {showPdfModal ? (
             <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
               <div className="w-full max-w-md rounded-2xl border border-white/5 bg-[#141519] p-6 shadow-2xl">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">
+                <p className="text-xs font-heading font-bold uppercase tracking-[0.2em] text-[#ff6b00]">
                   {dictionary.pdfModalTitle}
                 </p>
                 <h2 className="mt-2 line-clamp-2 text-xl font-semibold text-white">{mangaTitle}</h2>
@@ -1663,7 +1704,7 @@ export default function ReaderClient({
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
                       {dictionary.downloadRange}
                     </p>
-                    <p className="mt-2 text-sm font-medium text-orange-400">{pdfRangeLabel}</p>
+                    <p className="mt-2 text-sm font-medium text-[#ff6b00]">{pdfRangeLabel}</p>
                     <p className="mt-2 text-xs text-gray-500">
                       {isPremium 
                         ? dictionary.maxChaptersNotice 
@@ -1677,13 +1718,13 @@ export default function ReaderClient({
                 </div>
 
                 {!isPremium && (
-                  <div className="mt-4 rounded-xl border border-orange-500/20 bg-orange-500/5 p-3.5 text-center">
-                    <p className="text-xs text-orange-400 font-semibold flex items-center justify-center gap-1">
+                  <div className="mt-4 rounded-xl border border-[#ff6b00]/20 bg-[#ff6b00]/5 p-3.5 text-center">
+                    <p className="text-xs text-[#ff6b00] font-heading font-semibold flex items-center justify-center gap-1">
                       <Sparkles size={14} className="animate-pulse" />
                       {readerLanguage === "es" ? "Límite gratuito de 10 capítulos" : readerLanguage === "pt" ? "Limite gratuito de 10 capítulos" : "Free limit of 10 chapters"}
                     </p>
                     <p className="mt-1 text-[11px] text-gray-400">
-                      {readerLanguage === "es" ? "¿Querés descargar hasta 50 capítulos de una?" : readerLanguage === "pt" ? "Quer baixar até 50 capítulos de uma vez?" : "Want to download up to 50 chapters at once?"}
+                      {readerLanguage === "es" ? "¿Quieres descargar hasta 50 capítulos a la vez?" : readerLanguage === "pt" ? "Quer baixar até 50 capítulos de uma vez?" : "Want to download up to 50 chapters at once?"}
                     </p>
                     <button
                       type="button"
@@ -1691,7 +1732,7 @@ export default function ReaderClient({
                         setShowPdfModal(false);
                         setShowPremiumModal(true);
                       }}
-                      className="mt-2.5 w-full rounded-lg bg-orange-600/20 border border-orange-500/30 py-1.5 text-xs font-bold text-orange-400 hover:bg-orange-600 hover:text-black transition-all"
+                      className="mt-2.5 w-full rounded-xl bg-[#ff6b00]/20 border border-[#ff6b00]/30 py-1.5 text-xs font-heading font-semibold text-[#ff6b00] hover:bg-[#ff6b00] hover:text-black transition-all"
                     >
                       {readerLanguage === "es" ? "Desbloquear 50 capítulos" : readerLanguage === "pt" ? "Desbloquear 50 capítulos" : "Unlock 50 chapters"}
                     </button>
@@ -1710,7 +1751,7 @@ export default function ReaderClient({
                     type="button"
                     onClick={handleDownloadPdf}
                     disabled={downloading}
-                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-black shadow-lg shadow-orange-950/30 transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ff6b00] px-5 py-3 text-sm font-heading font-bold text-black shadow-lg shadow-[#ff6b00]/10 transition hover:bg-[#ff8833] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <FileText aria-hidden="true" className="h-4 w-4" />
                     <span>{downloading ? `${dictionary.generatingPdf} ${pdfProgress}%` : dictionary.download}</span>
@@ -1733,22 +1774,22 @@ export default function ReaderClient({
                 <button
                   type="button"
                   onClick={() => handleChapterNavigation(nextChapter.id)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-orange-500/30 bg-orange-600 px-5 py-3.5 text-black shadow-[0_12px_24px_rgba(0,0,0,0.4),0_0_15px_rgba(249,115,22,0.2)] hover:bg-orange-500 hover:scale-[1.02] active:scale-95 transition-all duration-300"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#ff6b00]/30 bg-[#ff6b00] px-5 py-3.5 text-black shadow-[0_12px_24px_rgba(0,0,0,0.4),0_0_15px_rgba(255,107,0,0.2)] hover:bg-[#ff8833] hover:scale-[1.02] active:scale-95 transition-all duration-300"
                 >
                   <div className="flex items-center gap-3 text-left">
                     <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black/10">
                       <ArrowRight size={16} strokeWidth={2.5} />
                     </div>
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-wider text-black/60 leading-none">
+                      <p className="text-[10px] font-heading font-bold uppercase tracking-wider text-black/60 leading-none">
                         {readerLanguage === "es" ? "Próximo Capítulo" : readerLanguage === "pt" ? "Próximo Capítulo" : "Next Chapter"}
                       </p>
-                      <p className="mt-1 text-xs font-extrabold text-black truncate max-w-[180px]">
+                      <p className="mt-1 text-xs font-heading font-semibold text-black truncate max-w-[180px]">
                         {getChapterLabel(nextChapter, dictionary)}
                       </p>
                     </div>
                   </div>
-                  <span className="text-xs font-black uppercase tracking-wider bg-black/15 px-2.5 py-1 rounded-lg">
+                  <span className="text-xs font-heading font-bold uppercase tracking-wider bg-black/15 px-2.5 py-1 rounded-lg">
                     {readerLanguage === "es" ? "Leer Ahora" : readerLanguage === "pt" ? "Ler Agora" : "Read Now"}
                   </span>
                 </button>
@@ -1769,11 +1810,67 @@ export default function ReaderClient({
                 </button>
                 <PremiumBenefitsCard
                   lang={readerLanguage}
-                  onUpgrade={handleUpgradePremium}
+                  isLoggedIn={!!currentUser}
+                  onUpgrade={() => {
+                    if (!currentUser) {
+                      setShowPremiumModal(false);
+                      setIsAuthModalOpen(true);
+                    } else {
+                      handleUpgradePremium();
+                    }
+                  }}
                 />
               </div>
             </div>
           ) : null}
+
+          {/* Floating Register Suggestion Banner for Guests */}
+          <AnimatePresence>
+            {authLoaded && !currentUser && scrollProgress > 50 && !dismissedRegBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: 100, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 100, scale: 0.95 }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="fixed bottom-6 right-6 z-50 w-[90%] max-w-sm rounded-2xl border border-orange-500/20 bg-black/85 p-5 shadow-2xl backdrop-blur-lg md:max-w-md"
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <h4 className="text-sm font-heading font-bold text-orange-500 flex items-center gap-1.5">
+                      <Sparkles size={16} className="animate-pulse text-orange-400" />
+                      {REG_BANNER_COPY[readerLanguage].title}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={handleDismissRegBanner}
+                      className="text-gray-400 hover:text-white text-xs font-semibold px-2 py-1 rounded-lg transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {REG_BANNER_COPY[readerLanguage].body}
+                  </p>
+                  <div className="mt-1 flex items-center justify-end gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleDismissRegBanner}
+                      className="text-xs font-bold text-gray-400 hover:text-white px-3 py-1.5 transition-colors"
+                    >
+                      {REG_BANNER_COPY[readerLanguage].dismiss}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="rounded-xl bg-orange-500 px-4 py-2 text-xs font-heading font-bold text-black hover:bg-orange-600 transition-all hover:scale-[1.02] active:scale-95"
+                    >
+                      {REG_BANNER_COPY[readerLanguage].cta}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <AuthModal
             open={isAuthModalOpen}

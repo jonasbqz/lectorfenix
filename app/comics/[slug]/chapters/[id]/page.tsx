@@ -1,9 +1,11 @@
-﻿import Script from "next/script";
-import { headers } from "next/headers";
+import Script from "next/script";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ReaderClient from "./reader-client";
-import { SITE_NAME, absoluteUrl } from "../../../../utils/seo";
+import { SITE_NAME, absoluteUrl, safeJsonLd } from "../../../../utils/seo";
 import { extractComicIdFromSlugId } from "../../../../utils/slugify";
+import { fetchMangaDetails, hasSensitiveAdultTag } from "../../../../utils/mangadex";
+import AdultContentBlocker from "../../../../components/AdultContentBlocker";
 
 type SupportedLanguage = "es" | "en" | "pt";
 
@@ -87,6 +89,20 @@ export default async function ReadPage({
   const [{ slug, id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
   const lang = normalizeLanguage(resolvedSearchParams.lang);
   const mangaId = extractComicIdFromSlugId(slug);
+
+  const cookieStore = await cookies();
+  const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
+
+  if (!isAdult) {
+    const manga = await fetchMangaDetails(mangaId, lang);
+    if (manga && hasSensitiveAdultTag(manga)) {
+      return (
+        <main className="min-h-screen bg-[#0a0908] text-white">
+          <AdultContentBlocker lang={lang} />
+        </main>
+      );
+    }
+  }
   const chapterId = resolvedSearchParams.chapter ?? id;
   const data = await fetchReaderData({ id: mangaId, chapter: chapterId, lang });
   const canonicalSlug = data?.comicSlug;
@@ -116,7 +132,7 @@ export default async function ReadPage({
 
   return (
     <>
-      <Script id="reader-chapter-jsonld" type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <Script id="reader-chapter-jsonld" type="application/ld+json" dangerouslySetInnerHTML={safeJsonLd(jsonLd)} />
       <ReaderClient
         initialData={data}
         initialMangaId={mangaId}

@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
 import AppFeedback from "./components/app-feedback";
 import Footer from "./components/Footer";
+import BottomNavbar from "./components/BottomNavbar";
 import { LanguageProvider } from "./components/language-provider";
-import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL } from "./utils/seo";
+import PageTransitionLoader from "./components/PageTransitionLoader";
+import { SITE_DESCRIPTION, SITE_IMAGE, SITE_NAME, SITE_URL, safeJsonLd } from "./utils/seo";
 import "./globals.css";
 
 const bodyFont = Inter({
@@ -132,22 +134,41 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${headingFont.variable} ${bodyFont.variable} antialiased`}
       >
+        <script
+          id="suppress-extension-warnings"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                const originalError = console.error;
+                console.error = function(...args) {
+                  const msg = args[0] ? String(args[0]) : '';
+                  if (msg.includes('bis_skin_checked') || msg.includes('suppressHydrationWarning')) {
+                    return;
+                  }
+                  originalError.apply(console, args);
+                };
+              })();
+            `
+          }}
+        />
         <LanguageProvider>
+          <PageTransitionLoader />
           <script
             id="global-website-jsonld"
             type="application/ld+json"
             suppressHydrationWarning
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+            dangerouslySetInnerHTML={safeJsonLd(websiteJsonLd)}
           />
           <script
             id="global-organization-jsonld"
             type="application/ld+json"
             suppressHydrationWarning
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+            dangerouslySetInnerHTML={safeJsonLd(organizationJsonLd)}
           />
           {/* Sistema de anuncios desactivado temporalmente. */}
           {children}
           <Footer />
+          <BottomNavbar />
           <AppFeedback />
         </LanguageProvider>
       </body>
