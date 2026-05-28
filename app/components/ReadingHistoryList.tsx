@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -30,32 +30,32 @@ export default function ReadingHistoryList() {
   }
 
   return (
-    <section className="rounded-3xl border border-white/10 bg-[#101116] p-4 shadow-2xl shadow-black/20 md:p-6">
+    <section className="rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#181920]/80 to-[#0e0f13]/90 p-5 shadow-2xl shadow-black/40 md:p-6 backdrop-blur-md">
       <div className="mb-5 flex items-center justify-between gap-4">
-        <div className="border-l-4 border-[#ff6b00] pl-3">
-          <h2 className="text-2xl font-semibold text-white">Continuar Leyendo</h2>
-          <p className="mt-1 text-sm text-gray-400">Volvé directo al capítulo donde te quedaste.</p>
+        <div className="border-l-4 border-[#ff6b00] pl-3.5">
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight text-white font-heading">Continuar Leyendo</h2>
+          <p className="mt-1 text-xs md:text-sm text-neutral-400">Volvé directo al capítulo donde te quedaste.</p>
         </div>
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-2 [scrollbar-width:thin] [scrollbar-color:#ff6b00_#1f2028]">
+      <div className="flex gap-4 overflow-x-auto pb-2 scroll-smooth snap-x snap-mandatory [scrollbar-width:thin] [scrollbar-color:#ff6b00_rgba(255,255,255,0.03)]">
         {history.map((item) => (
           <article
             key={`${item.mangaId}-${item.chapterId}`}
-            className="group relative min-w-[260px] max-w-[300px]"
+            className="group relative min-w-[270px] max-w-[310px] snap-start"
           >
             <Link
               href={buildChapterPath(item.mangaTitle, item.mangaId, item.chapterId)}
-              className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 pr-11 transition hover:border-[#ff6b00]/50 hover:bg-[#ff6b00]/10"
+              className="flex items-center gap-3.5 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3.5 pr-12 transition-all duration-300 hover:border-[#ff6b00]/40 hover:bg-[#ff6b00]/[0.03] hover:shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:scale-[1.01]"
             >
-              <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-white/10">
+              <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-white/10 shadow-md">
                 {item.coverImage ? (
                   <Image
                     src={normalizeStoredCoverImage(item.coverImage)}
                     alt={item.mangaTitle}
                     fill
                     sizes="56px"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                     unoptimized
                     referrerPolicy="no-referrer"
                   />
@@ -66,13 +66,15 @@ export default function ReadingHistoryList() {
                 )}
               </div>
 
-              <div className="min-w-0 flex-1">
-                <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-white">
+              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                <h3 className="line-clamp-2 text-sm font-bold leading-snug text-neutral-100 group-hover:text-white transition-colors duration-200">
                   {item.mangaTitle}
                 </h3>
-                <p className="mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#ff6b00]">
-                  {formatChapterLabel(item.chapterNumber)}
-                </p>
+                <div className="mt-2.5">
+                  <span className="inline-flex items-center rounded-lg bg-[#ff6b00]/10 border border-[#ff6b00]/25 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-[#ff6b00] leading-none select-none">
+                    {formatChapterLabel(item.chapterNumber)}
+                  </span>
+                </div>
               </div>
             </Link>
 
@@ -80,7 +82,7 @@ export default function ReadingHistoryList() {
               type="button"
               aria-label={`Quitar ${item.mangaTitle} de continuar leyendo`}
               onClick={() => removeHistory(item.mangaId)}
-              className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/70 text-gray-300 shadow-lg shadow-black/30 backdrop-blur transition hover:border-[#ff6b00]/50 hover:bg-[#ff6b00] hover:text-black md:h-8 md:w-8"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-neutral-950/80 text-gray-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/20 shadow-md backdrop-blur transition-all duration-200 opacity-100 sm:opacity-0 group-hover:opacity-100 z-10 cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>

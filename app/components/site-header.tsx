@@ -439,7 +439,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
               }}
               className={`flex h-10 w-10 sm:w-auto items-center justify-center sm:justify-start gap-2.5 sm:px-4 rounded-full sm:rounded-xl border text-xs font-heading font-semibold select-none cursor-pointer transition-all ${
               isPremium 
-                ? "border-[#ff6b00]/50 bg-gradient-to-r from-[#ff6b00]/5 to-[#ff8833]/10 hover:border-[#ff6b00]/70 hover:from-[#ff6b00]/10 hover:to-[#ff8833]/15 shadow-[0_0_12px_rgba(255,107,0,0.15)] text-[#ff6b00]" 
+                ? "border-amber-500/50 bg-gradient-to-r from-amber-500/5 to-yellow-500/10 hover:border-amber-500/70 hover:from-amber-500/10 hover:to-yellow-500/15 shadow-[0_0_12px_rgba(245,158,11,0.15)] text-amber-500" 
                 : "border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-gray-300 hover:text-white"
             }`}
           >
@@ -452,7 +452,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
             )}
             <span className="hidden sm:inline max-w-[100px] truncate">{displayName}</span>
             {isPremium && (
-              <Crown size={13} className="text-[#ff6b00] fill-[#ff6b00] shrink-0 hidden sm:inline" />
+              <Crown size={13} className="text-amber-500 fill-amber-500 shrink-0 hidden sm:inline" />
             )}
           </button>
 
@@ -474,7 +474,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                         src={displayAvatar} 
                         alt={displayName} 
                         className={`h-16 w-16 rounded-full object-cover border-2 ${
-                          isPremium ? "border-orange-500" : "border-white/[0.08]"
+                          isPremium ? "border-amber-500" : "border-white/[0.08]"
                         }`} 
                       />
                     ) : (
@@ -483,7 +483,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                       </div>
                     )}
                     {isPremium && (
-                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 shadow" title="Miembro Premium">
+                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 shadow" title="Miembro Premium">
                         <Crown size={10} className="text-black fill-black" />
                       </span>
                     )}
@@ -497,7 +497,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                       {user.email}
                     </p>
                     {isPremium && (
-                      <span className="mt-1.5 text-[8px] font-extrabold uppercase tracking-widest text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full border border-orange-400/20 leading-none">
+                      <span className="mt-1.5 text-[8px] font-extrabold uppercase tracking-widest text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 leading-none">
                         MIEMBRO PREMIUM
                       </span>
                     )}
