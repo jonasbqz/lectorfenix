@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Compass, Heart, Search, User, LogOut, Crown, FolderHeart, Bell, CheckCheck, Loader2, AlertCircle } from "lucide-react";
+import { Compass, Heart, Search, User, LogOut, Crown, FolderHeart, Bell, CheckCheck, Loader2, AlertCircle, Settings, Sparkles } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 import LanguagePreferencePicker from "./language-preference-picker";
 import SearchBar from "./search-bar";
@@ -437,7 +437,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                 setIsDropdownOpen((p) => !p);
                 setIsNotificationsOpen(false);
               }}
-              className={`flex h-10 items-center gap-2.5 px-2 sm:px-4 rounded-xl border text-xs font-heading font-semibold select-none cursor-pointer transition-all ${
+              className={`flex h-10 w-10 sm:w-auto items-center justify-center sm:justify-start gap-2.5 sm:px-4 rounded-full sm:rounded-xl border text-xs font-heading font-semibold select-none cursor-pointer transition-all ${
               isPremium 
                 ? "border-[#ff6b00]/50 bg-gradient-to-r from-[#ff6b00]/5 to-[#ff8833]/10 hover:border-[#ff6b00]/70 hover:from-[#ff6b00]/10 hover:to-[#ff8833]/15 shadow-[0_0_12px_rgba(255,107,0,0.15)] text-[#ff6b00]" 
                 : "border-zinc-800 bg-zinc-900/80 hover:bg-zinc-800 text-gray-300 hover:text-white"
@@ -511,7 +511,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                     onClick={() => setIsDropdownOpen(false)}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-white/[0.04] hover:text-white transition-all cursor-pointer"
                   >
-                    <span className="text-sm">⚙️</span>
+                    <Settings size={14} className="text-gray-400 shrink-0" />
                     <span>Configuración de Perfil</span>
                   </Link>
 
@@ -520,7 +520,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                     onClick={() => setIsDropdownOpen(false)}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-white/[0.04] hover:text-white transition-all cursor-pointer"
                   >
-                    <span className="text-sm">⭐</span>
+                    <Heart size={14} className="text-gray-400 shrink-0" />
                     <span>Mis Favoritos</span>
                   </Link>
 
@@ -529,11 +529,9 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                     onClick={() => setIsDropdownOpen(false)}
                     className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-white/[0.04] hover:text-white transition-all cursor-pointer"
                   >
-                    <span className="text-sm">👥</span>
+                    <FolderHeart size={14} className="text-gray-400 shrink-0" />
                     <span>{language === "es" ? "Listas de la Comunidad" : language === "pt" ? "Listas da Comunidade" : "Community Lists"}</span>
                   </Link>
-
-
 
                   <Link
                     href="/premium"
@@ -543,7 +541,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
                     {isPremium ? (
                       <Crown size={14} className="fill-amber-500 text-amber-500 shrink-0" />
                     ) : (
-                      <span className="text-sm">✨</span>
+                      <Sparkles size={14} className="text-orange-500 shrink-0" />
                     )}
                     <span className={isPremium ? "text-yellow-400 font-heading font-bold" : "text-[#ff6b00] font-heading font-bold"}>
                       {isPremium ? "Beneficios Premium" : "Mejorar a Premium"}

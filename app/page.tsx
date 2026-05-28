@@ -638,7 +638,7 @@ export default async function HomePage() {
         <HorizontalCarousel mangas={worldTop} title={copy.worldTop} subtitle={copy.worldTopSubtitle} featuredCards autoAdvance />
         
         {/* Banner de Telegram de la Comunidad */}
-        <div className="flex justify-center pt-4 pb-12 md:py-4">
+        <div className="flex justify-center pt-2 pb-8 md:py-2">
           <a
             href="https://t.me/+dtPKjcBfiDUyOWQx"
             target="_blank"

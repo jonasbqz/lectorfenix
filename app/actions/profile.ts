@@ -263,6 +263,17 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid") {
     updated_at: new Date().toISOString(),
   };
 
+  // Guardar premium_since en los metadatos de auth del usuario para persistir la fecha original
+  const { error: authMetaError } = await supabase.auth.updateUser({
+    data: {
+      premium_since: new Date().toISOString()
+    }
+  });
+
+  if (authMetaError) {
+    console.warn("[upgradeToPremiumAction] failed to update auth metadata:", authMetaError.message);
+  }
+
   // Intentamos guardar con premium_type primero
   const { error } = await supabase.from("profiles").upsert({
     ...updateData,

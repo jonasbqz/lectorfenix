@@ -76,7 +76,7 @@ export default async function ProfilePage() {
                 id: user.id,
                 email: user.email,
                 app_metadata: user.app_metadata as { provider?: string },
-                user_metadata: user.user_metadata as { scheduled_delete_at?: string | null },
+                user_metadata: user.user_metadata as { scheduled_delete_at?: string | null; premium_since?: string | null },
                 created_at: user.created_at,
               }}
             />
