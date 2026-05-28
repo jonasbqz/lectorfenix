@@ -104,7 +104,7 @@ export default function ChapterList({
                 setSelectedScanGroup(event.target.value);
                 setVisibleCount(INITIAL_CHAPTER_COUNT);
               }}
-              className="h-10 max-w-full cursor-pointer appearance-none rounded-2xl border border-white/5 bg-[#1e1f24] px-3 text-sm text-gray-300 outline-none transition-all focus:border-[#ff6b00] focus:ring-1 focus:ring-[#ff6b00] sm:max-w-[240px]"
+              className="h-10 max-w-full cursor-pointer appearance-none rounded-2xl border border-white/5 bg-[#1e1f24] px-3 text-sm text-gray-300 outline-none transition-all focus:border-amber-500 focus:ring-1 focus:ring-amber-500 sm:max-w-[240px]"
             >
               <option value={ALL_SCAN_GROUPS}>Todos los fansubs</option>
               {orderedScanGroups.map((scanGroup) => (
@@ -125,7 +125,7 @@ export default function ChapterList({
               setVisibleCount(INITIAL_CHAPTER_COUNT);
             }}
             placeholder={searchPlaceholder}
-            className="h-10 w-28 rounded-2xl border border-white/5 bg-[#1e1f24] px-3 text-sm text-gray-200 transition-all placeholder:text-gray-600 focus:border-[#ff6b00] focus:outline-none focus:ring-1 focus:ring-[#ff6b00] sm:w-36"
+            className="h-10 w-28 rounded-2xl border border-white/5 bg-[#1e1f24] px-3 text-sm text-gray-200 transition-all placeholder:text-gray-600 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 sm:w-36"
           />
           <button
             type="button"
@@ -135,7 +135,7 @@ export default function ChapterList({
             }}
             aria-label={sortLabel}
             title={sortLabel}
-            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-500 transition-all duration-300 hover:border-orange-500/50 hover:text-white active:scale-95"
+            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-500 transition-all duration-300 hover:border-amber-500/50 hover:text-white active:scale-95"
           >
             <ArrowDown
               className={`h-5 w-5 transition-transform duration-500 ease-[cubic-bezier(0.87,_0,_0.13,_1)] ${
@@ -154,7 +154,7 @@ export default function ChapterList({
             className="animate-soft-enter flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-white/5 p-3 transition-colors hover:bg-white/10 sm:mb-2 sm:gap-3 sm:p-4"
           >
             <div className="flex min-w-0 items-center gap-3">
-              <BookOpen className="h-4 w-4 shrink-0 text-[#ff6b00] sm:h-5 sm:w-5" />
+              <BookOpen className="h-4 w-4 shrink-0 text-amber-500 sm:h-5 sm:w-5" />
               <p className="text-sm font-semibold text-white sm:text-base">{chapterLabel}</p>
             </div>
 
@@ -171,7 +171,7 @@ export default function ChapterList({
           <button
             type="button"
             onClick={() => setVisibleCount(filteredRows.length)}
-            className="rounded-full border border-orange-500/40 bg-orange-500/10 px-5 py-2.5 text-sm font-semibold text-orange-300 transition hover:border-orange-400 hover:bg-orange-500 hover:text-white"
+            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-5 py-2.5 text-sm font-semibold text-amber-300 transition hover:border-amber-400 hover:bg-amber-500 hover:text-black"
           >
             {showMoreLabel}
           </button>

@@ -14,10 +14,12 @@ export default function BackButton({
   label,
   fixed = false,
   fallbackHref = "/",
+  className,
 }: {
   label?: string;
   fixed?: boolean;
   fallbackHref?: string;
+  className?: string;
 }) {
   const { language } = useLanguage();
   const router = useRouter();
@@ -32,11 +34,13 @@ export default function BackButton({
     }
   };
 
+  const containerClass = className !== undefined ? className : (fixed ? "fixed left-6 top-6 z-50" : "mb-8");
+
   return (
-    <div className={fixed ? "fixed left-6 top-6 z-50" : "mb-8"}>
+    <div className={containerClass}>
       <button
         onClick={handleBack}
-        className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#ff6b00]/25 bg-[#ff6b00]/10 px-4 py-2 text-sm font-heading font-bold text-[#ff6b00] backdrop-blur transition-all hover:border-[#ff6b00]/50 hover:bg-[#ff6b00] hover:text-black shadow-md shadow-orange-500/5"
+        className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-sm font-heading font-bold text-amber-500 backdrop-blur transition-all hover:border-amber-500/50 hover:bg-amber-500 hover:text-black shadow-md shadow-amber-500/5"
       >
         <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
         {displayLabel}
@@ -44,3 +48,4 @@ export default function BackButton({
     </div>
   );
 }
+

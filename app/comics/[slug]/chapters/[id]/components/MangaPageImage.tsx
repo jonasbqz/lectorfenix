@@ -104,16 +104,16 @@ export default function MangaPageImage({
           ${loaded ? "opacity-0" : "opacity-100"}`}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-[#0e0f14] via-[#14151c] to-[#0e0f14] animate-pulse" />
-        <div className="absolute inset-0 bg-orange-500/5 blur-2xl animate-pulse" />
+        <div className="absolute inset-0 bg-amber-500/5 blur-2xl animate-pulse" />
         <div className="relative flex flex-col items-center gap-3 z-20">
-          <div className="h-9 w-9 animate-spin rounded-full border-2 border-orange-500/10 border-t-orange-500/60" />
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
           <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
         </div>
       </div>
 
       {failed ? (
         <div className="relative z-20 flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-[#0d0e12] border border-white/5 rounded-2xl m-4 p-6 text-center shadow-lg">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500/10 text-orange-500">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
             <ImageOff className="h-6 w-6" />
           </div>
           <div className="max-w-xs">
@@ -134,7 +134,7 @@ export default function MangaPageImage({
                 setCurrentSrc(withImageRetryParam(pageUrl, 0));
               }
             }}
-            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-orange-500 transition-all hover:scale-[1.02] active:scale-95"
+            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-4 py-2 text-xs font-bold text-black shadow-md hover:from-amber-400 hover:to-yellow-400 transition-all hover:scale-[1.02] active:scale-95"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Reintentar y siguientes</span>

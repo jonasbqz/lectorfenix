@@ -78,13 +78,13 @@ export default function ReaderHeader({
             <div className="flex items-center gap-3 min-w-0">
               <Link
                 href={`/comics/${routeSlug}`}
-                className="group flex h-9 w-9 items-center justify-center rounded-full border border-orange-500/25 bg-orange-500/10 text-orange-400 backdrop-blur transition-all hover:border-orange-500/50 hover:bg-orange-500 hover:text-black"
+                className="group flex h-9 w-9 items-center justify-center rounded-full border border-amber-500/25 bg-amber-500/10 text-amber-500 backdrop-blur transition-all hover:border-amber-500/50 hover:bg-amber-500 hover:text-black"
                 title={dictionary.backToSeries}
               >
                 <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-0.5" />
               </Link>
               <div className="min-w-0">
-                <h3 className="flex items-center gap-1.5 truncate text-xs font-bold text-orange-500">
+                <h3 className="flex items-center gap-1.5 truncate text-xs font-bold text-amber-500">
                   {mangaTitle}
                   {isPremium && (
                     <Crown size={12} className="fill-amber-500 text-amber-500 shrink-0" />
@@ -101,7 +101,7 @@ export default function ReaderHeader({
                 type="button"
                 disabled={!previousChapter}
                 onClick={() => previousChapter && handleChapterNavigation(previousChapter.id)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                 title={dictionary.previousChapter}
               >
                 <ArrowLeft size={16} />
@@ -110,7 +110,7 @@ export default function ReaderHeader({
               <button
                 type="button"
                 onClick={openChapterList}
-                className="flex h-9 items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.03] px-3 text-xs font-semibold text-gray-300 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 transition-colors"
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-white/5 bg-white/[0.03] px-3 text-xs font-semibold text-gray-300 hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400 transition-colors"
               >
                 <List size={14} />
                 <span className="hidden sm:inline">{dictionary.chapterList}</span>
@@ -120,7 +120,7 @@ export default function ReaderHeader({
                 type="button"
                 disabled={!nextChapter}
                 onClick={() => nextChapter && handleChapterNavigation(nextChapter.id)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-orange-500/30 hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-gray-400 hover:border-amber-500/30 hover:bg-amber-500/10 hover:text-amber-400 disabled:opacity-30 disabled:pointer-events-none transition-colors"
                 title={dictionary.nextChapter}
               >
                 <ArrowRight size={16} />
@@ -132,7 +132,7 @@ export default function ReaderHeader({
                 type="button"
                 onClick={() => setShowPdfModal(true)}
                 disabled={downloading || pagesCount === 0}
-                className="flex h-9 items-center gap-1.5 rounded-xl bg-orange-600 px-3 text-xs font-bold text-white shadow-md hover:bg-orange-500 hover:text-black transition-all disabled:opacity-40 disabled:pointer-events-none"
+                className="flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-3 text-xs font-bold text-black shadow-md hover:from-amber-400 hover:to-yellow-400 transition-all disabled:opacity-40 disabled:pointer-events-none"
               >
                 <Download size={14} />
                 <span className="hidden md:inline">PDF</span>

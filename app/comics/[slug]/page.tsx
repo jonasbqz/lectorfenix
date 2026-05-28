@@ -1152,12 +1152,12 @@ function MangaMaintenance({ language }: { language: SupportedLanguage }) {
       <SiteHeader language={language} />
       <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-4 text-center">
         <div className="rounded-3xl border border-white/10 bg-[#141519] p-8 shadow-2xl shadow-black/30">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">MangaStoon</p>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-500">MangaStoon</p>
           <h1 className="mt-4 text-2xl font-semibold text-white">{copy.title}</h1>
           <p className="mt-3 text-base leading-7 text-gray-400">{copy.body}</p>
           <Link
             href="/explore"
-            className="mt-6 inline-flex rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-orange-400"
+            className="mt-6 inline-flex rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-400"
           >
             {copy.action}
           </Link>
@@ -1482,7 +1482,7 @@ export default async function MangaDetailsPage({
 
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-5 md:px-6 md:py-8 lg:px-8">
         <div className="flex items-center justify-between mb-4 w-full">
-          <BackButton />
+          <BackButton className="mb-0" />
           <a
             href="https://t.me/+dtPKjcBfiDUyOWQx"
             target="_blank"
@@ -1589,7 +1589,7 @@ export default async function MangaDetailsPage({
                 <Link
                   key={tag.id}
                   href={`/explore?includedTags=${tag.id}`}
-                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-[#ff6b00]/40 hover:bg-[#ff6b00]/10 hover:text-orange-400"
+                  className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400"
                 >
                   {tag.name}
                 </Link>
@@ -1604,7 +1604,7 @@ export default async function MangaDetailsPage({
 
             <section id="chapters" className="mt-8 scroll-mt-28">
               <div className="mb-4 flex flex-col items-center justify-center gap-3 md:flex-row md:justify-between md:gap-4 w-full flex-wrap">
-                <div className="border-b-4 border-[#ff6b00] px-3 pb-2 md:border-b-0 md:border-l-4 md:pb-0 md:pl-3">
+                <div className="border-b-4 border-amber-500 px-3 pb-2 md:border-b-0 md:border-l-4 md:pb-0 md:pl-3">
                   <h2 className="text-2xl font-semibold text-white md:text-2xl">{copy.chapters}</h2>
                 </div>
                 <div className="flex items-center gap-3.5 flex-wrap justify-center">
@@ -1613,9 +1613,9 @@ export default async function MangaDetailsPage({
                   </p>
                   <Link
                     href="/lists"
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-2 text-xs font-heading font-bold text-orange-500 hover:bg-orange-500 hover:text-black transition-all active:scale-95 shadow-md"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-heading font-bold text-amber-500 hover:bg-amber-500 hover:text-black transition-all active:scale-95 shadow-md"
                   >
-                    <FolderHeart size={14} className="text-orange-400" />
+                    <FolderHeart size={14} className="text-amber-400" />
                     <span>{currentLanguage === "es" ? "Listas de la Comunidad" : currentLanguage === "pt" ? "Listas da Comunidade" : "Community Lists"}</span>
                   </Link>
                 </div>
@@ -1627,7 +1627,7 @@ export default async function MangaDetailsPage({
                   {bestFallbackLanguage?.firstChapter ? (
                     <Link
                       href={buildChapterPath(displayTitle, manga.id, bestFallbackLanguage.firstChapter.id, bestFallbackLanguage.language)}
-                      className="mt-5 inline-flex rounded-full bg-[#ff6b00] px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-orange-400"
+                      className="mt-5 inline-flex rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-amber-400"
                     >
                       {copy.readInFallbackLanguage} {LANGUAGE_LABELS[bestFallbackLanguage.language]} ·{" "}
                       {bestFallbackLanguage.total} {copy.totalSuffix}
@@ -1655,8 +1655,8 @@ export default async function MangaDetailsPage({
 
             {suggestedMangas.length > 0 ? (
               <section className="mt-16 border-t border-gray-800 pt-10">
-                <div className="mb-6 border-b-4 border-[#ff6b00] px-3 pb-2 text-center md:border-b-0 md:border-l-4 md:pb-0 md:pl-3 md:text-left">
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#ff6b00]">{copy.suggestedEyebrow}</p>
+                <div className="mb-6 border-b-4 border-amber-500 px-3 pb-2 text-center md:border-b-0 md:border-l-4 md:pb-0 md:pl-3 md:text-left">
+                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-amber-500">{copy.suggestedEyebrow}</p>
                   <h2 className="mt-1 text-2xl font-bold text-white">{copy.suggestedTitle}</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
@@ -1688,7 +1688,7 @@ export default async function MangaDetailsPage({
                             />
                           ) : null}
                         </div>
-                        <p className="mt-2 line-clamp-2 text-sm font-semibold text-white group-hover:text-orange-400">
+                        <p className="mt-2 line-clamp-2 text-sm font-semibold text-white group-hover:text-amber-400">
                           {title}
                         </p>
                       </Link>

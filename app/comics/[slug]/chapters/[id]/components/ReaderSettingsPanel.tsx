@@ -33,8 +33,8 @@ function ToolButton({ title, onClick, children, active }: ToolButtonProps) {
       whileTap={{ scale: 0.94 }}
       className={`relative flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-lg sm:rounded-xl border transition-all duration-300 shrink-0
         ${active 
-          ? "border-orange-500/60 bg-orange-500/10 text-orange-500 shadow-[0_0_12px_rgba(249,115,22,0.2)]" 
-          : "border-white/10 bg-[#141519]/75 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.3)] backdrop-blur-md hover:border-orange-500/40 hover:bg-orange-500/10 hover:text-orange-400"
+          ? "border-amber-500/60 bg-amber-500/10 text-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.2)]" 
+          : "border-white/10 bg-[#141519]/75 text-gray-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_8px_20px_rgba(0,0,0,0.3)] backdrop-blur-md hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-400"
         }`}
     >
       {children}
@@ -160,7 +160,7 @@ export default function ReaderSettingsPanel({
                         whileTap={{ scale: 0.9 }}
                         onClick={() => selectTheme(theme)}
                         className={`h-7 w-7 rounded-full border-2 transition-all duration-300 relative ${themeColors[theme]} ${
-                          isSelected ? "ring-2 ring-orange-500 scale-110 shadow-lg shadow-orange-500/20" : "hover:scale-105"
+                          isSelected ? "ring-2 ring-amber-500 scale-110 shadow-lg shadow-amber-500/20" : "hover:scale-105"
                         }`}
                         title={theme.toUpperCase()}
                       >

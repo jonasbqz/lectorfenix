@@ -298,7 +298,7 @@ export default function HorizontalReader({
 
       {/* Floating Control Bar Dock de Alta Gama */}
       <div 
-        className={`fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-orange-500/10 bg-[#0a0a0c]/95 px-4.5 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl ring-1 ring-white/5 transition-all duration-300
+        className={`fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-amber-500/10 bg-[#0a0a0c]/95 px-4.5 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl ring-1 ring-white/5 transition-all duration-300
           ${(isReaderUiVisible && showControlsUI) ? "bottom-6 opacity-100 pointer-events-auto" : "-bottom-20 opacity-0 pointer-events-none"}`}
       >
         {/* Previous Page */}
@@ -306,14 +306,14 @@ export default function HorizontalReader({
           type="button"
           disabled={currentPage === 0 && !hasPreviousChapter}
           onClick={() => goToPage(currentPage - 1)}
-          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-orange-500 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
+          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-amber-500 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
           title={dictionary.previousPage}
         >
           <ArrowLeft size={16} />
         </button>
 
-        {/* Page indicator Píldora Naranja Premium */}
-        <div className="mx-2 text-xs font-black tracking-widest text-orange-500/90 min-w-[3.8rem] text-center select-none bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">
+        {/* Page indicator Píldora Dorada Premium */}
+        <div className="mx-2 text-xs font-black tracking-widest text-amber-500/90 min-w-[3.8rem] text-center select-none bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
           {currentPage + 1} / {pages.length}
         </div>
 
@@ -322,7 +322,7 @@ export default function HorizontalReader({
           type="button"
           disabled={currentPage === pages.length - 1 && !hasNextChapter}
           onClick={() => goToPage(currentPage + 1)}
-          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-orange-500 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
+          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-amber-500 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
           title={dictionary.nextPage}
         >
           <ArrowRight size={16} />
@@ -335,7 +335,7 @@ export default function HorizontalReader({
           type="button"
           disabled={!hasPreviousChapter}
           onClick={onPreviousChapter}
-          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-orange-400 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
+          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-amber-400 disabled:opacity-20 disabled:pointer-events-none transition-all duration-200 active:scale-90"
           title={dictionary.previousChapter}
         >
           <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -348,7 +348,7 @@ export default function HorizontalReader({
         <button
           type="button"
           onClick={onList}
-          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-orange-400 transition-all duration-200 active:scale-90"
+          className="flex h-9.5 w-9.5 items-center justify-center rounded-full text-gray-400 hover:bg-white/10 hover:text-amber-400 transition-all duration-200 active:scale-90"
           title={dictionary.chapterList}
         >
           <List size={16} />
@@ -359,7 +359,7 @@ export default function HorizontalReader({
           type="button"
           disabled={!hasNextChapter}
           onClick={onNextChapter}
-          className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 text-black hover:brightness-110 disabled:bg-white/5 disabled:text-gray-600 transition-all duration-200 active:scale-90 shadow-lg shadow-orange-500/25"
+          className="flex h-9.5 w-9.5 items-center justify-center rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-black hover:brightness-110 disabled:bg-white/5 disabled:text-gray-600 transition-all duration-200 active:scale-90 shadow-lg shadow-amber-500/25"
           title={dictionary.nextChapter}
         >
           <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
