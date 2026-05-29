@@ -84,11 +84,11 @@ export default function ShareButton({ title, text, url, variant = "inline", labe
     return (
       <button
         type="button"
-        aria-label={label ?? "Compartir"}
         onClick={handleShare}
-        className="rounded-full p-1.5 backdrop-blur-md transition-all border bg-black/60 border-white/10 text-white hover:bg-white/10 hover:border-white/30"
+        className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] font-bold text-gray-300 transition-all hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95 cursor-pointer"
       >
-        <Share2 className="h-4 w-4" />
+        <Share2 className="h-3.5 w-3.5" />
+        <span className="hidden md:inline">{label ?? "Compartir"}</span>
       </button>
     );
   }

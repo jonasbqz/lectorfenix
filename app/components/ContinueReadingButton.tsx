@@ -30,10 +30,12 @@ export default function ContinueReadingButton({
   mangaId,
   mangaTitle,
   language,
+  firstChapterId,
 }: {
   mangaId: string;
   mangaTitle?: string;
   language?: string;
+  firstChapterId?: string;
 }) {
   const [progress, setProgress] = useState<ReadingProgress | null>(null);
 
@@ -41,17 +43,31 @@ export default function ContinueReadingButton({
     setProgress(readProgressMap()[mangaId] ?? null);
   }, [mangaId]);
 
-  if (!progress) {
+  const chId = progress?.chapterId ?? firstChapterId;
+
+  if (!chId) {
     return null;
   }
 
+  const labelText = progress
+    ? (language === "pt"
+        ? `Continuar lendo - ${progress.chapterLabel}`
+        : language === "en"
+          ? `Continue reading - ${progress.chapterLabel}`
+          : `Continuar leyendo - ${progress.chapterLabel}`)
+    : (language === "pt"
+        ? "Começar a ler"
+        : language === "en"
+          ? "Read now"
+          : "Empezar a leer");
+
   return (
     <Link
-      href={buildChapterPath(mangaTitle || progress.mangaTitle, mangaId, progress.chapterId, language)}
-      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-4 py-3.5 text-sm font-heading font-bold text-black transition-all duration-300 hover:from-amber-600 hover:to-yellow-600 hover:scale-[1.02] active:scale-95 shadow-[0_4px_20px_rgba(245,158,11,0.25)] hover:shadow-[0_4px_25px_rgba(245,158,11,0.4)]"
+      href={buildChapterPath(mangaTitle || progress?.mangaTitle, mangaId, chId, language)}
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff6b00] to-[#ff8833] px-4 py-3.5 text-sm font-heading font-bold text-black transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-[0_4px_20px_rgba(255,107,0,0.25)] hover:shadow-[0_4px_25px_rgba(255,107,0,0.4)]"
     >
       <BookOpen className="h-4 w-4" />
-      <span>Continuar leyendo - {progress.chapterLabel}</span>
+      <span>{labelText}</span>
     </Link>
   );
 }
