@@ -48,7 +48,7 @@ function isAllowedUrl(urlStr: string): boolean {
 
     // Bloquear loopback y local IPs en producción para prevenir SSRF
     const isProduction = process.env.NODE_ENV === "production";
-    if (isProduction && (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "46.224.213.127")) {
+    if (isProduction && (hostname === "localhost" || hostname === "127.0.0.1")) {
       return false;
     }
 
@@ -81,7 +81,7 @@ function fallbackImage(errorCode: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900"><rect width="100%" height="100%" fill="#141519"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="24" font-weight="600" fill="#9ca3af" font-family="sans-serif">ERROR CARGANDO IMAGEN</text><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-size="16" fill="#4b5563">${errorCode}</text></svg>`;
 
   return new NextResponse(svg, {
-    status: 502,
+    status: 200,
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
       "Cache-Control": "no-store, no-cache",
