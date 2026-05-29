@@ -115,3 +115,98 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
     return dictionaryFallback;
   }
 }
+
+const INTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
+  es: [
+    "Si estás buscando una historia fascinante que te atrape por completo, no te puedes perder {Title}. A continuación, te compartimos su argumento principal: ",
+    "Sumérgete en la apasionante trama de {Title}, una obra que ya está dando de qué hablar. Aquí tienes los detalles clave de su historia: ",
+    "¿Listo para adentrarte en una nueva lectura? {Title} llega a nuestra plataforma para sorprenderte. Descubre de qué trata en su sinopsis: ",
+    "Explora el increíble universo que propone {Title}. Te invitamos a leer la sinopsis oficial de esta gran obra: ",
+    "Para los amantes de las buenas historias, {Title} es una recomendación imperdible. Te contamos un poco de su argumento: "
+  ],
+  en: [
+    "If you are looking for a fascinating story that will completely hook you, you cannot miss {Title}. Here is its main plot: ",
+    "Dive into the exciting plot of {Title}, a work that is already making waves. Here are the key details of its story: ",
+    "Ready for your next favorite read? {Title} has arrived to surprise you. Discover what it is about in this synopsis: ",
+    "Explore the incredible universe of {Title}. We invite you to read the official plot summary of this great work: ",
+    "For fans of great storytelling, {Title} is a highly recommended read. Here is a brief look at its premise: "
+  ],
+  pt: [
+    "Se você está procurando uma história fascinante que vai te prender do início ao fim, não pode perder {Title}. A seguir, compartilhamos seu enredo principal: ",
+    "Mergulhe na trama emocionante de {Title}, uma obra que já está dando o que falar. Aqui estão os detalhes principais da história: ",
+    "Pronto para começar uma nova leitura? {Title} chega à nossa plataforma para te surpreender. Descubra do que se trata nesta sinopse: ",
+    "Explore o incrível universo proposto por {Title}. Convidamos você a ler o resumo oficial desta grande obra: ",
+    "Para os amantes de boas histórias, {Title} é uma recomendação imperdível. Contamos um pouco sobre o seu enredo: "
+  ]
+};
+
+const OUTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
+  es: [
+    " No te pierdas ningún capítulo de {Title} gratis y con la mejor calidad en MangaStoon.",
+    " Sigue de cerca esta emocionante aventura y lee {Title} online de manera cómoda en nuestro lector.",
+    " Disfruta de {Title} en español solo en MangaStoon, tu sitio de confianza para leer cómics y mangas.",
+    " Mantente al día con todas las novedades y capítulos de {Title} aquí en MangaStoon.",
+    " Lee {Title} online y únete a la comunidad de lectores que ya disfrutan de esta magnífica obra."
+  ],
+  en: [
+    " Don't miss any chapter of {Title} for free and in the best quality on MangaStoon.",
+    " Follow this exciting adventure closely and read {Title} online comfortably using our reader.",
+    " Enjoy {Title} in English only on MangaStoon, your trusted site for comics and manga.",
+    " Stay updated with all the chapters and latest releases of {Title} here on MangaStoon.",
+    " Read {Title} online today and join the community of readers enjoying this amazing series."
+  ],
+  pt: [
+    " Não perca nenhum capítulo de {Title} grátis e com a melhor qualidade no MangaStoon.",
+    " Acompanhe de perto esta emocionante aventura e leia {Title} online com total conforto no nosso leitor.",
+    " Divirta-se com {Title} em português no MangaStoon, o seu site favorito para ler quadrinhos e mangás.",
+    " Fique por dentro de todas as novidades e novos capítulos de {Title} aqui no MangaStoon.",
+    " Leia {Title} online agora mesmo e faça parte da comunidade de leitores desta incrível obra."
+  ]
+};
+
+function getDeterministicIndex(seed: string, length: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % length;
+}
+
+export async function paraphraseSynopsis(
+  text: string,
+  targetLang: "es" | "pt" | "en",
+  title: string,
+  seedId: string,
+  sourceLang = "auto"
+): Promise<string> {
+  const cleaned = sanitizeText(text);
+  if (!cleaned) return "";
+
+  let translated = cleaned;
+
+  try {
+    if (sourceLang === targetLang) {
+      const pivotLang = targetLang === "en" ? "es" : "en";
+      const intermediate = await forceTranslate(cleaned, pivotLang, targetLang);
+      translated = await forceTranslate(intermediate, targetLang, pivotLang);
+    } else {
+      translated = await forceTranslate(cleaned, targetLang, sourceLang);
+    }
+  } catch {
+    translated = cleaned;
+  }
+
+  const finalBody = translated || cleaned;
+
+  const intros = INTRO_TEMPLATES[targetLang] || INTRO_TEMPLATES.es;
+  const outros = OUTRO_TEMPLATES[targetLang] || OUTRO_TEMPLATES.es;
+
+  const introIdx = getDeterministicIndex(seedId + "-intro", intros.length);
+  const outroIdx = getDeterministicIndex(seedId + "-outro", outros.length);
+
+  const introText = intros[introIdx].replace(/{Title}/g, title);
+  const outroText = outros[outroIdx].replace(/{Title}/g, title);
+
+  return `${introText}${finalBody}${outroText}`;
+}
+

@@ -22,7 +22,7 @@ import MangaComments from "./manga-comments";
 import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
-import { forceTranslate } from "../../utils/translation";
+import { forceTranslate, paraphraseSynopsis } from "../../utils/translation";
 import { filterMonlineChapterPageUrls } from "../../utils/monline";
 import {
   appendStandardMangaDexFilters,
@@ -343,16 +343,23 @@ function cleanSynopsisText(value: string | null | undefined) {
     .trim();
 }
 
-async function translateSynopsis(text: string, targetLang: SupportedLanguage, sourceLang = "auto") {
+async function translateSynopsis(
+  text: string,
+  targetLang: SupportedLanguage,
+  sourceLang = "auto",
+  title = "Manga",
+  seedId = ""
+) {
   const cleanText = cleanSynopsisText(text);
 
   if (!cleanText) {
     return "";
   }
 
-  return sourceLang === targetLang
-    ? cleanText
-    : cleanSynopsisText(await forceTranslate(cleanText, targetLang, sourceLang));
+  const safeTargetLang = targetLang === "en" || targetLang === "pt" ? targetLang : "es";
+  return cleanSynopsisText(
+    await paraphraseSynopsis(cleanText, safeTargetLang, title, seedId, sourceLang)
+  );
 }
 
 async function getOriginalContent(
@@ -360,7 +367,12 @@ async function getOriginalContent(
   lang: SupportedLanguage,
   dict: OriginalContentDictionary
 ) {
-  const descriptionMap = manga?.attributes?.description ?? {};
+  if (!manga) return dict.noSynopsis;
+
+  const title = getLocalizedTitle(manga, lang) || "Manga";
+  const seedId = manga.id || "default-id";
+
+  const descriptionMap = manga.attributes?.description ?? {};
   const directDescription = cleanSynopsisText(
     lang === "es"
       ? descriptionMap.es ?? descriptionMap["es-la"]
@@ -370,28 +382,28 @@ async function getOriginalContent(
   );
 
   if (directDescription) {
-    return directDescription;
+    return translateSynopsis(directDescription, lang, lang, title, seedId);
   }
 
   const englishDescription = cleanSynopsisText(descriptionMap.en);
 
   if (englishDescription) {
-    return translateSynopsis(englishDescription, lang, "en");
+    return translateSynopsis(englishDescription, lang, "en", title, seedId);
   }
 
   const spanishDescription = cleanSynopsisText(descriptionMap.es ?? descriptionMap["es-la"]);
 
   if (spanishDescription) {
-    return translateSynopsis(spanishDescription, lang, "es");
+    return translateSynopsis(spanishDescription, lang, "es", title, seedId);
   }
 
   const portugueseDescription = cleanSynopsisText(descriptionMap.pt ?? descriptionMap["pt-br"]);
 
   if (portugueseDescription) {
-    return translateSynopsis(portugueseDescription, lang, "pt");
+    return translateSynopsis(portugueseDescription, lang, "pt", title, seedId);
   }
 
-  const genres = (manga?.attributes?.tags ?? [])
+  const genres = (manga.attributes?.tags ?? [])
     .filter((tag) => tag.attributes?.group === "genre")
     .map((tag) => translateTagName(getLocalizedTagName(tag, lang), lang))
     .filter(Boolean)

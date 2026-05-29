@@ -188,11 +188,14 @@ export async function getLocalizedTitleAsync(
   if (!baseTitle.value) return "Título Desconocido";
 
   const cleaned = cleanTitle(baseTitle.value);
+  const safeTargetLang = targetLang === "en" || targetLang === "pt" ? targetLang : "es";
 
-  if (!baseTitle.translated) {
+  const isRough = looksLikeRoughTransliteration(cleaned);
+
+  if (!baseTitle.translated && !isRough) {
     return cleaned;
   }
 
-  const safeTargetLang = targetLang === "en" || targetLang === "pt" ? targetLang : "es";
-  return cleanTitle(await forceTranslate(cleaned, safeTargetLang, baseTitle.sourceLang));
+  const sourceLang = isRough ? "auto" : baseTitle.sourceLang;
+  return cleanTitle(await forceTranslate(cleaned, safeTargetLang, sourceLang));
 }
