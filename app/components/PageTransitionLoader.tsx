@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import MangaLoader from "./MangaLoader";
 
@@ -8,10 +8,31 @@ function TransitionLoaderEvents() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
+  const loaderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLoaderTimer = () => {
+    if (loaderTimerRef.current) {
+      clearTimeout(loaderTimerRef.current);
+      loaderTimerRef.current = null;
+    }
+  };
+
+  const showLoaderSoon = () => {
+    clearLoaderTimer();
+    loaderTimerRef.current = setTimeout(() => {
+      setIsLoading(true);
+      loaderTimerRef.current = null;
+    }, 180);
+  };
+
+  const hideLoader = () => {
+    clearLoaderTimer();
+    setIsLoading(false);
+  };
 
   // Turn off loading once pathname or search parameters change (navigation completes)
   useEffect(() => {
-    setIsLoading(false);
+    hideLoader();
   }, [pathname, searchParams]);
 
   // Safety timeout to prevent getting stuck in loading state (e.g. on network failures)
@@ -25,6 +46,8 @@ function TransitionLoaderEvents() {
 
     return () => clearTimeout(safetyTimer);
   }, [isLoading]);
+
+  useEffect(() => () => clearLoaderTimer(), []);
 
   useEffect(() => {
     const handleAnchorClick = (e: MouseEvent) => {
@@ -60,7 +83,7 @@ function TransitionLoaderEvents() {
 
           // Trigger loader only if actually navigating to a different page path
           if (targetPath !== currentPath) {
-            setIsLoading(true);
+            showLoaderSoon();
           }
         } catch (err) {
           console.warn("[PageTransitionLoader] Error parsing click URL:", err);
@@ -76,7 +99,7 @@ function TransitionLoaderEvents() {
         const currentPath = window.location.pathname;
 
         if (targetPath !== currentPath) {
-          queueMicrotask(() => setIsLoading(true));
+          queueMicrotask(showLoaderSoon);
         }
       } catch (err) {
         console.warn("[PageTransitionLoader] Error parsing History URL:", err);
@@ -98,7 +121,7 @@ function TransitionLoaderEvents() {
 
     const handlePopState = () => {
       // Show loader on browser back/forward navigation
-      queueMicrotask(() => setIsLoading(true));
+      queueMicrotask(showLoaderSoon);
     };
 
     document.addEventListener("click", handleAnchorClick);
