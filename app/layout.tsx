@@ -131,6 +131,7 @@ export default function RootLayout({
       <head>
         <script
           id="suppress-extension-warnings"
+          suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
