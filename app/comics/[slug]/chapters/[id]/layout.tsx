@@ -126,7 +126,8 @@ async function getLocalReadMetadata(slug: string) {
 
     const comic = comics.find((item) => {
       const comicSlug = getStringValue(item as Record<string, unknown>, ["slug", "manga_slug", "comic_slug"]);
-      return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+      const cleanComicSlug = cleanMangaSlug(comicSlug);
+      return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
     });
 
     if (!comic) return null;

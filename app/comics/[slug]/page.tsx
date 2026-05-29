@@ -238,7 +238,8 @@ async function fetchLocalComicBySlug(slug: string) {
     const comics = extractLocalComics(await listResponse.json());
     const summary = comics.find((comic) => {
       const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
-      return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+      const cleanComicSlug = cleanMangaSlug(comicSlug);
+      return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
     });
     const numericId = getLocalStringValue(summary ?? {}, ["id"]);
 

@@ -340,7 +340,8 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
 
     let comic = comics.find((item) => {
       const comicSlug = getStringValue(item, ["slug", "manga_slug", "comic_slug"]);
-      return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+      const cleanComicSlug = cleanMangaSlug(comicSlug);
+      return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
     });
 
     if (!comic) {
@@ -352,7 +353,8 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
         const allComics = extractLocalComics(payload);
         comic = allComics.find((item) => {
           const comicSlug = getStringValue(item, ["slug", "manga_slug", "comic_slug"]);
-          return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+          const cleanComicSlug = cleanMangaSlug(comicSlug);
+          return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
         });
       }
     }

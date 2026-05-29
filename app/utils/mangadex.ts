@@ -994,7 +994,8 @@ async function fetchLocalComicBySlug(slug: string) {
 
       let summary = comics.find((comic) => {
         const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
-        return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+        const cleanComicSlug = cleanMangaSlug(comicSlug);
+        return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
       });
 
       if (!summary) {
@@ -1006,7 +1007,8 @@ async function fetchLocalComicBySlug(slug: string) {
           const allComics = extractLocalApiComics(await fallbackResponse.json());
           summary = allComics.find((comic) => {
             const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
-            return comicSlug === cleanSlug || cleanSlug.endsWith(`-${comicSlug}`);
+            const cleanComicSlug = cleanMangaSlug(comicSlug);
+            return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
           });
         }
       }
