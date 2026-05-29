@@ -1170,8 +1170,11 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
 export async function fetchMangaDetails(id: string, language?: string): Promise<MangaDetails | null> {
   const cacheKey = `manga-details:${id}:${language || "all"}`;
   return getOrSetCached(cacheKey, 7200, async () => {
-    const localComic = await fetchLocalComicBySlug(id);
-    const localManga = localComic ? mapLocalComicToMangaDetails(localComic) : null;
+    let localManga: MangaDetails | null = null;
+    if (!isMangaDexUuid(id)) {
+      const localComic = await fetchLocalComicBySlug(id);
+      localManga = localComic ? mapLocalComicToMangaDetails(localComic) : null;
+    }
 
     if (localManga) {
       return localManga;

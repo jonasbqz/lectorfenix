@@ -1044,10 +1044,12 @@ function buildChapterNumberLabel(
 }
 
 async function fetchMangaChapters(id: string, language: SupportedLanguage) {
-  const localComic = await fetchLocalComicBySlug(id);
+  if (!isMangaDexUuid(id)) {
+    const localComic = await fetchLocalComicBySlug(id);
 
-  if (localComic) {
-    return getLocalComicScanChapters(localComic);
+    if (localComic) {
+      return getLocalComicScanChapters(localComic);
+    }
   }
 
   return fetchMangaChaptersExternal(id, language);
