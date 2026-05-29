@@ -109,12 +109,13 @@ export function applyFallbackDictionary(text: string, targetLang: "es" | "pt" | 
   );
 }
 
-export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en", sourceLang = "auto") {
+export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en" | "fr" | "de", sourceLang = "auto") {
   const cleanText = sanitizeText(text);
 
   if (!cleanText || sourceLang === targetLang) return cleanText;
 
-  const dictionaryFallback = targetLang === "en" ? cleanText : applyFallbackDictionary(cleanText, targetLang);
+  const isEsOrPt = targetLang === "es" || targetLang === "pt";
+  const dictionaryFallback = isEsOrPt ? applyFallbackDictionary(cleanText, targetLang) : cleanText;
 
   try {
     const response = await fetch(
@@ -128,7 +129,7 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
     const translated = payload?.[0]?.map((part) => part?.[0] ?? "").join("").trim();
 
     const finalResult = translated || dictionaryFallback;
-    const processedResult = targetLang === "en" ? finalResult : applyFallbackDictionary(finalResult, targetLang);
+    const processedResult = isEsOrPt ? applyFallbackDictionary(finalResult, targetLang) : finalResult;
     return sanitizeText(processedResult);
   } catch {
     return dictionaryFallback;
@@ -167,77 +168,18 @@ export async function paraphraseSynopsis(
   let translated = cleaned;
 
   try {
-    if (sourceLang === targetLang) {
-      const pivotLang = targetLang === "en" ? "es" : "en";
-      const intermediate = await forceTranslate(cleaned, pivotLang, targetLang);
-      translated = await forceTranslate(intermediate, targetLang, pivotLang);
-    } else {
+    if (sourceLang !== targetLang) {
       translated = await forceTranslate(cleaned, targetLang, sourceLang);
     }
+
+    const pivotLang = (targetLang === "es" || targetLang === "pt") ? "fr" : "de";
+    const intermediate = await forceTranslate(translated, pivotLang, targetLang);
+    translated = await forceTranslate(intermediate, targetLang, pivotLang);
   } catch {
     translated = cleaned;
   }
 
   const finalBody = translated || cleaned;
 
-  const intros = INTRO_TEMPLATES[targetLang] || INTRO_TEMPLATES.es;
-  const outros = OUTRO_TEMPLATES[targetLang] || OUTRO_TEMPLATES.es;
-
-  const introIdx = getDeterministicIndex(seedId + "-intro", intros.length);
-  const outroIdx = getDeterministicIndex(seedId + "-outro", outros.length);
-
-  const introText = intros[introIdx].replace(/{Title}/g, title);
-  const outroText = outros[outroIdx].replace(/{Title}/g, title);
-
-  return `${introText}${finalBody}${outroText}`;
-}
-
-const INTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
-  es: [
-    "El argumento de {Title} nos introduce en su historia: ",
-    "La sinopsis oficial de {Title} nos presenta los siguientes acontecimientos: ",
-    "En {Title}, la trama se desarrolla a partir del siguiente argumento: ",
-    "Conocé la historia detrás de {Title} a través de su sinopsis: "
-  ],
-  en: [
-    "The plot of {Title} introduces us to its story: ",
-    "The official synopsis of {Title} presents the following events: ",
-    "In {Title}, the plot unfolds from the following premise: ",
-    "Discover the story behind {Title} through its synopsis: "
-  ],
-  pt: [
-    "O enredo de {Title} nos introduz à sua história: ",
-    "A sinopse oficial de {Title} nos apresenta os seguintes acontecimentos: ",
-    "Em {Title}, a trama se desenvolve a partir do seguinte argumento: ",
-    "Conheça a história por trás de {Title} através da sua sinopse: "
-  ]
-};
-
-const OUTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
-  es: [
-    " Esta versión en español de {Title} se puede leer online en MangaStoon.",
-    " Podés seguir cada capítulo de {Title} gratis y al día en MangaStoon.",
-    " Disfrutá de la lectura completa de {Title} en nuestro lector oficial.",
-    " Los nuevos capítulos de {Title} se publican periódicamente en MangaStoon."
-  ],
-  en: [
-    " This version of {Title} is available to read online on MangaStoon.",
-    " You can follow every chapter of {Title} for free on MangaStoon.",
-    " Enjoy the complete reading of {Title} on our official reader.",
-    " New chapters of {Title} are regularly published on MangaStoon."
-  ],
-  pt: [
-    " Esta versão de {Title} pode ser lida online no MangaStoon.",
-    " Você pode acompanhar cada capítulo de {Title} gratuitamente no MangaStoon.",
-    " Aproveite a leitura completa de {Title} em nosso leitor oficial.",
-    " Os novos capítulos de {Title} são publicados periodicamente no MangaStoon."
-  ]
-};
-
-function getDeterministicIndex(seed: string, length: number): number {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % length;
+  return finalBody;
 }
