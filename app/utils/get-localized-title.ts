@@ -174,8 +174,9 @@ export const getLocalizedTitle = (
   if (!baseTitle.value) return "Título Desconocido";
 
   const cleaned = cleanTitle(baseTitle.value);
-  return baseTitle.translated && (targetLang === "es" || targetLang === "pt" || targetLang === "en")
-    ? applyFallbackDictionary(cleaned, targetLang)
+  const normalizedTarget = normalizeLanguageCode(targetLang);
+  return normalizedTarget === "es" || normalizedTarget === "pt" || normalizedTarget === "en"
+    ? applyFallbackDictionary(cleaned, normalizedTarget)
     : cleaned;
 };
 
@@ -192,10 +193,12 @@ export async function getLocalizedTitleAsync(
 
   const isRough = looksLikeRoughTransliteration(cleaned);
 
-  if (!baseTitle.translated && !isRough) {
-    return cleaned;
+  let result = cleaned;
+  if (baseTitle.translated || isRough) {
+    const sourceLang = isRough ? "auto" : baseTitle.sourceLang;
+    result = await forceTranslate(cleaned, safeTargetLang, sourceLang);
   }
 
-  const sourceLang = isRough ? "auto" : baseTitle.sourceLang;
-  return cleanTitle(await forceTranslate(cleaned, safeTargetLang, sourceLang));
+  const processed = safeTargetLang === "en" ? result : applyFallbackDictionary(result, safeTargetLang);
+  return cleanTitle(processed);
 }

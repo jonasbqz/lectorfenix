@@ -20,6 +20,13 @@ const FALLBACK_TRANSLATIONS: Record<"es" | "pt" | "en", Array<[RegExp, string]>>
     [/\bbofetada en la cara\b/gi, "Poner en su lugar"],
     [/\bbasura de la familia\b/gi, "Escoria de la familia"],
     [/\besposa del t[eé] verde\b/gi, "Esposa interesada"],
+    [/\btransmigraci[oó]n\b/gi, "reencarnación"],
+    [/\btransmigr[oó]\b/gi, "reencarnó"],
+    [/\btransmigrar\b/gi, "reencarnar"],
+    [/\btransmigrado\b/gi, "reencarnado"],
+    [/\btransmigrada\b/gi, "reencarnada"],
+    [/\btransmigraron\b/gi, "reencarnaron"],
+    [/\btransmigraste\b/gi, "reencarnaste"],
   ],
   pt: [
     [/\bSeason\b/gi, "Temporada"],
@@ -39,6 +46,11 @@ const FALLBACK_TRANSLATIONS: Record<"es" | "pt" | "en", Array<[RegExp, string]>>
     [/\bjovem mestre\b/gi, "Jovem Mestre"],
     [/\btapa na cara\b/gi, "Colocar no seu lugar"],
     [/\blixo da fam[ií]lia\b/gi, "Lixo da família"],
+    [/\btransmigra[cç][aã]o\b/gi, "reencarnação"],
+    [/\btransmigrou\b/gi, "reencarnou"],
+    [/\btransmigrar\b/gi, "reencarnar"],
+    [/\btransmigrado\b/gi, "reencarnado"],
+    [/\btransmigrada\b/gi, "reencarnada"],
   ],
   en: [],
 };
@@ -71,13 +83,20 @@ export function sanitizeText(text: string): string {
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-");
 
-  // 5. Normalize whitespaces
+  // 5. Clean marketing/promo boilerplate templates
+  cleaned = cleaned
+    .replace(/Sumérgete en la apasionante trama de[\s\S]*?Aquí tienes los detalles clave de su historia:\s*/gi, "")
+    .replace(/Explora el increíble universo que propone[\s\S]*?Te invitamos a leer la sinopsis oficial de esta gran obra:\s*/gi, "")
+    .replace(/Sigue de cerca esta emocionante aventura y lee[\s\S]*?(?:de manera cómoda en nuestro lector|en MangaStoon)\.?/gi, "")
+    .trim();
+
+  // 6. Normalize whitespaces
   cleaned = cleaned
     .replace(/[ \t]+/g, " ")
     .replace(/\r?\n{3,}/g, "\n\n")
     .trim();
 
-  // 6. Clean leading/trailing symbols that are formatting artifacts
+  // 7. Clean leading/trailing symbols that are formatting artifacts
   cleaned = cleaned.replace(/^[\s*_\-#•+=~|]+|[\s*_\-#•+=~|]+$/g, "").trim();
 
   return cleaned;
@@ -116,62 +135,6 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
   }
 }
 
-const INTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
-  es: [
-    "Si estás buscando una historia fascinante que te atrape por completo, no te puedes perder {Title}. A continuación, te compartimos su argumento principal: ",
-    "Sumérgete en la apasionante trama de {Title}, una obra que ya está dando de qué hablar. Aquí tienes los detalles clave de su historia: ",
-    "¿Listo para adentrarte en una nueva lectura? {Title} llega a nuestra plataforma para sorprenderte. Descubre de qué trata en su sinopsis: ",
-    "Explora el increíble universo que propone {Title}. Te invitamos a leer la sinopsis oficial de esta gran obra: ",
-    "Para los amantes de las buenas historias, {Title} es una recomendación imperdible. Te contamos un poco de su argumento: "
-  ],
-  en: [
-    "If you are looking for a fascinating story that will completely hook you, you cannot miss {Title}. Here is its main plot: ",
-    "Dive into the exciting plot of {Title}, a work that is already making waves. Here are the key details of its story: ",
-    "Ready for your next favorite read? {Title} has arrived to surprise you. Discover what it is about in this synopsis: ",
-    "Explore the incredible universe of {Title}. We invite you to read the official plot summary of this great work: ",
-    "For fans of great storytelling, {Title} is a highly recommended read. Here is a brief look at its premise: "
-  ],
-  pt: [
-    "Se você está procurando uma história fascinante que vai te prender do início ao fim, não pode perder {Title}. A seguir, compartilhamos seu enredo principal: ",
-    "Mergulhe na trama emocionante de {Title}, uma obra que já está dando o que falar. Aqui estão os detalhes principais da história: ",
-    "Pronto para começar uma nova leitura? {Title} chega à nossa plataforma para te surpreender. Descubra do que se trata nesta sinopse: ",
-    "Explore o incrível universo proposto por {Title}. Convidamos você a ler o resumo oficial desta grande obra: ",
-    "Para os amantes de boas histórias, {Title} é uma recomendação imperdível. Contamos um pouco sobre o seu enredo: "
-  ]
-};
-
-const OUTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
-  es: [
-    " No te pierdas ningún capítulo de {Title} gratis y con la mejor calidad en MangaStoon.",
-    " Sigue de cerca esta emocionante aventura y lee {Title} online de manera cómoda en nuestro lector.",
-    " Disfruta de {Title} en español solo en MangaStoon, tu sitio de confianza para leer cómics y mangas.",
-    " Mantente al día con todas las novedades y capítulos de {Title} aquí en MangaStoon.",
-    " Lee {Title} online y únete a la comunidad de lectores que ya disfrutan de esta magnífica obra."
-  ],
-  en: [
-    " Don't miss any chapter of {Title} for free and in the best quality on MangaStoon.",
-    " Follow this exciting adventure closely and read {Title} online comfortably using our reader.",
-    " Enjoy {Title} in English only on MangaStoon, your trusted site for comics and manga.",
-    " Stay updated with all the chapters and latest releases of {Title} here on MangaStoon.",
-    " Read {Title} online today and join the community of readers enjoying this amazing series."
-  ],
-  pt: [
-    " Não perca nenhum capítulo de {Title} grátis e com a melhor qualidade no MangaStoon.",
-    " Acompanhe de perto esta emocionante aventura e leia {Title} online com total conforto no nosso leitor.",
-    " Divirta-se com {Title} em português no MangaStoon, o seu site favorito para ler quadrinhos e mangás.",
-    " Fique por dentro de todas as novidades e novos capítulos de {Title} aqui no MangaStoon.",
-    " Leia {Title} online agora mesmo e faça parte da comunidade de leitores desta incrível obra."
-  ]
-};
-
-function getDeterministicIndex(seed: string, length: number): number {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) {
-    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return Math.abs(hash) % length;
-}
-
 export async function paraphraseSynopsis(
   text: string,
   targetLang: "es" | "pt" | "en",
@@ -181,6 +144,25 @@ export async function paraphraseSynopsis(
 ): Promise<string> {
   const cleaned = sanitizeText(text);
   if (!cleaned) return "";
+
+  const normTitle = (title || "").toLowerCase();
+  const isReleaseThatWitch =
+    seedId === "d9d15024-6992-4217-9104-5f4039801931" ||
+    normTitle.includes("release that witch") ||
+    normTitle.includes("libera a esa bruja") ||
+    normTitle.includes("liberte aquela bruxa");
+
+  if (isReleaseThatWitch) {
+    if (targetLang === "es") {
+      return "Cheng Yan, un ingeniero mecánico moderno, muere por exceso de trabajo y reencarna en Roland Wimbledon, el cuarto príncipe del Reino de Graycastle, en un mundo con un estilo similar a la Europa medieval. Considerado por su padre y por la realeza como un príncipe playboy sin futuro, es enviado a Border Town, un territorio pobre y atrasado.\n\nEn este mundo, las brujas son reales y poseen poderes mágicos, pero son perseguidas brutalmente por la Santa Iglesia, que las tilda de siervas del diablo. Roland, sin embargo, ve a las brujas no como monstruos, sino como aliadas clave con habilidades únicas que pueden combinarse con la ciencia moderna. Tras rescatar a la bruja Anna de su ejecución, decide utilizar sus conocimientos técnicos modernos y los poderes mágicos de las brujas para desatar una revolución tecnológica e industrial. Mientras moderniza su feudo y lucha contra la hostilidad de la Iglesia, Roland deberá competir contra sus propios hermanos en una peligrosa guerra de sucesión por el trono y prepararse para enfrentar una amenaza ancestral que pone en peligro a toda la humanidad.";
+    }
+    if (targetLang === "pt") {
+      return "Cheng Yan, um engenheiro mecânico moderno, morre inesperadamente por excesso de trabalho e reencarna como Roland Wimbledon, o quarto príncipe do Reino de Graycastle, em um mundo com cenário semelhante à Europa medieval. Visto como um príncipe playboy e um caso perdido por seu pai, ele é enviado para Border Town, um feudo pobre e atrasado.\n\nNeste mundo, as bruxas são reais e possuem poderes mágicos, mas são caçadas impiedosamente pela Santa Igreja como servas do diabo. Roland, porém, não vê as bruxas como monstros, mas como aliadas com habilidades únicas que podem ser combinadas com a ciência moderna. Salvando a bruxa Anna da execução, ele passa a integrar a magia delas em seus planos de industrialização. Enquanto transforma seu feudo em uma cidade moderna e poderosa, Roland terá que enfrentar uma perigosa guerra de sucessão pelo trono contra seus próprios irmãos, combater as intrigas da Igreja e se preparar para uma ameaça sobrenatural ancestral que coloca em risco toda a humanidade.";
+    }
+    if (targetLang === "en") {
+      return "Cheng Yan, a modern-day mechanical engineer, collapses from exhaustion and wakes up to find he has reincarnated as Roland Wimbledon, the 4th prince of the Kingdom of Graycastle, in a world reminiscent of medieval Europe. Considered a playboy and a lost cause by his father, Roland is sent to govern Border Town, a remote, poor, and backward fief.\n\nIn this world, witches are real and possess magical powers, but they are hunted down and executed by the oppressive Church as servants of the devil. Roland, however, views these witches not as monsters, but as individuals with unique abilities that can be combined with modern science and engineering. Protecting them from execution, he begins to integrate their magic into his plans for industrialization. As he transforms his backward town into a powerful modern city, he must navigate a dangerous succession war against his siblings, deal with the Church's machinations, and prepare to face an ancient, supernatural threat that endangers all of humanity.";
+    }
+  }
 
   let translated = cleaned;
 
@@ -210,3 +192,52 @@ export async function paraphraseSynopsis(
   return `${introText}${finalBody}${outroText}`;
 }
 
+const INTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
+  es: [
+    "El argumento de {Title} nos introduce en su historia: ",
+    "La sinopsis oficial de {Title} nos presenta los siguientes acontecimientos: ",
+    "En {Title}, la trama se desarrolla a partir del siguiente argumento: ",
+    "Conocé la historia detrás de {Title} a través de su sinopsis: "
+  ],
+  en: [
+    "The plot of {Title} introduces us to its story: ",
+    "The official synopsis of {Title} presents the following events: ",
+    "In {Title}, the plot unfolds from the following premise: ",
+    "Discover the story behind {Title} through its synopsis: "
+  ],
+  pt: [
+    "O enredo de {Title} nos introduz à sua história: ",
+    "A sinopse oficial de {Title} nos apresenta os seguintes acontecimentos: ",
+    "Em {Title}, a trama se desenvolve a partir do seguinte argumento: ",
+    "Conheça a história por trás de {Title} através da sua sinopse: "
+  ]
+};
+
+const OUTRO_TEMPLATES: Record<"es" | "pt" | "en", string[]> = {
+  es: [
+    " Esta versión en español de {Title} se puede leer online en MangaStoon.",
+    " Podés seguir cada capítulo de {Title} gratis y al día en MangaStoon.",
+    " Disfrutá de la lectura completa de {Title} en nuestro lector oficial.",
+    " Los nuevos capítulos de {Title} se publican periódicamente en MangaStoon."
+  ],
+  en: [
+    " This version of {Title} is available to read online on MangaStoon.",
+    " You can follow every chapter of {Title} for free on MangaStoon.",
+    " Enjoy the complete reading of {Title} on our official reader.",
+    " New chapters of {Title} are regularly published on MangaStoon."
+  ],
+  pt: [
+    " Esta versão de {Title} pode ser lida online no MangaStoon.",
+    " Você pode acompanhar cada capítulo de {Title} gratuitamente no MangaStoon.",
+    " Aproveite a leitura completa de {Title} em nosso leitor oficial.",
+    " Os novos capítulos de {Title} são publicados periodicamente no MangaStoon."
+  ]
+};
+
+function getDeterministicIndex(seed: string, length: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash) % length;
+}

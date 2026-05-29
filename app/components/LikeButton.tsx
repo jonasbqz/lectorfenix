@@ -120,16 +120,19 @@ export default function LikeButton({
           type="button"
           onClick={handleLikeToggle}
           disabled={isPending}
-          className={`flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all active:scale-95 cursor-pointer shrink-0
+          className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all active:scale-95 cursor-pointer shrink-0 w-full
             ${
               optimisticState.liked
                 ? "border-[#00e700]/30 bg-[#00e700]/10 text-[#00e700] hover:bg-[#00e700]/20"
                 : "border-white/10 bg-white/5 text-gray-300 hover:text-white hover:border-white/20"
             }`}
         >
-          <ThumbsUp className={`h-3.5 w-3.5 ${optimisticState.liked ? "fill-current" : ""}`} />
-          <span className="hidden md:inline">
+          <ThumbsUp className={`h-3.5 w-3.5 shrink-0 ${optimisticState.liked ? "fill-current" : ""}`} />
+          <span className="hidden md:inline shrink-0">
             {optimisticState.liked ? likedLabel : label} ({formatCountCompact(displayedCount)})
+          </span>
+          <span className="md:hidden inline text-xs shrink-0">
+            {formatCountCompact(displayedCount)}
           </span>
         </button>
 
@@ -233,21 +236,16 @@ export default function LikeButton({
         type="button"
         onClick={handleLikeToggle}
         disabled={isPending}
-        className={`flex items-center justify-center transition-all duration-300 active:scale-95 w-full
-          md:flex-row md:gap-2.5 md:rounded-xl md:border md:py-3 md:text-sm md:font-bold
-          flex-col gap-1 py-2.5 text-[10px] font-bold border-transparent bg-transparent
+        className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold w-full transition-all duration-300 active:scale-95
           ${
             optimisticState.liked
-              ? "md:border-[#00e700]/30 md:bg-[#00e700] text-[#00e700] md:text-black md:shadow-[0_0_15px_rgba(0,231,0,0.25)] md:hover:bg-[#00d000]"
-              : "md:border-white/5 md:bg-white/[0.03] text-gray-400 hover:text-white md:hover:border-white/10 md:hover:bg-white/[0.06]"
+              ? "border-[#00e700]/30 bg-[#00e700]/10 text-[#00e700] hover:bg-[#00e700]/20"
+              : "border-white/10 bg-white/5 text-gray-300 hover:text-white hover:border-white/20 hover:bg-white/10"
           }`}
       >
-        <ThumbsUp className={`h-5 w-5 md:h-4.5 md:w-4.5 ${optimisticState.liked ? "fill-current" : ""}`} />
-        <span className="md:hidden block truncate w-full text-center">
-          {formatCountCompact(displayedCount)} Likes
-        </span>
-        <span className="hidden md:inline">
-          {optimisticState.liked ? likedLabel : label} ({displayedCount.toLocaleString()})
+        <ThumbsUp className={`h-4 w-4 shrink-0 ${optimisticState.liked ? "fill-current" : ""}`} />
+        <span className="text-xs font-bold shrink-0">
+          {formatCountCompact(displayedCount)}
         </span>
       </button>
 

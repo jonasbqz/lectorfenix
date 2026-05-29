@@ -210,14 +210,10 @@ export default function AddToListButton({ mangaId, mangaTitle, coverImage, langu
       <button
         type="button"
         onClick={handleButtonClick}
-        className="flex items-center justify-center transition-all duration-300 active:scale-95 w-full
-          md:flex-row md:gap-2 md:rounded-xl md:border md:border-white/5 md:bg-white/[0.03] md:px-4 md:py-2.5 md:text-sm md:font-heading md:font-bold md:shadow-md
-          flex-col gap-1 py-2.5 text-[10px] font-bold border-transparent bg-transparent text-gray-400
-          hover:text-orange-500 md:hover:border-orange-500/30 md:hover:bg-orange-500/10"
+        className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-gray-300
+          hover:text-orange-500 hover:border-orange-500/20 hover:bg-orange-500/10 active:scale-95 transition-all duration-300 w-full"
       >
-        <ListPlus className="h-5 w-5 md:h-4.5 md:w-4.5" />
-        <span className="md:hidden block truncate w-full text-center">Listas</span>
-        <span className="hidden md:inline">{t.addToList}</span>
+        <ListPlus className="h-4 w-4 md:h-4.5 md:w-4.5" />
       </button>
 
       <AnimatePresence>

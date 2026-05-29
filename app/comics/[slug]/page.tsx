@@ -1539,7 +1539,7 @@ export default async function MangaDetailsPage({
                 )}
               </div>
 
-              <div className="w-full rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#1b1c22]/60 to-[#101115]/80 p-4 text-center md:mt-4 md:p-5 md:text-left flex flex-col gap-2.5 shadow-xl">
+              <div className="w-full rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#1b1c22]/90 to-[#101115]/95 p-4 shadow-xl flex flex-col gap-4">
                 <ContinueReadingButton
                   mangaId={manga.id}
                   mangaTitle={displayTitle}
@@ -1547,56 +1547,72 @@ export default async function MangaDetailsPage({
                   firstChapterId={firstChapter?.id}
                 />
 
-                <div className="grid grid-cols-2 gap-1.5 mt-2.5 md:mt-0 md:flex md:flex-col md:gap-2.5">
-                  <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
-                  <AddToListButton
-                    mangaId={manga.id}
-                    mangaTitle={displayTitle}
-                    coverImage={primaryCoverUrl || fallbackCoverUrl || null}
-                    language={currentLanguage}
-                  />
+                {/* Creator Header Box (IG / YT Style) */}
+                <div className="flex items-center justify-between gap-3 bg-white/[0.02] border border-white/[0.04] rounded-xl p-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Avatar Circle with initial */}
+                    <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                      <span className="text-xs font-bold text-amber-400 uppercase">
+                        {(realAuthor || manga.author || "?").trim().charAt(0)}
+                      </span>
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-neutral-500 leading-none">
+                        {copy.author}
+                      </p>
+                      <p className="text-sm font-semibold text-white truncate mt-1 leading-none max-w-[120px] md:max-w-none">
+                        {realAuthor || copy.noAuthorDb}
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={
+                      "https://twitter.com/search?q=" +
+                      encodeURIComponent(authorSearchQuery)
+                    }
+                    target="_blank"
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 text-[11px] font-semibold text-blue-400 hover:bg-blue-500/10 hover:text-blue-300 transition-all duration-200"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      className="h-3 w-3 fill-current"
+                    >
+                      <path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-7.4L6.4 22H3.3l7.3-8.4L2.9 2h6.4l4.4 6.6L18.9 2Zm-1.1 17.9h1.7L8.4 4H6.6l11.2 15.9Z" />
+                    </svg>
+                    <span>{copy.supportOnX}</span>
+                  </a>
                 </div>
 
-                <div className="mt-4 border-t border-white/[0.06] pt-4 flex flex-row items-center justify-between gap-4 md:flex-col md:items-stretch md:gap-3">
-                  <div className="text-left min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500">
-                      {copy.author}
-                    </p>
-                    <p className="mt-1.5 text-sm font-semibold text-white truncate pr-2">
-                      {realAuthor || copy.noAuthorDb}
-                    </p>
-                    <a
-                      href={
-                        "https://twitter.com/search?q=" +
-                        encodeURIComponent(authorSearchQuery)
-                      }
-                      target="_blank"
-                      className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 mt-2 transition-colors duration-200"
-                    >
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        className="h-3 w-3 fill-current"
-                      >
-                        <path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3l-4.9-7.4L6.4 22H3.3l7.3-8.4L2.9 2h6.4l4.4 6.6L18.9 2Zm-1.1 17.9h1.7L8.4 4H6.6l11.2 15.9Z" />
-                      </svg>
-                      <span className="font-medium">{copy.supportOnX}</span>
-                    </a>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-1.5 self-end md:self-start mb-0.5 md:mb-0">
+                {/* Engagement Bar (Mobile & Desktop: 4 columns inline) */}
+                <div className="flex flex-row items-center gap-2 w-full">
+                  <div className="flex-[1.4]">
                     <LikeButton
                       mangaId={manga.id}
                       initialLikesCount={dbLikesCount}
                       initialUserHasLiked={userHasLiked}
                       apiLikesCount={parseInt(ratingSummary?.ratingCount || "0", 10) || 0}
                       userId={userId}
-                      variant="compact"
+                      variant="inline"
                       label={currentLanguage === "es" ? "Me gusta" : currentLanguage === "pt" ? "Curtir" : "Like"}
                       likedLabel={currentLanguage === "es" ? "Te gusta" : currentLanguage === "pt" ? "Curtiu" : "Liked"}
                     />
+                  </div>
+                  <div className="flex-1">
+                    <FavoriteButton manga={favoriteManga} label={copy.addToFavorites} variant="inline" />
+                  </div>
+                  <div className="flex-1">
+                    <AddToListButton
+                      mangaId={manga.id}
+                      mangaTitle={displayTitle}
+                      coverImage={primaryCoverUrl || fallbackCoverUrl || null}
+                      language={currentLanguage}
+                    />
+                  </div>
+                  <div className="flex-1">
                     <ShareButton
                       title={displayTitle}
-                      variant="compact"
+                      variant="inline"
                       label={currentLanguage === "es" ? "Compartir" : currentLanguage === "pt" ? "Compartilhar" : "Share"}
                     />
                   </div>
