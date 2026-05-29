@@ -1,7 +1,11 @@
 export const MANGADEX_USER_AGENT = "Mangastoon/1.0.0";
 
 export function getMangaDexApiBase() {
-  return (process.env.NEXT_PUBLIC_MANGADEX_API_URL || "https://api.mangadex.org").replace(/\/+$/, "");
+  let base = (process.env.NEXT_PUBLIC_MANGADEX_API_URL || "https://api.mangadex.org").replace(/\/+$/, "");
+  if (base && !base.startsWith("http://") && !base.startsWith("https://")) {
+    base = `https://${base}`;
+  }
+  return base;
 }
 
 export function toMangaDexApiUrl(pathOrUrl: string) {
