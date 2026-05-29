@@ -149,7 +149,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
   const turnstileWidgetId = useRef<string | null>(null);
 
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-  const isCaptchaEnabled = !!siteKey;
+  const isCaptchaEnabled = !!siteKey && siteKey !== "undefined" && siteKey !== "null" && siteKey.trim() !== "";
 
   const [forgotCooldown, setForgotCooldown] = useState(0);
   const [signupCooldown, setSignupCooldown] = useState(0);
@@ -202,6 +202,13 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
 
   useEffect(() => {
     if (!open || !isCaptchaEnabled) {
+      if (window.turnstile && turnstileWidgetId.current !== null) {
+        try {
+          window.turnstile.remove(turnstileWidgetId.current);
+        } catch (e) {
+          // Ignore
+        }
+      }
       setCaptchaToken(null);
       turnstileWidgetId.current = null;
       return;
@@ -249,6 +256,14 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
 
     return () => {
       clearInterval(interval);
+      if (window.turnstile && turnstileWidgetId.current !== null) {
+        try {
+          window.turnstile.remove(turnstileWidgetId.current);
+        } catch (e) {
+          // Ignore
+        }
+        turnstileWidgetId.current = null;
+      }
     };
   }, [open, tab, isCaptchaEnabled, siteKey]);
 
