@@ -486,23 +486,28 @@ async function localizeShowcaseTitles(items: MangaShowcaseItem[], language: Supp
 }
 
 async function enrichLatestChapters(items: MangaShowcaseItem[], language: SupportedLanguage) {
-  return Promise.all(
-    items.map(async (item) => {
-      if (item.latestChapters?.some((chapter) => chapter.id)) {
-        return item;
-      }
+  const enriched: MangaShowcaseItem[] = [];
+  for (const item of items) {
+    if (item.latestChapters?.some((chapter) => chapter.id)) {
+      enriched.push(item);
+      continue;
+    }
 
-      const mangaDexId = item.mangaDexId;
+    const mangaDexId = item.mangaDexId;
 
-      if (!isMangaDexUuid(mangaDexId)) {
-        return item;
-      }
+    if (!isMangaDexUuid(mangaDexId)) {
+      enriched.push(item);
+      continue;
+    }
 
+    try {
       const latestChapters = await fetchLatestChapterPreviews(mangaDexId, language);
-
-      return latestChapters.length > 0 ? { ...item, latestChapters } : item;
-    })
-  );
+      enriched.push(latestChapters.length > 0 ? { ...item, latestChapters } : item);
+    } catch {
+      enriched.push(item);
+    }
+  }
+  return enriched;
 }
 
 async function fetchMonlineComics(path: string, language: SupportedLanguage, enrichChapters = false) {
