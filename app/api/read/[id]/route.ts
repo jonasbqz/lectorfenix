@@ -249,16 +249,28 @@ function extractLocalComics(payload: LocalComicsResponse) {
 }
 
 function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
-  const scans = Array.isArray(comic.comicScans)
-    ? comic.comicScans.filter((scan): scan is LocalComicScan => Boolean(scan) && typeof scan === "object")
-    : [];
+  const scans = Array.isArray(comic.comicScans) ? comic.comicScans : [];
+  const scanName = scans[0]?.scanGroup?.name || (comic as any).scan_group_name || null;
 
-  return scans.flatMap((scan) => {
-    const chapters = Array.isArray(scan.chapters)
-      ? scan.chapters.filter((chapter): chapter is Record<string, unknown> => Boolean(chapter) && typeof chapter === "object")
-      : [];
+  let chaptersToProcess: any[] = [];
+  const hasChaptersInScans = scans.some(scan => Array.isArray(scan.chapters) && scan.chapters.length > 0);
 
-    return chapters.flatMap((chapter) => {
+  if (hasChaptersInScans) {
+    chaptersToProcess = scans.flatMap((scan) => {
+      const chapters = Array.isArray(scan.chapters) ? scan.chapters : [];
+      return chapters.map((ch: any) => ({ ...ch, scanName: scan.scanGroup?.name || scanName }));
+    });
+  } else {
+    const recent = Array.isArray((comic as any).recent_chapters)
+      ? (comic as any).recent_chapters
+      : Array.isArray((comic as any).chapters)
+        ? (comic as any).chapters
+        : [];
+    chaptersToProcess = recent.map((ch: any) => ({ ...ch, scanName }));
+  }
+
+  return chaptersToProcess
+    .flatMap((chapter) => {
       const id = getStringValue(chapter, ["id", "chapterId", "chapter_id"]);
       const chapterNumber = getStringValue(chapter, ["chapterNumber", "chapter_number", "chapter", "number"]);
 
@@ -268,11 +280,9 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
 
       const title = getStringValue(chapter, ["title", "name"]);
       const createdAt = getStringValue(chapter, ["releaseDate", "release_date", "created_at", "createdAt", "readableAt", "updated_at", "updatedAt"]);
-      const pages = filterMonlineChapterPageUrls(chapter.urlPages);
-
-      if (pages.length === 0) {
-        return [];
-      }
+      const rawPages = chapter.urlPages || chapter.url_pages || [];
+      const pages = filterMonlineChapterPageUrls(rawPages);
+      const chScanName = chapter.scanName || scanName;
 
       return [{
         id,
@@ -286,9 +296,10 @@ function getLocalChapters(comic: LocalComic): ChapterFeedItem[] {
           createdAt: createdAt || null,
           updatedAt: createdAt || null,
         },
+        relationships: chScanName ? [{ id: "local-scan", type: "scanlation_group", attributes: { name: chScanName } }] : [],
       }];
-    });
-  });
+    })
+    .sort((a, b) => Number(b.attributes.chapter) - Number(a.attributes.chapter));
 }
 
 // LeerCapitulo/MangaVf helpers are imported from mangadex utils
@@ -367,7 +378,18 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     const detailResponse = numericId
       ? await fetch(`${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`, { cache: "no-store" })
       : null;
-    const fullComic = detailResponse?.ok ? (extractLocalComics(await detailResponse.json())[0] ?? comic) : comic;
+
+    let fullComic = comic;
+    if (detailResponse?.ok) {
+      const details = extractLocalComics(await detailResponse.json())[0];
+      if (details) {
+        fullComic = {
+          ...comic,
+          ...details,
+          recent_chapters: details.recent_chapters || comic.recent_chapters || (comic as any).recent_chapters
+        };
+      }
+    }
     const comicSlug = getStringValue(fullComic, ["slug", "manga_slug", "comic_slug"]) || cleanSlug;
     const rawTitle = getStringValue(fullComic, ["title", "name", "comic_title", "original_title"]);
     const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle }, lang) || "Mangastoon";

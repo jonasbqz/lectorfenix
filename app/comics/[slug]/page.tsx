@@ -248,7 +248,15 @@ async function fetchLocalComicBySlug(slug: string) {
     const detailResponse = await fetch(`${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`, { next: { revalidate: 300 } });
     if (!detailResponse.ok) return summary;
 
-    return extractLocalComics(await detailResponse.json())[0] ?? summary;
+    const details = extractLocalComics(await detailResponse.json())[0];
+    if (details) {
+      return {
+        ...summary,
+        ...details,
+        recent_chapters: details.recent_chapters || summary.recent_chapters || (summary as any).recent_chapters
+      };
+    }
+    return summary;
   } catch {
     return null;
   }
@@ -291,42 +299,54 @@ function mapLocalComicToMangaDetails(comic: LocalApiComic): MangaDetails | null 
 }
 
 function getLocalComicScanChapters(source: LocalApiComic): ChapterFeedItem[] {
-  const scans = Array.isArray(source.comicScans)
-    ? source.comicScans.filter((scan): scan is LocalComicScan => Boolean(scan) && typeof scan === "object")
-    : [];
+  const scans = Array.isArray(source.comicScans) ? source.comicScans : [];
+  const scanName = scans[0]?.scanGroup?.name || source.scan_group_name || null;
 
-  return scans.flatMap((scan) => {
-    const chapters = Array.isArray(scan.chapters)
-      ? scan.chapters.filter((chapter): chapter is Record<string, unknown> => Boolean(chapter) && typeof chapter === "object")
-      : [];
-    const scanName = getLocalStringValue(scan.scanGroup ?? {}, ["name", "title", "slug"]);
+  let chaptersToProcess: any[] = [];
+  const hasChaptersInScans = scans.some(scan => Array.isArray(scan.chapters) && scan.chapters.length > 0);
 
-    return chapters
-      .sort((a, b) => Number(getLocalStringValue(b, ["chapterNumber", "chapter_number", "chapter", "number"])) - Number(getLocalStringValue(a, ["chapterNumber", "chapter_number", "chapter", "number"])))
-      .flatMap((chapter) => {
-        const chapterId = getLocalStringValue(chapter, ["id", "chapterId", "chapter_id"]);
-        const chapterNumber = getLocalStringValue(chapter, ["chapterNumber", "chapter_number", "chapter", "number"]);
-        const releaseDate = getLocalStringValue(chapter, ["releaseDate", "release_date", "publishedAt", "published_at", "createdAt", "created_at"]);
-        const localPages = filterMonlineChapterPageUrls(chapter.urlPages).map(normalizeLocalImageUrl);
+  if (hasChaptersInScans) {
+    chaptersToProcess = scans.flatMap((scan) => {
+      const chapters = Array.isArray(scan.chapters) ? scan.chapters : [];
+      return chapters.map((ch: any) => ({ ...ch, scanName: scan.scanGroup?.name || scanName }));
+    });
+  } else {
+    const recent = Array.isArray(source.recent_chapters)
+      ? source.recent_chapters
+      : Array.isArray((source as any).chapters)
+        ? (source as any).chapters
+        : [];
+    chaptersToProcess = recent.map((ch: any) => ({ ...ch, scanName }));
+  }
 
-        if (!chapterId || !chapterNumber || localPages.length === 0) return [];
+  return chaptersToProcess
+    .flatMap((chapter) => {
+      const chapterId = getLocalStringValue(chapter, ["id", "chapterId", "chapter_id"]);
+      const chapterNumber = getLocalStringValue(chapter, ["chapterNumber", "chapter_number", "chapter", "number"]);
+      const releaseDate = getLocalStringValue(chapter, ["releaseDate", "release_date", "publishedAt", "published_at", "createdAt", "created_at", "created_at"]);
+      const rawPages = chapter.urlPages || chapter.url_pages || [];
+      const localPages = filterMonlineChapterPageUrls(rawPages).map(normalizeLocalImageUrl);
 
-        return [{
-          id: chapterId,
-          localPages,
-          attributes: {
-            chapter: chapterNumber,
-            title: getLocalStringValue(chapter, ["title", "name"]) || null,
-            translatedLanguage: "es",
-            readableAt: releaseDate || null,
-            publishAt: releaseDate || null,
-            createdAt: releaseDate || null,
-            updatedAt: releaseDate || null,
-          },
-          relationships: scanName ? [{ id: "local-scan", type: "scanlation_group", attributes: { name: scanName } }] : [],
-        }];
-      });
-  });
+      if (!chapterId || !chapterNumber) return [];
+
+      const chScanName = chapter.scanName || scanName;
+
+      return [{
+        id: chapterId,
+        localPages,
+        attributes: {
+          chapter: chapterNumber,
+          title: getLocalStringValue(chapter, ["title", "name"]) || null,
+          translatedLanguage: "es",
+          readableAt: releaseDate || null,
+          publishAt: releaseDate || null,
+          createdAt: releaseDate || null,
+          updatedAt: releaseDate || null,
+        },
+        relationships: chScanName ? [{ id: "local-scan", type: "scanlation_group", attributes: { name: chScanName } }] : [],
+      }];
+    })
+    .sort((a, b) => Number(b.attributes.chapter) - Number(a.attributes.chapter));
 }
 
 function cleanSynopsisText(value: string | null | undefined) {

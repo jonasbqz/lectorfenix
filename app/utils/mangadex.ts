@@ -1023,7 +1023,15 @@ async function fetchLocalComicBySlug(slug: string) {
       );
       if (!detailResponse.ok) return summary;
 
-      return extractLocalApiComics(await detailResponse.json())[0] ?? summary;
+      const details = extractLocalApiComics(await detailResponse.json())[0];
+      if (details) {
+        return {
+          ...summary,
+          ...details,
+          recent_chapters: details.recent_chapters || summary.recent_chapters || (summary as any).recent_chapters
+        };
+      }
+      return summary;
     } catch {
       return null;
     }
