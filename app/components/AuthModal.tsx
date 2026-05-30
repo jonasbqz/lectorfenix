@@ -335,12 +335,28 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
 
     if (error) {
       setErrorMsg(translateError(error.message));
+      if (window.turnstile && turnstileWidgetId.current !== null) {
+        try {
+          window.turnstile.reset(turnstileWidgetId.current);
+        } catch (e) {
+          // Ignore
+        }
+        setCaptchaToken(null);
+      }
       return;
     }
 
     if (!data.user?.email_confirmed_at) {
       await supabase.auth.signOut();
       setErrorMsg("Primero verifica tu correo electrónico para poder acceder.");
+      if (window.turnstile && turnstileWidgetId.current !== null) {
+        try {
+          window.turnstile.reset(turnstileWidgetId.current);
+        } catch (e) {
+          // Ignore
+        }
+        setCaptchaToken(null);
+      }
       return;
     }
 
@@ -436,6 +452,14 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
         );
       } else {
         setErrorMsg(translateError(error.message));
+      }
+      if (window.turnstile && turnstileWidgetId.current !== null) {
+        try {
+          window.turnstile.reset(turnstileWidgetId.current);
+        } catch (e) {
+          // Ignore
+        }
+        setCaptchaToken(null);
       }
       return;
     }
