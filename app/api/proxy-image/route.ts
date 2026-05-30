@@ -118,94 +118,16 @@ export async function GET(req: Request) {
       referer = "https://mangadex.org/";
     }
 
-    const userAgent = req.headers.get("user-agent") ||
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-    const headers = {
-      "User-Agent": userAgent,
-      Referer: referer,
-      Accept: "image/webp,image/avif,image/png,image/jpeg,image/*,*/*;q=0.8",
-    };
-
-    // Add a 12 seconds timeout to avoid hanging requests
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
-
     const isHotlinkingBlockedHost = hostname.endsWith("olympusbiblioteca.com") || hostname.endsWith("olympusxyz.com") || hostname.endsWith("yoveo.xyz");
-    let res: Response | null = null;
 
     if (isHotlinkingBlockedHost) {
-      // Intentar el worker directamente para evitar timeouts de hosts que bloquean hotlinking
-      try {
-        const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-        const workerRes = await fetch(workerUrl, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        if (workerRes.ok) {
-          res = workerRes;
-        }
-      } catch (err) {
-        // Ignorar para intentar flujo normal
-      }
+      const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
+      return NextResponse.redirect(workerUrl, { status: 307 });
     }
 
-    if (!res) {
-      try {
-        res = await fetch(imageUrl, {
-          headers,
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          // Fallback to Worker if fetch failed with error status (e.g. 403)
-          try {
-            const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-            const workerRes = await fetch(workerUrl, {
-              cache: "no-store",
-              signal: controller.signal,
-            });
-            if (workerRes.ok) {
-              res = workerRes;
-            }
-          } catch {
-            // If worker fails, continue with original failed response
-          }
-        }
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        // Fallback to Worker if fetch threw an exception (e.g. timeout)
-        try {
-          const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-          const workerRes = await fetch(workerUrl, {
-            cache: "no-store",
-          });
-          if (workerRes.ok) {
-            res = workerRes;
-          }
-        } catch {
-          // Ignore and allow fallback to redirect/error below
-        }
-      }
-    } else {
-      clearTimeout(timeoutId);
-    }
-
-    if (!res || !res.ok) {
-      return fallbackImage("FETCH_FAILED");
-    }
-
-    const buffer = await res.arrayBuffer();
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        "Content-Type": res.headers.get("content-type") || "image/webp",
-        "Cache-Control": "public, max-age=86400",
-        "X-Proxy-Version": "fetch-success-v2",
-      },
-    });
+    // Para todos los demás hosts, redireccionar a images.weserv.nl para cache global y conversión a WebP automática
+    const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&default=${encodeURIComponent(imageUrl)}`;
+    return NextResponse.redirect(weservUrl, { status: 307 });
   } catch (error) {
     return fallbackImage("FETCH_FAILED");
   }

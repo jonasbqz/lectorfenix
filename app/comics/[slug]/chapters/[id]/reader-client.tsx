@@ -703,7 +703,7 @@ export default function ReaderClient({
   const [isPremium, setIsPremium] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>("dark");
-  const [scrollProgress, setScrollProgress] = useState(0);
+  const [hasScrolledPastHalf, setHasScrolledPastHalf] = useState(false);
   const [pageRetryVersions, setPageRetryVersions] = useState<number[]>([]);
 
   useEffect(() => {
@@ -840,8 +840,14 @@ export default function ReaderClient({
       const totalScrollable = scrollHeight - clientHeight;
       if (totalScrollable > 0) {
         const scrolledPercentage = (currentScrollY / totalScrollable) * 100;
-        setScrollProgress(scrolledPercentage);
-        setShowNextChapterBanner(scrolledPercentage > 90 && scrolledPercentage < 97 && !!nextChapterRef.current);
+        
+        // Only set state if the boolean boundary crosses 50%
+        const pastHalf = scrolledPercentage > 50;
+        setHasScrolledPastHalf((prev) => (prev !== pastHalf ? pastHalf : prev));
+
+        // Only set state if the boolean boundary crosses the 90-97% range
+        const showNext = scrolledPercentage > 90 && scrolledPercentage < 97 && !!nextChapterRef.current;
+        setShowNextChapterBanner((prev) => (prev !== showNext ? showNext : prev));
       }
     };
 
@@ -2034,7 +2040,7 @@ export default function ReaderClient({
 
           {/* Floating Register Suggestion Banner for Guests */}
           <AnimatePresence>
-            {authLoaded && !currentUser && scrollProgress > 50 && !dismissedRegBanner && (
+            {authLoaded && !currentUser && hasScrolledPastHalf && !dismissedRegBanner && (
               <motion.div
                 initial={{ opacity: 0, y: 100, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
