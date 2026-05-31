@@ -17,6 +17,7 @@ type HistoryState = {
   removeHistory: (mangaId: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   syncWithServer: () => Promise<void>;
+  reset: () => void;
 };
 
 const MAX_HISTORY_ITEMS = 20;
@@ -120,6 +121,10 @@ export const useHistoryStore = create<HistoryState>()(
         } catch (err) {
           console.error("[useHistoryStore] syncWithServer error:", err);
         }
+      },
+
+      reset: () => {
+        set({ history: [] });
       },
     }),
     { name: "mangastoon-reading-history" }

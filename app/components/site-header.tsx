@@ -162,15 +162,25 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (active) {
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         setLoadingUser(false);
+        if (!currentUser) {
+          useFavoritesStore.getState().reset();
+          useHistoryStore.getState().reset();
+        }
       }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (active) {
-        setUser(session?.user ?? null);
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
         setLoadingUser(false);
+        if (!currentUser) {
+          useFavoritesStore.getState().reset();
+          useHistoryStore.getState().reset();
+        }
       }
     });
 

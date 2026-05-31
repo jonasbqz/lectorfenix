@@ -1192,14 +1192,17 @@ export default async function MangaDetailsPage({
     }
   }
 
+  let bestFallbackLanguage: ChapterLanguageFallback | null = null;
   if (chapters.length === 0) {
-    notFound();
+    bestFallbackLanguage = await findBestChapterLanguageFallback(id, currentLanguage);
+    if (!bestFallbackLanguage) {
+      notFound();
+    }
   }
 
   const firstChapter = chapters[chapters.length - 1];
   const displayTitle = currentLanguage === "pt" ? titlePt : currentLanguage === "en" ? titleEn : titleEs;
   const englishTitle = titleEn;
-  const bestFallbackLanguage = null as ChapterLanguageFallback | null;
 
   if (displayTitle === "Título Desconocido") {
     logger.warn(`[MangaStoon] Manga sin titulo utilizable: ${manga.id}`);

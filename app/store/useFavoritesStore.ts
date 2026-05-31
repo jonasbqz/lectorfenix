@@ -28,6 +28,7 @@ interface FavoritesState {
   removeFavorite: (mangaId: string) => Promise<void>;
   isFavorite: (mangaId: string) => boolean;
   syncWithServer: () => Promise<void>;
+  reset: () => void;
 }
 
 function getFavoriteId(manga: FavoriteManga) {
@@ -111,6 +112,10 @@ export const useFavoritesStore = create<FavoritesState>()(
         } catch (err) {
           console.error("[useFavoritesStore] syncWithServer error:", err);
         }
+      },
+
+      reset: () => {
+        set({ favorites: [] });
       },
     }),
     { name: "mangastoon-favorites" }

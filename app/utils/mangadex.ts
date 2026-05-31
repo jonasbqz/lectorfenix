@@ -1260,7 +1260,7 @@ async function searchMangaDexByTitle(title: string): Promise<string | null> {
       return allTitles.includes(slugifiedTarget);
     });
 
-    return matched?.id ?? null;
+    return matched?.id ?? results[0]?.id ?? null;
   } catch {
     return null;
   }
@@ -1345,8 +1345,12 @@ export async function resolveBestSource(idOrSlug: string): Promise<ResolvedSourc
   } else {
     leercapituloSlug = idOrSlug;
     leercapituloDetails = await fetchMangaVfDetailsBySlug(idOrSlug);
-    const title = leercapituloDetails?.manga_title || leercapituloDetails?.title;
-    if (title) {
+    let title = leercapituloDetails?.manga_title || leercapituloDetails?.title;
+    if (!title) {
+      const cleanSlug = idOrSlug.startsWith("lc-") ? idOrSlug.substring(3) : idOrSlug;
+      const query = cleanSlug.replace(/^manga[-_]?vf[-_]?/i, "").replace(/-/g, " ");
+      mangadexId = await searchMangaDexByTitle(query) ?? undefined;
+    } else {
       mangadexId = await searchMangaDexByTitle(title) ?? undefined;
     }
   }
