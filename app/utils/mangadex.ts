@@ -973,7 +973,8 @@ function cleanMangaSlug(slug: string): string {
 }
 
 export async function fetchLocalComicBySlug(slug: string) {
-  const cleanSlug = cleanMangaSlug(slug);
+  const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;
+  const cleanSlug = cleanMangaSlug(normalizedSlug);
   const cacheKey = `local-comic-slug:${cleanSlug}`;
   return getOrSetCached(cacheKey, 7200, async () => {
     try {
@@ -997,6 +998,7 @@ export async function fetchLocalComicBySlug(slug: string) {
         const cleanComicSlug = cleanMangaSlug(comicSlug);
         return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
       });
+
 
       if (!summary) {
         const fallbackResponse = await fetch(
@@ -1057,6 +1059,7 @@ function mapLocalComicToMangaDetails(comic: LocalApiComic): MangaDetails | null 
   const slug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug", "id"]);
   if (!slug) return null;
 
+  const prefixedSlug = slug.startsWith("lc-") ? slug : `lc-${slug}`;
   const title = getLocalStringValue(comic, ["title", "name", "comic_title", "original_title"]) || slug;
   const description = getLocalStringValue(comic, ["synopsis", "description", "summary"]);
   const titleMap = getLocalTextMap(comic, ["title", "name", "comic_title", "original_title"], "title");
@@ -1069,7 +1072,7 @@ function mapLocalComicToMangaDetails(comic: LocalApiComic): MangaDetails | null 
   const author = getLocalStringValue(comic, ["author", "artist", "creator"]);
 
   return {
-    id: slug,
+    id: prefixedSlug,
     author,
     attributes: {
       title: Object.keys(titleMap).length > 0 ? titleMap : { es: title },
@@ -1082,7 +1085,7 @@ function mapLocalComicToMangaDetails(comic: LocalApiComic): MangaDetails | null 
       })),
     },
     relationships: [
-      ...(coverImage ? [{ id: slug, type: "cover_art", attributes: { fileName: coverImage } }] : []),
+      ...(coverImage ? [{ id: prefixedSlug, type: "cover_art", attributes: { fileName: coverImage } }] : []),
       {
         id: "local-author",
         type: "author",
@@ -1150,8 +1153,10 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
   const synopsis = sanitizeText(details.synopsis ?? "") || "Sin sinopsis disponible";
   const coverImage = details.cover?.trim() || "";
 
+  const canonicalId = id.startsWith("lc-") ? id : `lc-${id}`;
+
   return {
-    id,
+    id: canonicalId,
     author: "M",
     attributes: {
       title: { es: title, en: title, pt: title },
@@ -1165,7 +1170,7 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
       })),
     },
     relationships: [
-      ...(coverImage ? [{ id: id, type: "cover_art", attributes: { fileName: coverImage } }] : []),
+      ...(coverImage ? [{ id: canonicalId, type: "cover_art", attributes: { fileName: coverImage } }] : []),
       { id: "vf-author", type: "author", attributes: { name: "M" } },
     ],
   };

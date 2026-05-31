@@ -1428,9 +1428,9 @@ export default async function MangaDetailsPage({
 
         {/* Mobile Header Title */}
         <div className="mb-6 md:hidden text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-white font-heading leading-tight">
+          <div className="text-2xl font-bold tracking-tight text-white font-heading leading-tight">
             {displayTitle}
-          </h1>
+          </div>
           <p className="mt-2 text-sm font-semibold text-amber-400">
             ★ {ratingSummary.ratingValue}/{aggregateRating.bestRating} · {ratingSummary.ratingCount} {copy.ratingVotes}
           </p>

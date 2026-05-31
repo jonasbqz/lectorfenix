@@ -111,7 +111,8 @@ async function getMonlineUrls(localSitemapId: number) {
     const title = getStringValue(record, ["title", "name", "comic_title", "original_title"]) || slug;
     if (!slug) return [];
 
-    return [sitemapUrl(absoluteUrl(buildComicPath(title, slug)), getMonlineLastmod(record), "0.85")];
+    const prefixedSlug = slug.startsWith("lc-") ? slug : `lc-${slug}`;
+    return [sitemapUrl(absoluteUrl(buildComicPath(title, prefixedSlug)), getMonlineLastmod(record), "0.85")];
   });
 }
 
