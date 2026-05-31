@@ -1,0 +1,4 @@
+Contact: mailto:soporte@mangastoon.com
+Expires: 2027-12-31T23:59:59Z
+Preferred-Languages: es, en, pt
+Canonical: https://mangastoon.com/.well-known/security.txt
