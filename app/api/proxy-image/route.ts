@@ -122,12 +122,24 @@ export async function GET(req: Request) {
 
     if (isHotlinkingBlockedHost) {
       const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-      return NextResponse.redirect(workerUrl, { status: 307 });
+      return new Response(null, {
+        status: 307,
+        headers: {
+          "Location": workerUrl,
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
     }
 
     // Para todos los demás hosts, redireccionar a images.weserv.nl para cache global y conversión a WebP automática
     const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&default=${encodeURIComponent(imageUrl)}`;
-    return NextResponse.redirect(weservUrl, { status: 307 });
+    return new Response(null, {
+      status: 307,
+      headers: {
+        "Location": weservUrl,
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    });
   } catch (error) {
     return fallbackImage("FETCH_FAILED");
   }
