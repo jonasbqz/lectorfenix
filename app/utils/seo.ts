@@ -107,12 +107,17 @@ export function getSitemapPageCountFromTotal(total: number, maxPages: number) {
 }
 
 export async function getMangaDexSitemapTotal() {
-  const searchParams = buildMangaDexSitemapSearchParams(1, 0);
+  try {
+    const searchParams = buildMangaDexSitemapSearchParams(1, 0);
 
-  const payload = await fetchSitemapJson<{ total?: number }>(
-    `${MANGADEX_API_URL}/manga?${searchParams.toString()}`
-  );
-  return Math.max(0, payload.total ?? 0);
+    const payload = await fetchSitemapJson<{ total?: number }>(
+      `${MANGADEX_API_URL}/manga?${searchParams.toString()}`
+    );
+    return Math.max(0, payload.total ?? 0);
+  } catch (error) {
+    console.error("[Sitemap SEO] Error fetching MangaDex sitemap total, using fallback:", error);
+    return 93000; // Fallback resiliente aproximado (930 páginas)
+  }
 }
 
 type MonlineSitemapPayload = {
@@ -143,14 +148,19 @@ export function extractMonlineSitemapComics(payload: MonlineSitemapPayload) {
 }
 
 export async function getMonlineSitemapTotal() {
-  const searchParams = new URLSearchParams();
-  searchParams.set("limit", "1");
-  searchParams.set("page", "1");
+  try {
+    const searchParams = new URLSearchParams();
+    searchParams.set("limit", "1");
+    searchParams.set("page", "1");
 
-  const payload = await fetchSitemapJson<MonlineSitemapPayload>(
-    `${MONLINE_API_URL}/api/comics?${searchParams.toString()}`
-  );
-  return Math.max(0, getMonlineSitemapTotalFromPayload(payload, extractMonlineSitemapComics(payload).length));
+    const payload = await fetchSitemapJson<MonlineSitemapPayload>(
+      `${MONLINE_API_URL}/api/comics?${searchParams.toString()}`
+    );
+    return Math.max(0, getMonlineSitemapTotalFromPayload(payload, extractMonlineSitemapComics(payload).length));
+  } catch (error) {
+    console.error("[Sitemap SEO] Error fetching Monline sitemap total, using fallback:", error);
+    return 2000; // Fallback resiliente aproximado (20 páginas)
+  }
 }
 
 export function safeJsonLd(data: unknown): { __html: string } {

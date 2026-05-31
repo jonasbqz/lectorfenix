@@ -1,7 +1,7 @@
 import type { SupportedLanguage } from "../components/language-provider";
 
 const TAG_TRANSLATIONS: Record<string, Record<SupportedLanguage, string>> = {
-  "Long Strip": { es: "Webtoon", en: "Long Strip", pt: "Webtoon" },
+  "Long Strip": { es: "Manhwas", en: "Long Strip", pt: "Manhwas" },
   "Full Color": { es: "A Color", en: "Full Color", pt: "Colorido" },
   "Web Comic": { es: "Digital", en: "Web Comic", pt: "Digital" },
   "Award Winning": { es: "Premiado", en: "Award Winning", pt: "Premiado" },
