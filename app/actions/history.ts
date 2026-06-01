@@ -6,6 +6,8 @@ export async function getHistoryAction() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+  console.log("[getHistoryAction] Auth check. User ID:", user?.id, "Auth error:", authError?.message || "none");
+
   if (authError || !user) {
     return { error: "unauthenticated" };
   }
@@ -46,7 +48,10 @@ export async function addHistoryAction(item: {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
+  console.log("[addHistoryAction] Auth check. User ID:", user?.id, "Auth error:", authError?.message || "none", "mangaId:", item.mangaId);
+
   if (authError || !user) {
+    console.warn("[addHistoryAction] Unauthenticated attempt to add history item:", item.mangaId);
     return { error: "unauthenticated" };
   }
 
@@ -69,6 +74,7 @@ export async function addHistoryAction(item: {
     return { error: "db_error", message: error.message };
   }
 
+  console.log("[addHistoryAction] Successfully added history for user:", user.id, "manga:", item.mangaId);
   return { success: true };
 }
 
