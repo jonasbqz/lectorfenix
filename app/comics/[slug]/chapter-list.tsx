@@ -27,6 +27,7 @@ type ChapterListProps = {
   sortOldestLabel: string;
   scanGroups: string[];
   activeScanGroup: string;
+  routeSlug?: string;
 };
 
 const INITIAL_CHAPTER_COUNT = 10;
@@ -63,6 +64,7 @@ export default function ChapterList({
   sortOldestLabel,
   scanGroups,
   activeScanGroup,
+  routeSlug,
 }: ChapterListProps) {
   const history = useHistoryStore((state) => state.history);
   const [mounted, setMounted] = useState(false);
@@ -73,14 +75,6 @@ export default function ChapterList({
 
   const cleanId = (id: string) => id.startsWith("lc-") ? id.substring(3) : id;
   const mangaHistory = mounted ? history.find((h) => cleanId(h.mangaId) === cleanId(mangaId)) : null;
-
-  useEffect(() => {
-    if (mounted && history.length > 0) {
-      console.log("[ChapterList DEBUG] mangaId prop:", mangaId, "| cleanId:", cleanId(mangaId));
-      console.log("[ChapterList DEBUG] history items:", history.map(h => ({ mangaId: h.mangaId, cleanId: cleanId(h.mangaId), chapterNumber: h.chapterNumber, title: h.mangaTitle })));
-      console.log("[ChapterList DEBUG] mangaHistory found:", mangaHistory ? { mangaId: mangaHistory.mangaId, chapterNumber: mangaHistory.chapterNumber } : null);
-    }
-  }, [mounted, history, mangaId, mangaHistory]);
 
   const getIsRead = (chapterId: string, chapterLabel: string) => {
     if (!mangaHistory) return false;
@@ -187,7 +181,7 @@ export default function ChapterList({
           return (
             <Link
               key={chapter.id}
-              href={buildChapterPath(mangaTitle, mangaId.startsWith("lc-") ? mangaId.substring(3) : mangaId, chapter.id, language)}
+              href={buildChapterPath(mangaTitle, routeSlug || (mangaId.startsWith("lc-") ? mangaId.substring(3) : mangaId), chapter.id, language)}
               className="animate-soft-enter flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-white/5 p-3 transition-colors hover:bg-white/10 sm:mb-2 sm:gap-3 sm:p-4"
             >
               <div className="flex min-w-0 items-center gap-3">

@@ -1666,6 +1666,7 @@ export default async function MangaDetailsPage({
                   sortOldestLabel={copy.sortOldestLabel}
                   scanGroups={scanGroups}
                   activeScanGroup={activeScanGroup}
+                  routeSlug={slug}
                 />
               )}
             </section>

@@ -85,6 +85,17 @@ export const useFavoritesStore = create<FavoritesState>()(
       },
 
       syncWithServer: async () => {
+        // Asegurarse de que el store esté hidratado antes de sincronizar,
+        // evitando pisar el localStorage con un estado vacío [].
+        if (useFavoritesStore.persist && !useFavoritesStore.persist.hasHydrated()) {
+          await new Promise<void>((resolve) => {
+            const unsub = useFavoritesStore.persist.onFinishHydration(() => {
+              unsub();
+              resolve();
+            });
+          });
+        }
+
         try {
           const res = await getFavoritesAction();
           if (!res || res.error) {

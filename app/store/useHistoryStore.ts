@@ -40,11 +40,6 @@ export const useHistoryStore = create<HistoryState>()(
           return;
         }
 
-        // Save locally only — DB persistence is handled by syncWithServer()
-        // which runs on every page load when the user is authenticated.
-        // Calling addHistoryAction here fails with 'unauthenticated' during
-        // client-side chapter navigation because Next.js doesn't forward
-        // auth cookies properly in Server Action POSTs after router.push().
         set((state) => {
           const itemCleanId = cleanId(item.mangaId);
           const withoutCurrentManga = state.history.filter(
@@ -57,6 +52,15 @@ export const useHistoryStore = create<HistoryState>()(
             history: [item, ...withoutCurrentManga].slice(0, MAX_HISTORY_ITEMS),
           };
         });
+
+        // Intentamos guardar en Supabase en segundo plano si está autenticado.
+        // Si falla (por ejemplo por problemas de Next.js cookies durante navegación de cliente),
+        // queda guardado localmente y se sincronizará luego mediante syncWithServer.
+        try {
+          await addHistoryAction(item);
+        } catch (err) {
+          console.error("[useHistoryStore] Failed to save history item to Supabase in background:", err);
+        }
       },
 
       removeHistory: async (mangaId) => {
@@ -87,6 +91,17 @@ export const useHistoryStore = create<HistoryState>()(
       },
 
       syncWithServer: async () => {
+        // Asegurarse de que el store esté hidratado antes de sincronizar,
+        // evitando pisar el localStorage con un estado vacío [].
+        if (useHistoryStore.persist && !useHistoryStore.persist.hasHydrated()) {
+          await new Promise<void>((resolve) => {
+            const unsub = useHistoryStore.persist.onFinishHydration(() => {
+              unsub();
+              resolve();
+            });
+          });
+        }
+
         try {
           const res = await getHistoryAction();
           if (!res || res.error) {
