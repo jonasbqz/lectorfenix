@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, X } from "lucide-react";
@@ -66,11 +67,16 @@ function formatRelativeTime(timestamp: number, language: string): string {
 }
 
 export default function ReadingHistoryList() {
+  const [mounted, setMounted] = useState(false);
   const history = useHistoryStore((state) => state.history);
   const removeHistory = useHistoryStore((state) => state.removeHistory);
   const { language } = useLanguage();
 
-  if (history.length === 0) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || history.length === 0) {
     return null;
   }
 

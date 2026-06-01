@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
 import { FolderHeart } from "lucide-react";
-import { notFound, redirect } from "next/navigation";
+import { notFound, redirect, permanentRedirect } from "next/navigation";
 
 import BackButton from "../../components/BackButton";
 import ContinueReadingButton from "../../components/ContinueReadingButton";
@@ -1161,24 +1161,22 @@ export default async function MangaDetailsPage({
   // Evita contenido duplicado y links desactualizados en Google.
   if (pageSlug !== slugEs && pageSlug !== slugEn && pageSlug !== slugPt) {
     const targetSlug = preferredLanguage === "en" ? slugEn : preferredLanguage === "pt" ? slugPt : slugEs;
-    redirect(`/comics/${targetSlug}`);
+    permanentRedirect(`/comics/${targetSlug}`);
   }
 
   let slugLanguage: SupportedLanguage = "es";
-  if (slugEs === slugEn && slugEs === slugPt) {
-    // Si todos los slugs son idénticos (cómics locales), no hay distinción en la URL,
-    // por lo que resolvemos el idioma basándonos en la preferencia del usuario.
-    slugLanguage = preferredLanguage;
+  if (pageSlug === slugEs) {
+    slugLanguage = "es";
+  } else if (pageSlug === slugEn && slugEn !== slugEs) {
+    slugLanguage = "en";
+  } else if (pageSlug === slugPt && slugPt !== slugEs) {
+    slugLanguage = "pt";
   } else {
-    if (pageSlug === slugEn) slugLanguage = "en";
-    else if (pageSlug === slugPt) slugLanguage = "pt";
-    else if (pageSlug === slugEs) slugLanguage = "es";
+    slugLanguage = preferredLanguage;
   }
 
   // Si el usuario real tiene una cookie de idioma configurada y es distinta a la del slug actual de la URL,
   // lo redireccionamos automáticamente a la versión de su idioma.
-  // Esto evita tener que obligarlo a hacer click en el banner manual, pero preserva el SEO para los bots
-  // (los cuales entran sin cookies y verán la URL tal cual sin redirigir).
   if (rawCookieLang && rawCookieLang !== slugLanguage) {
     const targetSlug = rawCookieLang === "en" ? slugEn : rawCookieLang === "pt" ? slugPt : slugEs;
     redirect(`/comics/${targetSlug}`);

@@ -848,7 +848,8 @@ export default function ReaderClient({
         setHasScrolledPastHalf((prev) => (prev !== pastHalf ? pastHalf : prev));
 
         // Only set state if the boolean boundary crosses the >= 98% range
-        const showNext = scrolledPercentage >= 98 && !!nextChapterRef.current;
+        // and the user has scrolled past half and at least 1000px to avoid initial load trigger shifts
+        const showNext = scrolledPercentage >= 98 && pastHalf && currentScrollY > 1000 && !!nextChapterRef.current;
         setShowNextChapterBanner((prev) => (prev !== showNext ? showNext : prev));
       }
     };
