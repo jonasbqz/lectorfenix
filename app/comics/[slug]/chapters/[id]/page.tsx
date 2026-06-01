@@ -133,12 +133,14 @@ export default async function ReadPage({
     isAccessibleForFree: true,
   };
 
+  const realMangaId = canonicalSlug ? extractComicIdFromSlugId(canonicalSlug) : mangaId;
+
   return (
     <>
       <Script id="reader-chapter-jsonld" type="application/ld+json" dangerouslySetInnerHTML={safeJsonLd(jsonLd)} />
       <ReaderClient
         initialData={data}
-        initialMangaId={mangaId}
+        initialMangaId={realMangaId}
         initialChapterParam={chapterId}
         initialReaderLanguage={lang}
       />

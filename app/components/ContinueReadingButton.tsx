@@ -3,7 +3,7 @@
 import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { buildChapterPath } from "../utils/slugify";
+import { buildChapterPath, extractComicIdFromSlugId } from "../utils/slugify";
 import { useHistoryStore } from "../store/useHistoryStore";
 
 export default function ContinueReadingButton({
@@ -24,7 +24,10 @@ export default function ContinueReadingButton({
     setMounted(true);
   }, []);
 
-  const cleanId = (id: string) => id.startsWith("lc-") ? id.substring(3) : id;
+  const cleanId = (id: string) => {
+    const cleaned = id.startsWith("lc-") ? id.substring(3) : id;
+    return extractComicIdFromSlugId(cleaned);
+  };
   const progress = mounted ? (history.find((item) => cleanId(item.mangaId) === cleanId(mangaId)) ?? null) : null;
   const chId = progress?.chapterId ?? firstChapterId;
 
