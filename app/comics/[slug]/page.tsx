@@ -1169,6 +1169,15 @@ export default async function MangaDetailsPage({
   else if (pageSlug === slugPt) slugLanguage = "pt";
   else if (pageSlug === slugEs) slugLanguage = "es";
 
+  // Si el usuario real tiene una cookie de idioma configurada y es distinta a la del slug actual de la URL,
+  // lo redireccionamos automáticamente a la versión de su idioma.
+  // Esto evita tener que obligarlo a hacer click en el banner manual, pero preserva el SEO para los bots
+  // (los cuales entran sin cookies y verán la URL tal cual sin redirigir).
+  if (rawCookieLang && rawCookieLang !== slugLanguage) {
+    const targetSlug = rawCookieLang === "en" ? slugEn : rawCookieLang === "pt" ? slugPt : slugEs;
+    redirect(`/comics/${targetSlug}`);
+  }
+
   const currentLanguage: SupportedLanguage = slugLanguage;
 
   const copy = UI_COPY[currentLanguage];
