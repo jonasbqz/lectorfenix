@@ -23,10 +23,22 @@ type HistoryState = {
 
 const MAX_HISTORY_ITEMS = 20;
 
-/** Strip the "lc-" prefix and date-hash suffix so IDs match DB IDs regardless of format. */
 const cleanId = (id: string) => {
   const cleaned = id.startsWith("lc-") ? id.substring(3) : id;
   return extractComicIdFromSlugId(cleaned);
+};
+
+const isNewerProgress = (local: ReadingHistoryItem, db: ReadingHistoryItem) => {
+  const localNum = parseFloat(local.chapterNumber);
+  const dbNum = parseFloat(db.chapterNumber);
+
+  if (!isNaN(localNum) && !isNaN(dbNum)) {
+    if (localNum !== dbNum) {
+      return localNum > dbNum; // El número de capítulo más alto siempre es el más nuevo
+    }
+  }
+
+  return local.timestamp > db.timestamp;
 };
 
 export const useHistoryStore = create<HistoryState>()(
@@ -135,7 +147,7 @@ export const useHistoryStore = create<HistoryState>()(
                 await addHistoryAction(localItem);
               } catch { /* non-critical */ }
               mergedMap.set(key, localItem);
-            } else if (localItem.timestamp > existing.timestamp) {
+            } else if (isNewerProgress(localItem, existing)) {
               // Local is newer → update DB
               try {
                 await addHistoryAction(localItem);

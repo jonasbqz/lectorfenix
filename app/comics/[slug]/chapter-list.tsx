@@ -185,14 +185,18 @@ export default function ChapterList({
             <Link
               key={chapter.id}
               href={buildChapterPath(mangaTitle, routeSlug || (mangaId.startsWith("lc-") ? mangaId.substring(3) : mangaId), chapter.id, language)}
-              className="animate-soft-enter flex items-center justify-between gap-2 rounded-xl border border-white/5 bg-white/5 p-3 transition-colors hover:bg-white/10 sm:mb-2 sm:gap-3 sm:p-4"
+              className={`animate-soft-enter flex items-center justify-between gap-2 rounded-xl border p-3 transition-all duration-300 sm:mb-2 sm:gap-3 sm:p-4 ${
+                isRead 
+                  ? "border-white/[0.02] bg-white/[0.02] hover:bg-white/[0.04]" 
+                  : "border-white/5 bg-white/5 hover:bg-white/10"
+              }`}
             >
               <div className="flex min-w-0 items-center gap-3">
-                <BookOpen className={`h-4 w-4 shrink-0 sm:h-5 sm:w-5 ${isRead ? "text-neutral-500/70" : "text-amber-500"}`} />
-                <p className={`text-sm font-semibold sm:text-base ${isRead ? "text-neutral-500" : "text-white"}`}>{chapterLabel}</p>
+                <BookOpen className={`h-4 w-4 shrink-0 sm:h-5 sm:w-5 transition-colors duration-300 ${isRead ? "text-amber-500/35" : "text-amber-500"}`} />
+                <p className={`text-sm sm:text-base transition-colors duration-300 ${isRead ? "text-neutral-400/60 font-medium" : "text-white font-semibold"}`}>{chapterLabel}</p>
               </div>
 
-              <div className="ml-2 flex shrink-0 items-center gap-1.5 text-xs text-gray-400 sm:gap-2 sm:text-sm">
+              <div className={`ml-2 flex shrink-0 items-center gap-1.5 text-xs sm:gap-2 sm:text-sm transition-colors duration-300 ${isRead ? "text-gray-600" : "text-gray-400"}`}>
                 <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>{publishedLabel}</span>
               </div>

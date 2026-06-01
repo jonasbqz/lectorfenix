@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
 import { FolderHeart } from "lucide-react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import BackButton from "../../components/BackButton";
 import ContinueReadingButton from "../../components/ContinueReadingButton";
@@ -1144,13 +1144,6 @@ export default async function MangaDetailsPage({
   const slugPt = buildComicPath(titlePt, manga.id).replace(/^\/comics\//, "");
   const pageSlug = decodeURIComponent(slug);
 
-  let slugLanguage: SupportedLanguage = "es";
-  if (pageSlug === slugEn) slugLanguage = "en";
-  else if (pageSlug === slugPt) slugLanguage = "pt";
-  else if (pageSlug === slugEs) slugLanguage = "es";
-
-  const currentLanguage: SupportedLanguage = slugLanguage;
-
   let preferredLanguage = cookieLang;
   if (!rawCookieLang) {
     const headersList = await headers();
@@ -1163,6 +1156,20 @@ export default async function MangaDetailsPage({
       preferredLanguage = "es";
     }
   }
+
+  // Redireccionar a la URL canónica si el slug actual no coincide con ninguno de los slugs localizados.
+  // Evita contenido duplicado y links desactualizados en Google.
+  if (pageSlug !== slugEs && pageSlug !== slugEn && pageSlug !== slugPt) {
+    const targetSlug = preferredLanguage === "en" ? slugEn : preferredLanguage === "pt" ? slugPt : slugEs;
+    redirect(`/comics/${targetSlug}`);
+  }
+
+  let slugLanguage: SupportedLanguage = "es";
+  if (pageSlug === slugEn) slugLanguage = "en";
+  else if (pageSlug === slugPt) slugLanguage = "pt";
+  else if (pageSlug === slugEs) slugLanguage = "es";
+
+  const currentLanguage: SupportedLanguage = slugLanguage;
 
   const copy = UI_COPY[currentLanguage];
 

@@ -847,8 +847,8 @@ export default function ReaderClient({
         const pastHalf = scrolledPercentage > 50;
         setHasScrolledPastHalf((prev) => (prev !== pastHalf ? pastHalf : prev));
 
-        // Only set state if the boolean boundary crosses the 90-97% range
-        const showNext = scrolledPercentage > 90 && scrolledPercentage < 97 && !!nextChapterRef.current;
+        // Only set state if the boolean boundary crosses the >= 98% range
+        const showNext = scrolledPercentage >= 98 && !!nextChapterRef.current;
         setShowNextChapterBanner((prev) => (prev !== showNext ? showNext : prev));
       }
     };
