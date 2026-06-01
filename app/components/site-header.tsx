@@ -586,10 +586,13 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
       <button
         type="button"
         onClick={() => setIsAuthModalOpen(true)}
-        className="flex h-10 items-center justify-center rounded-xl px-3 sm:px-5 text-xs font-heading font-bold transition-all duration-200 cursor-pointer border border-[#ff6b00]/35 bg-[#ff6b00]/6 text-[#ff6b00] hover:bg-[#ff6b00]/15 hover:border-[#ff6b00]/60 shadow-[0_4px_20px_rgba(255,107,0,0.05)] hover:shadow-[0_4px_20px_rgba(255,107,0,0.15)]"
+        className="relative group overflow-hidden flex h-10 items-center justify-center rounded-xl px-3.5 sm:px-5.5 text-xs font-heading font-extrabold uppercase tracking-wider transition-all duration-300 cursor-pointer bg-gradient-to-r from-orange-500 to-[#ff6b00] hover:from-orange-600 hover:to-[#e66000] text-black shadow-[0_4px_15px_rgba(255,107,0,0.25)] hover:shadow-[0_4px_25px_rgba(255,107,0,0.45)] hover:scale-[1.02] active:scale-[0.97]"
       >
-        <User size={14} className="sm:hidden shrink-0" />
-        <span className="hidden sm:inline whitespace-nowrap">{copy.login}</span>
+        {/* Shine effect */}
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+        
+        <User size={14} className="sm:hidden shrink-0 text-black" />
+        <span className="hidden sm:inline whitespace-nowrap text-black">{copy.login}</span>
       </button>
     );
   };

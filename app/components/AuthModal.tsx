@@ -42,8 +42,8 @@ function isAllowedEmailDomain(email: string): boolean {
   if (parts.length !== 2) return false;
   const domain = parts[1];
 
-  if (domain === "gmail.com") return true;
-  if (domain === "msn.com" || domain === "icloud.com" || domain === "me.com") return true;
+  if (domain === "gmail.com" || domain === "googlemail.com") return true;
+  if (domain === "msn.com" || domain === "icloud.com" || domain === "me.com" || domain === "mac.com") return true;
   if (domain === "proton.me" || domain === "protonmail.com" || domain === "protonmail.ch") return true;
 
   // matches outlook.com, outlook.es, hotmail.com, hotmail.es, live.com, live.fr, yahoo.com, yahoo.es, etc.
@@ -106,6 +106,12 @@ const AUTH_COPY = {
 const DISCORD_ICON = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="shrink-0">
     <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
+
+const GOOGLE_ICON = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="shrink-0">
+    <path d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.515 0-6.377-2.87-6.377-6.38 0-3.51 2.862-6.38 6.377-6.38 1.62 0 3.09.61 4.22 1.62l3.22-3.22C19.1 2.22 15.93 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.26 0 11.53-4.47 11.53-11.24 0-.64-.06-1.27-.18-1.875H12.24z" />
   </svg>
 );
 
@@ -391,10 +397,10 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
     const cleanEmail = email.trim().toLowerCase();
     if (!isAllowedEmailDomain(cleanEmail)) {
       const msg = language === "es"
-        ? "Por seguridad, solo permitimos registros con correos de Gmail, Outlook/Hotmail, Yahoo, Proton o iCloud."
+        ? "Por seguridad, solo permitimos registros con correos de Gmail, Outlook/Hotmail, Yahoo, Proton o iCloud/Mac."
         : language === "pt"
-        ? "Por segurança, só permitimos registros com e-mails do Gmail, Outlook/Hotmail, Yahoo, Proton ou iCloud."
-        : "For security, we only allow registration with Gmail, Outlook/Hotmail, Yahoo, Proton, or iCloud emails.";
+        ? "Por segurança, só permitimos registros com e-mails do Gmail, Outlook/Hotmail, Yahoo, Proton ou iCloud/Mac."
+        : "For security, we only allow registration with Gmail, Outlook/Hotmail, Yahoo, Proton, or iCloud/Mac emails.";
       setErrorMsg(msg);
       return;
     }
@@ -506,6 +512,18 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
     const currentPath = typeof window !== "undefined" ? window.location.pathname : "/profile";
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "discord",
+      options: {
+        redirectTo: getAuthCallbackURL(currentPath),
+      },
+    });
+    if (error) setErrorMsg(translateError(error.message));
+  };
+
+  const handleGoogle = async () => {
+    clearError();
+    const currentPath = typeof window !== "undefined" ? window.location.pathname : "/profile";
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
       options: {
         redirectTo: getAuthCallbackURL(currentPath),
       },
@@ -658,7 +676,10 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                             {AUTH_COPY[language as keyof typeof AUTH_COPY]?.signIn || AUTH_COPY.es.signIn}
                           </PrimaryButton>
                           <Divider />
-                          <DiscordButton onClick={handleDiscord} />
+                          <div className="grid grid-cols-2 gap-3">
+                            <GoogleButton onClick={handleGoogle} />
+                            <DiscordButton onClick={handleDiscord} />
+                          </div>
                         </form>
                       )}
 
@@ -727,7 +748,10 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                               : (AUTH_COPY[language as keyof typeof AUTH_COPY]?.signUp || AUTH_COPY.es.signUp)}
                           </PrimaryButton>
                           <Divider />
-                          <DiscordButton onClick={handleDiscord} />
+                          <div className="grid grid-cols-2 gap-3">
+                            <GoogleButton onClick={handleGoogle} />
+                            <DiscordButton onClick={handleDiscord} />
+                          </div>
                         </form>
                       )}
                     </motion.div>
@@ -928,6 +952,26 @@ function DiscordButton({ onClick }: { onClick: () => void }) {
     >
       {DISCORD_ICON}
       <span>Discord</span>
+    </button>
+  );
+}
+
+function GoogleButton({ onClick }: { onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex w-full items-center justify-center gap-3 rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer border border-white/10 bg-white/[0.02] hover:bg-white/[0.08]"
+      style={{
+        color: "#ffffff",
+        boxShadow: hovered ? "0 4px 20px rgba(255,255,255,0.05)" : "none",
+      }}
+    >
+      {GOOGLE_ICON}
+      <span>Google</span>
     </button>
   );
 }

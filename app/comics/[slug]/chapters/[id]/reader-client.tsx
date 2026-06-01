@@ -15,6 +15,7 @@ import { createClient } from "../../../../../utils/supabase/client";
 import { upgradeToPremiumAction } from "../../../../actions/profile";
 import PremiumBenefitsCard from "../../../../components/PremiumBenefitsCard";
 import AuthModal from "../../../../components/AuthModal";
+import SuggestSignUpModal from "../../../../components/SuggestSignUpModal";
 import CommentsSection from "../../../../components/CommentsSection";
 
 // Import newly modularized atomic components
@@ -722,17 +723,28 @@ export default function ReaderClient({
   const [showNextChapterBanner, setShowNextChapterBanner] = useState(false);
   const maxPdfChapters = isPremium ? 50 : 10;
 
-  const nextChapterRef = useRef<ChapterFeedItem | null>(null);
-
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [currentProfile, setCurrentProfile] = useState<any | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
+  const [pendingChapterNavId, setPendingChapterNavId] = useState<string | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [dismissedRegBanner, setDismissedRegBanner] = useState(false);
+  const chaptersNavigatedRef = useRef(0);
 
   // Protect readingMode: only allow "horizontal" if the user is confirmed premium.
   // While auth is still loading, default to "vertical" to prevent flash of horizontal mode.
   const activeReadingMode = (authLoaded && isPremium) ? readingMode : "vertical";
+
+  useEffect(() => {
+    const handleOpenAuthModal = () => {
+      setIsAuthModalOpen(true);
+    };
+    window.addEventListener("open-auth-modal", handleOpenAuthModal);
+    return () => {
+      window.removeEventListener("open-auth-modal", handleOpenAuthModal);
+    };
+  }, []);
 
   const handleDismissRegBanner = () => {
     setDismissedRegBanner(true);
@@ -1302,6 +1314,16 @@ export default function ReaderClient({
 
   function handleChapterNavigation(chapterId: string) {
     setAutoScroll(false);
+
+    if (authLoaded && !currentUser) {
+      chaptersNavigatedRef.current += 1;
+      if (chaptersNavigatedRef.current === 1) {
+        setPendingChapterNavId(chapterId);
+        setIsSuggestModalOpen(true);
+        return;
+      }
+    }
+
     router.push(buildReaderUrl(routeSlug, chapterId, readerLanguage !== language ? readerLanguage : undefined));
   }
 
@@ -2089,6 +2111,17 @@ export default function ReaderClient({
           <AuthModal
             open={isAuthModalOpen}
             onClose={() => setIsAuthModalOpen(false)}
+          />
+
+          <SuggestSignUpModal
+            open={isSuggestModalOpen}
+            onClose={() => {
+              setIsSuggestModalOpen(false);
+              if (pendingChapterNavId) {
+                router.push(buildReaderUrl(routeSlug, pendingChapterNavId, readerLanguage !== language ? readerLanguage : undefined));
+                setPendingChapterNavId(null);
+              }
+            }}
           />
         </>
       )}
