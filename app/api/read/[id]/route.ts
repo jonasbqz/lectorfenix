@@ -333,7 +333,8 @@ function slugToReadableTitle(slug: string): string {
 
 async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
   try {
-    const cleanSlug = cleanMangaSlug(slug);
+    const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;
+    const cleanSlug = cleanMangaSlug(normalizedSlug);
     const cleanTitle = cleanSlug.replace(/-/g, " ");
     const searchParams = new URLSearchParams();
     searchParams.set("title", cleanTitle);
@@ -844,6 +845,53 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             currentChapter.localPages && currentChapter.localPages.length > 0
               ? currentChapter.localPages
               : await fetchLocalChapterPages(currentChapter.id);
+
+          // Fallback robusto: si las páginas locales están vacías (p. ej. fueron filtradas porque eran portadas
+          // o hubo error en base de datos), intentamos traerlas de fuentes externas (LeerCapitulo / MangaDex)
+          if (pages.length === 0 && currentChapter.attributes?.chapter) {
+            logger.info(`[Fallback] Capítulo local ${currentChapter.id} (número ${currentChapter.attributes.chapter}) no tiene páginas válidas. Buscando en fuentes externas...`);
+            try {
+              const resolution = await resolveBestSource(id);
+
+              // 1. Intentar con LeerCapitulo
+              if (resolution.leercapituloSlug) {
+                const extDetails = resolution.leercapituloDetails || await fetchMangaVfDetailsBySlug(resolution.leercapituloSlug);
+                if (extDetails) {
+                  const extChapters = mapMangaVfChapters(extDetails);
+                  const matchingExtChapter = extChapters.find(
+                    (ch) => ch.attributes?.chapter === currentChapter.attributes?.chapter
+                  );
+                  if (matchingExtChapter) {
+                    pages = await fetchMangaVfPages(extDetails, matchingExtChapter.id);
+                    if (pages.length > 0) {
+                      logger.info(`[Fallback] Páginas recuperadas exitosamente desde LeerCapitulo para el capítulo ${currentChapter.attributes.chapter}`);
+                    }
+                  }
+                }
+              }
+
+              // 2. Intentar con MangaDex si LeerCapitulo falló o no estaba disponible
+              if (pages.length === 0 && resolution.mangadexId) {
+                const matchingExtChapter = await findChapterByNumber(
+                  resolution.mangadexId,
+                  lang,
+                  currentChapter.attributes.chapter
+                );
+                if (matchingExtChapter) {
+                  pages = await fetchChapterPages(matchingExtChapter.id, {
+                    mangaSegments: localManga.segments || [localManga.slug],
+                    chapter: matchingExtChapter,
+                  });
+                  if (pages.length > 0) {
+                    logger.info(`[Fallback] Páginas recuperadas exitosamente desde MangaDex para el capítulo ${currentChapter.attributes.chapter}`);
+                  }
+                }
+              }
+            } catch (fallbackErr) {
+              logger.error(`[Fallback] Error al intentar resolver páginas externas para el capítulo local ${currentChapter.id}:`, fallbackErr);
+            }
+          }
+        }
         } else {
           // External chapter pages resolution
           const isMangaDexChapterId = isMangaDexUuid(currentChapter.id);
