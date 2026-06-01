@@ -6,9 +6,10 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "./language-provider";
 import { getLocalizedTitle } from "../utils/get-localized-title";
-import { buildChapterPath, buildComicPath } from "../utils/slugify";
+import { buildChapterPath, buildComicPath, extractComicIdFromSlugId } from "../utils/slugify";
 import FavoriteButton from "./FavoriteButton";
 import { getOptimizedImageUrl } from "../utils/image";
+import { useHistoryStore } from "../store/useHistoryStore";
 
 export type MangaShowcaseItem = {
   mal_id: number;
@@ -124,6 +125,31 @@ export function MangaCard({
   priorityImage = false,
 }: MangaCardProps) {
   const { language } = useLanguage();
+  const history = useHistoryStore((state) => state.history);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const cleanId = (id: string) => {
+    const cleaned = id.startsWith("lc-") ? id.substring(3) : id;
+    return extractComicIdFromSlugId(cleaned);
+  };
+
+  const getIsChapterRead = (mangaId: string | null | undefined, chapterId: string | null | undefined, chapterNumber: string) => {
+    if (!mounted || !mangaId) return false;
+    const mangaHistory = history.find((h) => cleanId(h.mangaId) === cleanId(mangaId));
+    if (!mangaHistory) return false;
+
+    if (chapterId && mangaHistory.chapterId === chapterId) return true;
+
+    const readNum = parseFloat(mangaHistory.chapterNumber);
+    if (isNaN(readNum)) return false;
+
+    const currentNum = parseFloat(chapterNumber);
+    return !isNaN(currentNum) && currentNum <= readNum;
+  };
   const displayTitle = getLocalizedTitle(manga, language) || manga.title;
   const href = manga.mangaDexId ? buildComicPath(displayTitle, manga.mangaDexId) : manga.url;
   const imageUrl = getImageUrl(manga);
@@ -236,18 +262,27 @@ export function MangaCard({
               {visibleLatestChapters?.slice(0, 2).map((chapter) => {
                 const chapterHref =
                   manga.mangaDexId && chapter.id ? buildChapterPath(mangaTitle, manga.mangaDexId, chapter.id) : cardHref;
+                const isRead = getIsChapterRead(manga.mangaDexId, chapter.id, chapter.chapter);
 
                 return (
                   <Link
                     key={`${chapter.id ?? chapter.chapter}-${chapter.publishedAt ?? chapter.timeAgo}`}
                     href={chapterHref}
-                    className="flex items-center justify-between gap-2 rounded-xl border border-[#ff6b00]/15 bg-black/35 px-2.5 py-1.5 transition hover:border-[#ff6b00]/45 hover:bg-[#ff6b00]/10"
+                    className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 transition ${
+                      isRead
+                        ? "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04]"
+                        : "border-[#ff6b00]/15 bg-black/35 hover:border-[#ff6b00]/45 hover:bg-[#ff6b00]/10"
+                    }`}
                   >
-                    <span className="line-clamp-1 text-[10px] font-heading font-semibold text-[#ff6b00] md:text-[11px]">
+                    <span className={`line-clamp-1 text-[10px] font-heading font-semibold md:text-[11px] ${
+                      isRead ? "text-zinc-500" : "text-[#ff6b00]"
+                    }`}>
                       Cap. {chapter.chapter}
                     </span>
                     {chapter.timeAgo ? (
-                      <span className="shrink-0 text-[9px] font-medium text-zinc-400 md:text-[10px]">
+                      <span className={`shrink-0 text-[9px] font-medium md:text-[10px] ${
+                        isRead ? "text-zinc-600" : "text-zinc-400"
+                      }`}>
                         {chapter.timeAgo}
                       </span>
                     ) : null}

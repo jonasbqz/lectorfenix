@@ -165,19 +165,22 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setLoadingUser(false);
-        if (!currentUser) {
-          useFavoritesStore.getState().reset();
-          useHistoryStore.getState().reset();
+        if (currentUser) {
+          useFavoritesStore.getState().syncWithServer();
+          useHistoryStore.getState().syncWithServer();
         }
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (active) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         setLoadingUser(false);
-        if (!currentUser) {
+        if (event === "SIGNED_IN" && currentUser) {
+          useFavoritesStore.getState().syncWithServer();
+          useHistoryStore.getState().syncWithServer();
+        } else if (event === "SIGNED_OUT") {
           useFavoritesStore.getState().reset();
           useHistoryStore.getState().reset();
         }

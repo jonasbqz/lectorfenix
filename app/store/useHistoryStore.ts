@@ -61,7 +61,7 @@ export const useHistoryStore = create<HistoryState>()(
           const withoutCurrentManga = state.history.filter(
             (historyItem) =>
               cleanId(historyItem.mangaId) !== itemCleanId &&
-              historyItem.mangaTitle.toLowerCase().trim() !== item.mangaTitle.toLowerCase().trim()
+              historyItem.mangaTitle?.toLowerCase().trim() !== item.mangaTitle.toLowerCase().trim()
           );
 
           return {
@@ -136,22 +136,18 @@ export const useHistoryStore = create<HistoryState>()(
             mergedMap.set(cleanId(dbItem.mangaId), dbItem);
           }
 
-          // Merge local entries — upload missing or newer items to DB
+          // Merge local entries and prepare non-blocking background uploads
+          const itemsToUpload: ReadingHistoryItem[] = [];
+
           for (const localItem of localHistory) {
             const key = cleanId(localItem.mangaId);
             const existing = mergedMap.get(key);
 
             if (!existing) {
-              // Local item not in DB → upload it
-              try {
-                await addHistoryAction(localItem);
-              } catch { /* non-critical */ }
+              itemsToUpload.push(localItem);
               mergedMap.set(key, localItem);
             } else if (isNewerProgress(localItem, existing)) {
-              // Local is newer → update DB
-              try {
-                await addHistoryAction(localItem);
-              } catch { /* non-critical */ }
+              itemsToUpload.push(localItem);
               mergedMap.set(key, localItem);
             }
           }
@@ -161,7 +157,19 @@ export const useHistoryStore = create<HistoryState>()(
             .sort((a, b) => b.timestamp - a.timestamp)
             .slice(0, MAX_HISTORY_ITEMS);
 
+          // Update client state immediately so the UI is reactive
           set({ history: mergedList });
+
+          // Upload missing or updated history to Supabase asynchronously in background
+          if (itemsToUpload.length > 0) {
+            Promise.all(
+              itemsToUpload.map((item) =>
+                addHistoryAction(item).catch((err) =>
+                  console.error("[useHistoryStore] Background sync failed for item:", item.mangaId, err)
+                )
+              )
+            ).catch(() => {});
+          }
         } catch (err) {
           console.error("[useHistoryStore] syncWithServer error:", err);
         }
