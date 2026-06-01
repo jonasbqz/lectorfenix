@@ -52,6 +52,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
   const router = useRouter();
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"signin" | "signup">("signin");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -76,9 +77,11 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
     }
   }, []);
 
-  // Escuchar evento personalizado para abrir el modal de autenticación
   useEffect(() => {
-    const handleOpenAuthModal = () => {
+    const handleOpenAuthModal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const tab = customEvent.detail?.tab || "signin";
+      setAuthModalTab(tab);
       setIsAuthModalOpen(true);
     };
     window.addEventListener("open-auth-modal", handleOpenAuthModal);
@@ -703,6 +706,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
       <AuthModal
         open={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+        defaultTab={authModalTab}
       />
 
       {/* Reactivate Account Modal */}

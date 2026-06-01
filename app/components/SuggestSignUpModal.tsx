@@ -94,7 +94,7 @@ export default function SuggestSignUpModal({ open, onClose }: SuggestSignUpModal
                 onClick={() => {
                   onClose();
                   // Disparar evento global para abrir el modal de autenticación original de la web
-                  window.dispatchEvent(new CustomEvent("open-auth-modal"));
+                  window.dispatchEvent(new CustomEvent("open-auth-modal", { detail: { tab: "signup" } }));
                 }}
                 className="w-full justify-center shadow-lg hover:shadow-orange-500/20"
               >

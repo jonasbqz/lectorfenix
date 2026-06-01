@@ -716,6 +716,7 @@ export default function ReaderClient({
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [currentProfile, setCurrentProfile] = useState<any | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<"signin" | "signup">("signin");
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
   const [pendingChapterNavId, setPendingChapterNavId] = useState<string | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
@@ -727,7 +728,10 @@ export default function ReaderClient({
   const activeReadingMode = (authLoaded && isPremium) ? readingMode : "vertical";
 
   useEffect(() => {
-    const handleOpenAuthModal = () => {
+    const handleOpenAuthModal = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const tab = customEvent.detail?.tab || "signin";
+      setAuthModalTab(tab);
       setIsAuthModalOpen(true);
     };
     window.addEventListener("open-auth-modal", handleOpenAuthModal);
@@ -1710,7 +1714,7 @@ export default function ReaderClient({
               mangaId={mangaId}
               currentUser={currentUser}
               currentProfile={currentProfile}
-              onLoginRequired={() => setIsAuthModalOpen(true)}
+              onLoginRequired={() => { setAuthModalTab("signin"); setIsAuthModalOpen(true); }}
             />
           </section>
 
@@ -2055,6 +2059,7 @@ export default function ReaderClient({
                   onUpgrade={() => {
                     if (!currentUser) {
                       setShowPremiumModal(false);
+                      setAuthModalTab("signin");
                       setIsAuthModalOpen(true);
                     } else {
                       handleUpgradePremium();
@@ -2102,7 +2107,10 @@ export default function ReaderClient({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsAuthModalOpen(true)}
+                      onClick={() => {
+                        setAuthModalTab("signup");
+                        setIsAuthModalOpen(true);
+                      }}
                       className="rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-4 py-2 text-xs font-heading font-bold text-black hover:from-amber-400 hover:to-yellow-400 transition-all hover:scale-[1.02] active:scale-95"
                     >
                       {REG_BANNER_COPY[readerLanguage].cta}
@@ -2116,6 +2124,7 @@ export default function ReaderClient({
           <AuthModal
             open={isAuthModalOpen}
             onClose={() => setIsAuthModalOpen(false)}
+            defaultTab={authModalTab}
           />
 
           <SuggestSignUpModal
