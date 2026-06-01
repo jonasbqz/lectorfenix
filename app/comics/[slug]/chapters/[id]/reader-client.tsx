@@ -17,6 +17,7 @@ import PremiumBenefitsCard from "../../../../components/PremiumBenefitsCard";
 import AuthModal from "../../../../components/AuthModal";
 import SuggestSignUpModal from "../../../../components/SuggestSignUpModal";
 import CommentsSection from "../../../../components/CommentsSection";
+import { getOptimizedImageUrl } from "../../../../utils/image";
 
 // Import newly modularized atomic components
 import HorizontalReader from "./components/HorizontalReader";
@@ -342,17 +343,8 @@ function getStringValue(source: Record<string, unknown>, keys: string[]) {
 
 function normalizeSuggestedCover(value: string) {
   if (!value) return "";
-  if (value.startsWith("/api/proxy-image")) return value;
-
   const imageUrl = value.startsWith("//") ? `https:${value}` : value;
-
-  if (imageUrl.includes("dashboard.olympusbiblioteca.com")) {
-    return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-  }
-
-  if (imageUrl.startsWith("http://") || imageUrl.startsWith("https://")) return imageUrl;
-
-  return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+  return getOptimizedImageUrl(imageUrl);
 }
 
 function extractSuggestedComics(payload: unknown): SuggestedComic[] {
@@ -668,7 +660,7 @@ export default function ReaderClient({
   const setPageSize = useReaderSettingsStore((state) => state.setPageSize);
 
   const initialSelectedChapter = initialData?.currentChapter ?? null;
-  const initialPages = initialData?.pages ?? [];
+  const initialPages = (initialData?.pages ?? []).map(getOptimizedImageUrl);
   const [mangaTitle, setMangaTitle] = useState(initialData?.mangaTitle || slugFallbackTitle || "");
   const [coverImage, setCoverImage] = useState(initialData?.coverImage ?? "");
   const [chapters, setChapters] = useState<ChapterFeedItem[]>(initialData?.chapters ?? []);
@@ -1084,7 +1076,7 @@ export default function ReaderClient({
           return;
         }
 
-        setPages(chapterPages);
+        setPages(chapterPages.map(getOptimizedImageUrl));
       } catch {
         if (cancelled) return;
         setPages([]);

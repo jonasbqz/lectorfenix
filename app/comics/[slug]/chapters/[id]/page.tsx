@@ -121,10 +121,10 @@ export default async function ReadPage({
   const canonical = absoluteUrl(`/comics/${slug}/chapters/${chapterId}`);
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Chapter",
+    "@type": "ComicIssue",
     name: `${mangaTitle} - ${currentLabel}`,
     isPartOf: {
-      "@type": "Book",
+      "@type": "ComicSeries",
       name: mangaTitle,
       url: absoluteUrl(`/comics/${slug}`),
     },

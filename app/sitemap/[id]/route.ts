@@ -48,8 +48,22 @@ function getMonlineLastmod(comic: MonlineComic) {
   return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
 }
 
-function sitemapUrl(loc: string, lastmod: string, priority = "0.8") {
-  return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+function sitemapMultilingualUrl(
+  urlEs: string,
+  urlEn: string,
+  urlPt: string,
+  lastmod: string,
+  priority = "0.8"
+): string[] {
+  const links = `\n    <xhtml:link rel="alternate" hreflang="es" href="${escapeXml(urlEs)}" />` +
+                `\n    <xhtml:link rel="alternate" hreflang="en" href="${escapeXml(urlEn)}" />` +
+                `\n    <xhtml:link rel="alternate" hreflang="pt" href="${escapeXml(urlPt)}" />`;
+
+  return [
+    `  <url>\n    <loc>${escapeXml(urlEs)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>${links}\n  </url>`,
+    `  <url>\n    <loc>${escapeXml(urlEn)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>${links}\n  </url>`,
+    `  <url>\n    <loc>${escapeXml(urlPt)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>${priority}</priority>${links}\n  </url>`,
+  ];
 }
 
 async function getSitemapBoundaries() {
@@ -80,17 +94,29 @@ async function getMangaDexUrls(sitemapId: number) {
     data?: Array<{ id: string; attributes?: { updatedAt?: string | null; title?: Record<string, string>; altTitles?: Record<string, string>[] } }>;
   }>(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`);
 
-  return (payload.data ?? []).map((manga) => {
+  return (payload.data ?? []).flatMap((manga) => {
     const lastmod = manga.attributes?.updatedAt
       ? new Date(manga.attributes.updatedAt).toISOString()
       : new Date().toISOString();
 
-    const title = getLocalizedTitle(
+    const titleEs = getLocalizedTitle(
       { titleMap: manga.attributes?.title, altTitles: manga.attributes?.altTitles },
       "es"
     );
+    const titleEn = getLocalizedTitle(
+      { titleMap: manga.attributes?.title, altTitles: manga.attributes?.altTitles },
+      "en"
+    );
+    const titlePt = getLocalizedTitle(
+      { titleMap: manga.attributes?.title, altTitles: manga.attributes?.altTitles },
+      "pt"
+    );
 
-    return sitemapUrl(absoluteUrl(buildComicPath(title, manga.id)), lastmod);
+    const urlEs = absoluteUrl(buildComicPath(titleEs, manga.id));
+    const urlEn = absoluteUrl(buildComicPath(titleEn, manga.id));
+    const urlPt = absoluteUrl(buildComicPath(titlePt, manga.id));
+
+    return sitemapMultilingualUrl(urlEs, urlEn, urlPt, lastmod, "0.8");
   });
 }
 
@@ -112,7 +138,9 @@ async function getMonlineUrls(localSitemapId: number) {
     if (!slug) return [];
 
     const prefixedSlug = slug.startsWith("lc-") ? slug : `lc-${slug}`;
-    return [sitemapUrl(absoluteUrl(buildComicPath(title, prefixedSlug)), getMonlineLastmod(record), "0.85")];
+    const url = absoluteUrl(buildComicPath(title, prefixedSlug));
+
+    return sitemapMultilingualUrl(url, url, url, getMonlineLastmod(record), "0.85");
   });
 }
 
@@ -152,7 +180,7 @@ export async function GET(
     return sitemapUnavailableResponse();
   }
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls.join("\n")}\n</urlset>`;
 
   return xmlResponse(xml, 0);
 }

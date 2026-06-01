@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Outfit } from "next/font/google";
+import { cookies } from "next/headers";
 import Script from "next/script";
 import AppFeedback from "./components/app-feedback";
 import Footer from "./components/Footer";
@@ -125,15 +126,17 @@ const organizationJsonLd = {
 };
 
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const gaId = process.env.NEXT_PUBLIC_GA_ID;
+  const cookieStore = await cookies();
+  const lang = cookieStore.get("lang")?.value || "es";
 
   return (
-    <html lang="es" className="dark" suppressHydrationWarning>
+    <html lang={lang} className="dark" suppressHydrationWarning>
       <head>
         {gaId && (
           <>

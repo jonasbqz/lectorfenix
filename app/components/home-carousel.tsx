@@ -8,6 +8,7 @@ import { useLanguage } from "./language-provider";
 import { getLocalizedTitle } from "../utils/get-localized-title";
 import { buildChapterPath, buildComicPath } from "../utils/slugify";
 import FavoriteButton from "./FavoriteButton";
+import { getOptimizedImageUrl } from "../utils/image";
 
 export type MangaShowcaseItem = {
   mal_id: number;
@@ -85,11 +86,11 @@ function RetryableCoverImage({
   alt: string;
   priorityImage: boolean;
 }) {
-  const [currentSrc, setCurrentSrc] = useState(src);
+  const [currentSrc, setCurrentSrc] = useState(() => getOptimizedImageUrl(src));
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    setCurrentSrc(src);
+    setCurrentSrc(getOptimizedImageUrl(src));
     setRetryCount(0);
   }, [src]);
 
@@ -108,7 +109,7 @@ function RetryableCoverImage({
         if (retryCount >= MAX_IMAGE_RETRIES) return;
         const nextRetry = retryCount + 1;
         setRetryCount(nextRetry);
-        setCurrentSrc(withImageRetryParam(src, nextRetry));
+        setCurrentSrc(getOptimizedImageUrl(withImageRetryParam(src, nextRetry)));
       }}
     />
   );

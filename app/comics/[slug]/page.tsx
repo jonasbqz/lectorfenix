@@ -1336,7 +1336,7 @@ export default async function MangaDetailsPage({
   const mangaCanonicalUrl = absoluteUrl(buildComicPath(displayTitle, manga.id));
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Book",
+    "@type": "ComicSeries",
     name: displayTitle,
     alternateName: getLocalizedTitle(manga, currentLanguage),
     description,

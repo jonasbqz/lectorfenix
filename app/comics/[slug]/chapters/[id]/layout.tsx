@@ -219,7 +219,7 @@ export async function generateMetadata({
       canonical,
     },
     robots: {
-      index: false,
+      index: true,
       follow: true,
     },
     openGraph: {
