@@ -47,6 +47,128 @@ const HORIZONTAL_PAGE_SIZE_CLASSES: Record<PageSize, string> = {
   full: "max-w-full",
 };
 
+interface HorizontalReaderImageProps {
+  pageUrl: string;
+  alt: string;
+  dictionary: ReaderDictionary;
+  pageSize: PageSize;
+}
+
+function HorizontalReaderImage({
+  pageUrl,
+  alt,
+  dictionary,
+  pageSize,
+}: HorizontalReaderImageProps) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [currentSrc, setCurrentSrc] = useState(pageUrl);
+  const [isTall, setIsTall] = useState(false);
+  const [showSkeleton, setShowSkeleton] = useState(false);
+
+  // Sync state immediately in render phase when pageUrl changes to avoid showing the previous page's image
+  const [prevPageUrl, setPrevPageUrl] = useState(pageUrl);
+  if (pageUrl !== prevPageUrl) {
+    setPrevPageUrl(pageUrl);
+    setLoaded(false);
+    setFailed(false);
+    setRetryCount(0);
+    setCurrentSrc(pageUrl);
+    setShowSkeleton(false);
+  }
+
+  useEffect(() => {
+    if (loaded || failed) return;
+
+    // Show skeleton only if the image takes longer than 120ms to load (prevents flickering for cached images)
+    const timer = setTimeout(() => {
+      setShowSkeleton(true);
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [currentSrc, loaded, failed]);
+
+  return (
+    <div className="relative w-full h-full min-h-[50vh] sm:min-h-[70vh] flex justify-center items-center">
+      {/* Premium Skeleton Placeholder */}
+      <div
+        aria-hidden="true"
+        className={`absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a0a0c] transition-opacity duration-200 ease-out pointer-events-none rounded-2xl
+          ${loaded && !failed ? "opacity-0" : showSkeleton ? "opacity-100" : "opacity-0"}`}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0e0f14] via-[#14151c] to-[#0e0f14] animate-pulse rounded-2xl" />
+        <div className="absolute inset-0 bg-amber-500/5 blur-2xl animate-pulse" />
+        <div className="relative flex flex-col items-center gap-3 z-20">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
+          <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
+        </div>
+      </div>
+
+      {failed ? (
+        <div className="relative z-20 flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#0d0e12] border border-white/5 rounded-2xl p-6 text-center shadow-lg">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+            <ImageOff className="h-5 w-5" />
+          </div>
+          <div className="max-w-xs">
+            <h4 className="text-xs font-bold text-white">Error de carga</h4>
+            <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+              No pudimos cargar esta página. El servidor puede estar saturado.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setFailed(false);
+              setLoaded(false);
+              setRetryCount(0);
+              setCurrentSrc(withImageRetryParam(pageUrl, 0));
+              setShowSkeleton(false);
+            }}
+            className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-4 py-2 text-[10px] font-bold text-black shadow-md hover:from-amber-400 hover:to-yellow-400 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>Reintentar</span>
+          </button>
+        </div>
+      ) : (
+        <img
+          src={currentSrc}
+          alt={alt}
+          onLoad={(e) => {
+            setLoaded(true);
+            const img = e.currentTarget;
+            if (img.naturalHeight && img.naturalWidth) {
+              setIsTall(img.naturalHeight > img.naturalWidth * 1.25);
+            }
+          }}
+          onError={() => {
+            if (retryCount < MAX_IMAGE_RETRIES) {
+              const nextRetry = retryCount + 1;
+              setRetryCount(nextRetry);
+              setLoaded(false);
+              setFailed(false);
+              setCurrentSrc(withImageRetryParam(pageUrl, nextRetry));
+              return;
+            }
+            setLoaded(true);
+            setFailed(true);
+          }}
+          className={`select-none shadow-2xl rounded-xl mx-auto block transition-all duration-150 ${
+            isTall
+              ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} h-auto`
+              : `max-h-[calc(100vh-200px)] w-auto max-w-full object-contain`
+          } ${loaded ? "opacity-100" : "opacity-0"}`}
+          loading="eager"
+          decoding="sync"
+          referrerPolicy="no-referrer"
+          draggable={false}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function HorizontalReader({
   pages,
   dictionary,
@@ -69,19 +191,6 @@ export default function HorizontalReader({
   const touchStartY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isTall, setIsTall] = useState(false);
-
-  // Nuevos estados para control de carga y reintento
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [currentSrc, setCurrentSrc] = useState("");
-
-  useEffect(() => {
-    setLoaded(false);
-    setFailed(false);
-    setRetryCount(0);
-    setCurrentSrc(pages[currentPage] ?? "");
-  }, [currentPage, pages]);
 
   useEffect(() => {
     setIsTall(false);
@@ -220,108 +329,49 @@ export default function HorizontalReader({
 
   const pageUrl = pages[currentPage] ?? "";
 
-  const slideVariants = {
-    enter: (dir: number) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
-    center: { x: 0, opacity: 1 },
-    exit: (dir: number) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
-  };
-
   return (
-    <div className="relative mx-auto w-full max-w-5xl select-none" ref={containerRef}>
+    <div className="relative mx-auto w-full max-w-5xl select-none overflow-hidden" ref={containerRef}>
       {/* Page container with tap zones and swipe */}
       <div
-        className={`relative flex justify-center w-full min-h-[50vh] sm:min-h-[70vh] cursor-pointer rounded-2xl bg-black/5 transition-all duration-300 ${isTall ? "items-start pt-4" : "items-center"}`}
+        className="relative w-full min-h-[50vh] sm:min-h-[70vh] cursor-pointer rounded-2xl bg-black/5"
         onClick={handleTapZone}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         role="img"
         aria-label={`${dictionary.page} ${currentPage + 1} - ${chapterLabel}`}
       >
-        {/* Premium Skeleton Placeholder idéntico a MangaPageImage */}
-        <div
-          aria-hidden="true"
-          className={`absolute inset-0 z-10 flex flex-col items-center justify-center bg-[#0a0a0c] transition-opacity duration-300 ease-out pointer-events-none rounded-2xl
-            ${loaded && !failed ? "opacity-0" : "opacity-100"}`}
+        <motion.div
+          className="flex w-full"
+          animate={{ x: `-${currentPage * 100}%` }}
+          transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-[#0e0f14] via-[#14151c] to-[#0e0f14] animate-pulse rounded-2xl" />
-          <div className="absolute inset-0 bg-amber-500/5 blur-2xl animate-pulse" />
-          <div className="relative flex flex-col items-center gap-3 z-20">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
-            <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
-          </div>
-        </div>
-
-        <AnimatePresence initial={false} custom={direction} mode="popLayout">
-          {failed ? (
-            <motion.div 
-              key="failed-card"
-              className="relative z-20 flex min-h-[40vh] flex-col items-center justify-center gap-4 bg-[#0d0e12] border border-white/5 rounded-2xl p-6 text-center shadow-lg"
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
-                <ImageOff className="h-5 w-5" />
-              </div>
-              <div className="max-w-xs">
-                <h4 className="text-xs font-bold text-white">Error de carga</h4>
-                <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
-                  No pudimos cargar esta página. El servidor puede estar saturado.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setFailed(false);
-                  setLoaded(false);
-                  setRetryCount(0);
-                  setCurrentSrc(withImageRetryParam(pages[currentPage] ?? "", 0));
-                }}
-                className="mt-2 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 px-4 py-2 text-[10px] font-bold text-black shadow-md hover:from-amber-400 hover:to-yellow-400 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+          {pages.map((pageUrl, index) => {
+            const isNear = Math.abs(index - currentPage) <= 1;
+            return (
+              <div
+                key={index}
+                className="w-full flex-shrink-0 flex justify-center items-center min-h-[50vh] sm:min-h-[70vh] relative"
               >
-                <RefreshCw className="h-3 w-3" />
-                <span>Reintentar</span>
-              </button>
-            </motion.div>
-          ) : (
-            <motion.img
-              key={`${currentSrc}-${currentPage}`}
-              custom={direction}
-              variants={slideVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.18, ease: [0.25, 1, 0.5, 1] }}
-              src={currentSrc}
-              alt={`${dictionary.page} ${currentPage + 1} - ${chapterLabel}`}
-              onLoad={(e) => {
-                setLoaded(true);
-                const img = e.currentTarget;
-                if (img.naturalHeight && img.naturalWidth) {
-                  setIsTall(img.naturalHeight > img.naturalWidth * 1.25);
-                }
-              }}
-              onError={() => {
-                if (retryCount < MAX_IMAGE_RETRIES) {
-                  const nextRetry = retryCount + 1;
-                  setRetryCount(nextRetry);
-                  setLoaded(false);
-                  setFailed(false);
-                  setCurrentSrc(withImageRetryParam(pages[currentPage] ?? "", nextRetry));
-                  return;
-                }
-                setLoaded(true);
-                setFailed(true);
-              }}
-              className={`select-none shadow-2xl rounded-xl mx-auto block transition-all duration-300 ${
-                isTall
-                  ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} h-auto`
-                  : `max-h-[calc(100vh-200px)] w-auto max-w-full object-contain`
-              } ${loaded ? "opacity-100" : "opacity-0"}`}
-              loading="eager"
-              decoding="sync"
-              referrerPolicy="no-referrer"
-              draggable={false}
-            />
-          )}
-        </AnimatePresence>
+                {isNear ? (
+                  <HorizontalReaderImage
+                    pageUrl={pageUrl}
+                    alt={`${dictionary.page} ${index + 1} - ${chapterLabel}`}
+                    dictionary={dictionary}
+                    pageSize={pageSize}
+                  />
+                ) : (
+                  <div className="w-full h-full min-h-[50vh] flex justify-center items-center bg-[#0a0a0c] rounded-2xl">
+                    <div className="relative flex flex-col items-center gap-3">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
+                      <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </motion.div>
+      </div>
 
         {/* Tap zone visual hints */}
         <AnimatePresence>
@@ -351,12 +401,10 @@ export default function HorizontalReader({
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
       {/* Floating Control Bar Dock de Alta Gama */}
       <div 
-        className={`fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-amber-500/10 bg-[#0a0a0c]/95 px-4.5 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl ring-1 ring-white/5 transition-all duration-300
-          ${showControlsUI ? "bottom-6 opacity-100 pointer-events-auto" : "-bottom-20 opacity-0 pointer-events-none"}`}
+        className="fixed left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-amber-500/10 bg-[#0a0a0c]/95 px-4.5 py-2 shadow-[0_20px_50px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-xl ring-1 ring-white/5 bottom-6 opacity-100 pointer-events-auto"
       >
         {/* Previous Page */}
         <button

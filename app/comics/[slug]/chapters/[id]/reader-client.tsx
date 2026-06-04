@@ -1444,7 +1444,11 @@ export default function ReaderClient({
 
   return (
     <main
-      className={`min-h-screen ${THEME_CLASSES[readerTheme].bg} ${THEME_CLASSES[readerTheme].text} px-0 pb-10 pt-2 transition-colors duration-300`}
+      className={`${
+        activeReadingMode === "horizontal"
+          ? "h-[100dvh] max-h-[100dvh] overflow-hidden relative"
+          : "min-h-screen px-0 pb-10 pt-2"
+      } ${THEME_CLASSES[readerTheme].bg} ${THEME_CLASSES[readerTheme].text} transition-colors duration-300`}
     >
       <ReaderHeader
         isAtTop={isAtTop}

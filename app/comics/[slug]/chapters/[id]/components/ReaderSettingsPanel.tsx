@@ -119,7 +119,7 @@ export default function ReaderSettingsPanel({
           exit={{ opacity: 0, x: 18, scale: 0.96 }}
           transition={{ duration: 0.22, ease: "easeOut" }}
           style={{ pointerEvents: showControlsUI ? "auto" : "none" }}
-          className={`fixed right-3 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2.5 sm:gap-3 rounded-2xl border ${themeStyle.border} ${themeStyle.sidepanelBg} p-1.5 sm:p-2 shadow-2xl shadow-black/45 backdrop-blur-xl md:right-4 transition-colors duration-300`}
+          className={`fixed right-3 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2.5 sm:gap-3 rounded-2xl border ${themeStyle.border} ${themeStyle.sidepanelBg} p-1.5 sm:p-2 shadow-2xl shadow-black/45 backdrop-blur-xl md:right-4 transition-colors duration-300 max-h-[85vh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
         >
           <ToolButton title={dictionary.hideControls} onClick={() => setReaderUiVisibility(false)}>
             <EyeOff className="h-5 w-5" />
