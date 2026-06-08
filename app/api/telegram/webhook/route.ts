@@ -332,6 +332,22 @@ export async function POST(req: Request) {
           await sendTelegramMessage(token, chatId, codeText, message.message_id);
           return NextResponse.json({ ok: true });
         }
+
+        // Fallback para cualquier otro mensaje o pregunta en privado
+        const fallbackText = `🤖 *Centro de Ayuda de MangaStoon* 🤖\n\n` +
+          `Para reclamar tu **Pase Premium Gratis**, recuerda usar el comando:\n` +
+          `👉 \`/codigo TU_USUARIO\`\n` +
+          `_(Ejemplo: \`/codigo Juan123\` - encuentras tu usuario en tu perfil de la web)_\n\n` +
+          `⚠️ *Errores comunes y soluciones:*\n` +
+          `• **"Código incorrecto"**: Asegúrate de haber escrito tu nombre de usuario exactamente igual a como aparece en tu perfil de MangaStoon (respetando mayúsculas, minúsculas, puntos y guiones).\n` +
+          `• **"Debes formar parte del grupo oficial"**: Es obligatorio unirse a nuestro grupo antes de pedir el código. [Únete aquí](https://t.me/+dtPKjcBfiDUyOWQx).\n` +
+          `• **"Límite diario alcanzado"**: Solo puedes solicitar tus códigos hasta 3 veces al día. Si ya activaste tu pase, tendrás 24 horas de premium.\n\n` +
+          `💬 *¿Tienes dudas o preguntas?*\n` +
+          `Por seguridad y para darte una mejor atención, por favor **haz tu pregunta en nuestro grupo oficial de Telegram**. Allí, los administradores de la página te brindarán ayuda lo antes posible.\n` +
+          `👉 [Ir al Grupo Oficial de MangaStoon](https://t.me/+dtPKjcBfiDUyOWQx)`;
+
+        await sendTelegramMessage(token, chatId, fallbackText, message.message_id);
+        return NextResponse.json({ ok: true });
       }
     }
 
