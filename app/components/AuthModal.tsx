@@ -508,6 +508,9 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
 
     const cleanUsername = username.trim();
     if (!cleanUsername) { setErrorMsg("Ingresa un nombre de usuario."); return; }
+    if (cleanUsername.length < 3) { setErrorMsg("El nombre de usuario debe tener al menos 3 caracteres."); return; }
+    if (cleanUsername.length > 30) { setErrorMsg("El nombre de usuario no puede superar los 30 caracteres."); return; }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(cleanUsername)) { setErrorMsg("Solo se permiten letras, números, puntos, guiones y guiones bajos en el nombre de usuario."); return; }
     if (password.length < 6) { setErrorMsg("La contraseña debe tener al menos 6 caracteres."); return; }
     if (password !== confirmPassword) { setErrorMsg("Las contraseñas no coinciden. Verifícalas e inténtalo de nuevo."); return; }
 
@@ -821,6 +824,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                             value={username}
                             onChange={setUsername}
                             placeholder="Tu usuario público"
+                            error={username !== "" && (username.trim().length < 3 || username.trim().length > 30 || !/^[a-zA-Z0-9_.-]+$/.test(username.trim()))}
                             suffixAction={
                               <button
                                 type="button"
@@ -836,6 +840,15 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                               </button>
                             }
                           />
+                          {username !== "" && (username.trim().length < 3 || username.trim().length > 30 || !/^[a-zA-Z0-9_.-]+$/.test(username.trim())) && (
+                            <p className="text-[10px] text-red-400 -mt-1 leading-none select-none">
+                              {username.trim().length < 3 
+                                ? "Mínimo 3 caracteres" 
+                                : username.trim().length > 30 
+                                  ? "Máximo 30 caracteres" 
+                                  : "Solo letras, números, puntos, guiones y guiones bajos"}
+                            </p>
+                          )}
                           <Field 
                             icon={<Mail size={13} />} 
                             label="Correo electrónico" 
