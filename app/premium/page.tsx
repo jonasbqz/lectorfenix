@@ -317,7 +317,7 @@ export default function PremiumPage() {
       if (user) {
         const { data: p } = await supabase
           .from("profiles")
-          .select("is_premium")
+          .select("is_premium, username")
           .eq("id", user.id)
           .maybeSingle();
         setProfile(p);
@@ -835,6 +835,32 @@ export default function PremiumPage() {
                     </p>
 
                     <div className="flex flex-col gap-4">
+                      {/* Explicación de código único y Copia de Usuario */}
+                      <div className="bg-neutral-900/40 p-3.5 rounded-xl border border-white/5 text-xs text-neutral-300 leading-relaxed">
+                        <p className="mb-2">
+                          {language === "es" 
+                            ? "Para conseguir tu código diario único, unite a la comunidad y escribí el comando:" 
+                            : language === "pt"
+                            ? "Para obter o seu código diário exclusivo, junte-se à comunidade e escreva o comando:"
+                            : "To get your unique daily code, join the community and type the command:"}
+                        </p>
+                        <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5 font-mono text-[11px] text-yellow-500 select-all mb-2">
+                          <span>/codigo {profile?.username || "tu_usuario"}</span>
+                          <span className="text-[9px] text-neutral-500 uppercase font-sans font-bold">
+                            {language === "es" ? "Copiar" : "Copy"}
+                          </span>
+                        </div>
+                        {!profile?.username && (
+                          <p className="text-[10px] text-rose-400 font-semibold mt-1">
+                            {language === "es" 
+                              ? "⚠️ Primero debés guardar un nombre de usuario en tu panel de perfil." 
+                              : language === "pt"
+                              ? "⚠️ Primeiro você deve salvar um nome de usuário no seu painel de perfil."
+                              : "⚠️ First you must save a username in your profile panel."}
+                          </p>
+                        )}
+                      </div>
+
                       {/* Botón de Enlace a Telegram */}
                       <a
                         href="https://t.me/+dtPKjcBfiDUyOWQx"

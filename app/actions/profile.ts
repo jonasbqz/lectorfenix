@@ -271,15 +271,16 @@ export async function deleteAccountAction() {
 }
 
 // ─── Generación de código diario de Telegram ──────────────────────────────
-export function getDailyTelegramCode(offsetDays = 0) {
+export function getDailyTelegramCode(username: string, offsetDays = 0) {
   const date = new Date();
   if (offsetDays !== 0) {
     date.setDate(date.getDate() + offsetDays);
   }
   const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
   const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
-  const hash = crypto.createHash("md5").update(dateString + salt).digest("hex");
-  return `MST-${hash.substring(0, 6).toUpperCase()}`;
+  const normalizedUsername = username.trim().toLowerCase();
+  const hash = crypto.createHash("md5").update(normalizedUsername + dateString + salt).digest("hex");
+  return `MST-${hash.substring(0, 5).toUpperCase()}`;
 }
 
 // ─── Activar cuenta Premium ──────────────────────────────────────────────
@@ -294,15 +295,28 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
   // Validación de código diario de Telegram para el Pase de Regalo
   if (type === "gifted") {
     if (!code) {
-      return { error: "Código de activación requerido. Obtené el código del día en nuestra comunidad de Telegram." };
+      return { error: "Código de activación requerido. Pedile tu código al bot de Telegram usando tu nombre de usuario." };
     }
+
+    // Obtener perfil para sacar el username
+    const { data: profile, error: profileErr } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single();
+
+    if (profileErr || !profile || !profile.username) {
+      return { error: "Configurá un nombre de usuario en tu perfil antes de reclamar el Pase Premium Gratis." };
+    }
+
+    const username = profile.username;
     const cleanCode = code.trim().toUpperCase();
-    const codeToday = getDailyTelegramCode(0);
-    const codeYesterday = getDailyTelegramCode(-1);
-    const codeTomorrow = getDailyTelegramCode(1);
+    const codeToday = getDailyTelegramCode(username, 0);
+    const codeYesterday = getDailyTelegramCode(username, -1);
+    const codeTomorrow = getDailyTelegramCode(username, 1);
 
     if (cleanCode !== codeToday && cleanCode !== codeYesterday && cleanCode !== codeTomorrow) {
-      return { error: "Código incorrecto o expirado. Buscá el código activo en nuestro canal de Telegram." };
+      return { error: "Código incorrecto o expirado. Verificá que le hayas mandado tu usuario de MangaStoon exacto al bot." };
     }
   }
 

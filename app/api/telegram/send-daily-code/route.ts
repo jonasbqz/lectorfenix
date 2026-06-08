@@ -19,17 +19,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not configured" }, { status: 500 });
   }
 
-  const codeToday = getDailyTelegramCode(0);
-
   // Mensaje estético premium en español con formato Markdown
   const messageText = `👑 *MangaStoon Premium Free Pass* 👑\n\n` +
     `🎁 ¡Reclamá tu pase de regalo diario gratis!\n\n` +
-    `🔑 El código de hoy es:\n` +
-    `👉 \`${codeToday}\` 👈\n\n` +
-    `*¿Cómo usarlo?*\n` +
-    `1. Ingresá a tu perfil en la web.\n` +
-    `2. Hacé clic en *Reclamar Pase Gratis*.\n` +
-    `3. Pegá este código y ¡listo! Disfrutá de lectura 100% libre de anuncios, descargas en PDF ilimitadas y configuraciones Pro.\n\n` +
+    `💬 Obtené tu código diario único enviando en este chat:\n` +
+    `👉 \`/codigo TU_USUARIO\` 👈\n\n` +
+    `*(Reemplazá \`TU_USUARIO\` con tu nombre de usuario de la web. Ejemplo: \`/codigo Juan123\`)*\n\n` +
     `🌐 [Entrar a MangaStoon](https://mangastoon.com/)`;
 
   const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
@@ -55,7 +50,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Failed to send message to Telegram", details: result }, { status: 502 });
     }
 
-    return NextResponse.json({ success: true, code: codeToday, message: "Code sent successfully to Telegram" });
+    return NextResponse.json({ success: true, message: "Reminder message sent successfully to Telegram" });
   } catch (error) {
     console.error("[SendDailyCode API] exception:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

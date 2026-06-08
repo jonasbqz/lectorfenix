@@ -107,9 +107,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Activando...",
     giftModalActivate: "🎁 Activar Regalo",
     giftModalClose: "Cerrar",
-    giftTelegramLinkText: "💬 Conseguir Código en Telegram",
-    giftCodeLabel: "Código Diario de Telegram",
-    giftCodePlaceholder: "Ej: MST-XXXXXX",
+    giftTelegramLinkText: "💬 Ir a la Comunidad de Telegram",
+    giftCodeLabel: "Tu Código Único de Telegram",
+    giftCodePlaceholder: "Ej: MST-XXXXX",
     avatarTypeErr: "Solo se permiten imágenes .jpg, .jpeg, .png o .webp.",
     avatarSizeErr: "La imagen es demasiado pesada. El tamaño máximo permitido es de 1 MB.",
     avatarSuccess: "¡Avatar actualizado correctamente!",
@@ -201,9 +201,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Activating...",
     giftModalActivate: "🎁 Activate Gift",
     giftModalClose: "Close",
-    giftTelegramLinkText: "💬 Get Code on Telegram",
-    giftCodeLabel: "Daily Telegram Code",
-    giftCodePlaceholder: "E.g.: MST-XXXXXX",
+    giftTelegramLinkText: "💬 Go to Telegram Community",
+    giftCodeLabel: "Your Unique Telegram Code",
+    giftCodePlaceholder: "E.g.: MST-XXXXX",
     avatarTypeErr: "Only .jpg, .jpeg, .png or .webp images are allowed.",
     avatarSizeErr: "The image is too heavy. Maximum size allowed is 1 MB.",
     avatarSuccess: "Avatar updated successfully!",
@@ -295,9 +295,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Ativando...",
     giftModalActivate: "🎁 Ativar Presente",
     giftModalClose: "Fechar",
-    giftTelegramLinkText: "💬 Obter Código no Telegram",
-    giftCodeLabel: "Código Diário do Telegram",
-    giftCodePlaceholder: "Ex: MST-XXXXXX",
+    giftTelegramLinkText: "💬 Ir para a Comunidade do Telegram",
+    giftCodeLabel: "Seu Código Exclusivo do Telegram",
+    giftCodePlaceholder: "Ex: MST-XXXXX",
     avatarTypeErr: "Apenas imagens .jpg, .jpeg, .png ou .webp são permitidas.",
     avatarSizeErr: "A imagem é muito pesada. O tamanho máximo permitido é de 1 MB.",
     avatarSuccess: "Avatar atualizado com sucesso!",
@@ -1961,6 +1961,32 @@ export default function ProfileForm({ profile, user }: Props) {
               {!giftSuccess && (
                 <>
                   <div className="flex flex-col gap-4 mb-6">
+                    {/* Explicación de código único y Copia de Usuario */}
+                    <div className="bg-neutral-900/40 p-3.5 rounded-xl border border-white/5 text-xs text-neutral-300 leading-relaxed">
+                      <p className="mb-2">
+                        {language === "es" 
+                          ? "Para conseguir tu código diario único, unite a la comunidad y escribí el comando:" 
+                          : language === "pt"
+                          ? "Para obter o seu código diário exclusivo, junte-se à comunidade e escreva o comando:"
+                          : "To get your unique daily code, join the community and type the command:"}
+                      </p>
+                      <div className="flex items-center justify-between bg-black/40 p-2.5 rounded-lg border border-white/5 font-mono text-[11px] text-yellow-500 select-all mb-2">
+                        <span>/codigo {username || "tu_usuario"}</span>
+                        <span className="text-[9px] text-neutral-500 uppercase font-sans font-bold">
+                          {language === "es" ? "Copiar" : "Copy"}
+                        </span>
+                      </div>
+                      {!username && (
+                        <p className="text-[10px] text-rose-400 font-semibold mt-1">
+                          {language === "es" 
+                            ? "⚠️ Primero debés guardar un nombre de usuario arriba en tu panel." 
+                            : language === "pt"
+                            ? "⚠️ Primeiro você deve salvar um nome de usuário acima no seu painel."
+                            : "⚠️ First you must save a username above in your panel."}
+                        </p>
+                      )}
+                    </div>
+
                     {/* Botón de Enlace a Telegram */}
                     <a
                       href="https://t.me/+dtPKjcBfiDUyOWQx"
