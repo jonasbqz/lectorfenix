@@ -107,6 +107,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Activando...",
     giftModalActivate: "🎁 Activar Regalo",
     giftModalClose: "Cerrar",
+    giftTelegramLinkText: "💬 Conseguir Código en Telegram",
+    giftCodeLabel: "Código Diario de Telegram",
+    giftCodePlaceholder: "Ej: MST-XXXXXX",
     avatarTypeErr: "Solo se permiten imágenes .jpg, .jpeg, .png o .webp.",
     avatarSizeErr: "La imagen es demasiado pesada. El tamaño máximo permitido es de 1 MB.",
     avatarSuccess: "¡Avatar actualizado correctamente!",
@@ -198,6 +201,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Activating...",
     giftModalActivate: "🎁 Activate Gift",
     giftModalClose: "Close",
+    giftTelegramLinkText: "💬 Get Code on Telegram",
+    giftCodeLabel: "Daily Telegram Code",
+    giftCodePlaceholder: "E.g.: MST-XXXXXX",
     avatarTypeErr: "Only .jpg, .jpeg, .png or .webp images are allowed.",
     avatarSizeErr: "The image is too heavy. Maximum size allowed is 1 MB.",
     avatarSuccess: "Avatar updated successfully!",
@@ -289,6 +295,9 @@ const PROFILE_FORM_COPY = {
     giftModalActivating: "Ativando...",
     giftModalActivate: "🎁 Ativar Presente",
     giftModalClose: "Fechar",
+    giftTelegramLinkText: "💬 Obter Código no Telegram",
+    giftCodeLabel: "Código Diário do Telegram",
+    giftCodePlaceholder: "Ex: MST-XXXXXX",
     avatarTypeErr: "Apenas imagens .jpg, .jpeg, .png ou .webp são permitidas.",
     avatarSizeErr: "A imagem é muito pesada. O tamanho máximo permitido é de 1 MB.",
     avatarSuccess: "Avatar atualizado com sucesso!",
@@ -507,13 +516,14 @@ export default function ProfileForm({ profile, user }: Props) {
   const [isClaimingGift, setIsClaimingGift] = useState(false);
   const [giftSuccess, setGiftSuccess] = useState<string | null>(null);
   const [giftError, setGiftError] = useState<string | null>(null);
+  const [giftCode, setGiftCode] = useState("");
 
   const handleClaimGift = async () => {
     setIsClaimingGift(true);
     setGiftError(null);
     setGiftSuccess(null);
     try {
-      const res = await upgradeToPremiumAction("gifted");
+      const res = await upgradeToPremiumAction("gifted", giftCode);
       if (res.error) {
         setGiftError(res.error);
       } else {
@@ -1949,32 +1959,66 @@ export default function ProfileForm({ profile, user }: Props) {
               )}
 
               {!giftSuccess && (
-                <div className="flex flex-col sm:flex-row gap-3.5">
-                  <button
-                    type="button"
-                    disabled={isClaimingGift}
-                    onClick={handleClaimGift}
-                    className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-heading font-bold text-black transition-all bg-yellow-500 hover:brightness-110 active:scale-95 shadow-lg shadow-yellow-500/10 cursor-pointer"
-                  >
-                    {isClaimingGift ? (
-                      <><Loader2 size={16} className="animate-spin" /> {copy.giftModalActivating}</>
-                    ) : (
-                      copy.giftModalActivate
-                    )}
-                  </button>
+                <>
+                  <div className="flex flex-col gap-4 mb-6">
+                    {/* Botón de Enlace a Telegram */}
+                    <a
+                      href="https://t.me/+dtPKjcBfiDUyOWQx"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#24A1DE]/30 bg-[#24A1DE]/10 py-3 text-xs font-bold text-[#24A1DE] hover:bg-[#24A1DE]/15 transition-all text-center cursor-pointer shadow-sm"
+                    >
+                      {copy.giftTelegramLinkText}
+                    </a>
 
-                  <Button
-                    variant="secondary"
-                    disabled={isClaimingGift}
-                    onClick={() => {
-                      setIsGiftModalOpen(false);
-                      setGiftError(null);
-                    }}
-                    className="flex-1"
-                  >
-                    {copy.giftModalClose}
-                  </Button>
-                </div>
+                    {/* Input del código */}
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-2 text-zinc-400">
+                        {copy.giftCodeLabel}
+                      </label>
+                      <input
+                        type="text"
+                        value={giftCode}
+                        onChange={(e) => setGiftCode(e.target.value)}
+                        placeholder={copy.giftCodePlaceholder}
+                        disabled={isClaimingGift}
+                        className="w-full px-4 py-2.5 rounded-xl border bg-neutral-900/60 text-sm font-medium focus:outline-none focus:border-yellow-500/50 transition-all uppercase"
+                        style={{
+                          borderColor: "rgba(247,242,232,0.15)",
+                          color: C.fg,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3.5">
+                    <button
+                      type="button"
+                      disabled={isClaimingGift || !giftCode.trim()}
+                      onClick={handleClaimGift}
+                      className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-heading font-bold text-black transition-all bg-yellow-500 hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100 shadow-lg shadow-yellow-500/10 cursor-pointer"
+                    >
+                      {isClaimingGift ? (
+                        <><Loader2 size={16} className="animate-spin" /> {copy.giftModalActivating}</>
+                      ) : (
+                        copy.giftModalActivate
+                      )}
+                    </button>
+
+                    <Button
+                      variant="secondary"
+                      disabled={isClaimingGift}
+                      onClick={() => {
+                        setIsGiftModalOpen(false);
+                        setGiftError(null);
+                        setGiftCode("");
+                      }}
+                      className="flex-1"
+                    >
+                      {copy.giftModalClose}
+                    </Button>
+                  </div>
+                </>
               )}
             </motion.div>
           </motion.div>

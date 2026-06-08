@@ -2,6 +2,7 @@
 
 import { createClient } from "../../utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 // ─── Obtener perfil del usuario autenticado ────────────────────────────────
 export async function getProfile() {
@@ -269,13 +270,40 @@ export async function deleteAccountAction() {
   return { success: true, targetDate };
 }
 
+// ─── Generación de código diario de Telegram ──────────────────────────────
+export function getDailyTelegramCode(offsetDays = 0) {
+  const date = new Date();
+  if (offsetDays !== 0) {
+    date.setDate(date.getDate() + offsetDays);
+  }
+  const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
+  const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
+  const hash = crypto.createHash("md5").update(dateString + salt).digest("hex");
+  return `MST-${hash.substring(0, 6).toUpperCase()}`;
+}
+
 // ─── Activar cuenta Premium ──────────────────────────────────────────────
-export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid") {
+export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", code?: string) {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     return { error: "No autorizado." };
+  }
+
+  // Validación de código diario de Telegram para el Pase de Regalo
+  if (type === "gifted") {
+    if (!code) {
+      return { error: "Código de activación requerido. Obtené el código del día en nuestra comunidad de Telegram." };
+    }
+    const cleanCode = code.trim().toUpperCase();
+    const codeToday = getDailyTelegramCode(0);
+    const codeYesterday = getDailyTelegramCode(-1);
+    const codeTomorrow = getDailyTelegramCode(1);
+
+    if (cleanCode !== codeToday && cleanCode !== codeYesterday && cleanCode !== codeTomorrow) {
+      return { error: "Código incorrecto o expirado. Buscá el código activo en nuestro canal de Telegram." };
+    }
   }
 
   const updateData: any = {

@@ -77,9 +77,12 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Activación de Período de Prueba Premium",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "Al activar tu prueba gratuita, disfrutarás de todos los beneficios premium sin cargos durante este período. Te enviaremos un aviso a tu correo al finalizar.",
+      testMode: "Para reclamar tu prueba gratuita Premium, ingresá el código de activación diario que publicamos en nuestra comunidad oficial de Telegram.",
       confirmButton: "Comenzar Prueba Gratis",
       cancelButton: "Cancelar",
+      telegramLinkText: "💬 Conseguir Código en Telegram",
+      codeLabel: "Código Diario de Telegram",
+      codePlaceholder: "Ej: MST-XXXXXX",
       processingTitle: "Activando período de prueba gratis",
       processingMessages: [
         "Verificando cuenta...",
@@ -151,9 +154,12 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Premium Trial Activation",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "By activating your free trial, you will enjoy all premium benefits without charges during this period. We will send a notice to your email when it's about to end.",
+      testMode: "To claim your free Premium trial, enter the daily activation code published on our official Telegram community.",
       confirmButton: "Start Free Trial",
       cancelButton: "Cancel",
+      telegramLinkText: "💬 Get Code on Telegram",
+      codeLabel: "Daily Telegram Code",
+      codePlaceholder: "E.g.: MST-XXXXXX",
       processingTitle: "Activating free trial period",
       processingMessages: [
         "Verifying account...",
@@ -225,9 +231,12 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Ativação do Período de Teste Premium",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "Ao ativar seu teste gratuito, você desfrutará de todos os benefícios premium sem custos durante este período. Enviaremos um aviso ao seu e-mail quando estiver perto de terminar.",
+      testMode: "Para resgatar seu teste Premium gratuito, insira o código de ativação diário publicado em nossa comunidade oficial do Telegram.",
       confirmButton: "Iniciar Teste Grátis",
       cancelButton: "Cancelar",
+      telegramLinkText: "💬 Obter Código no Telegram",
+      codeLabel: "Código Diário do Telegram",
+      codePlaceholder: "Ex: MST-XXXXXX",
       processingTitle: "Ativando período de teste gratuito",
       processingMessages: [
         "Verificando conta...",
@@ -298,6 +307,7 @@ export default function PremiumPage() {
 
   // Estados del Formulario de Pago
   const [formError, setFormError] = useState<string | null>(null);
+  const [giftCode, setGiftCode] = useState("");
 
   // Obtener sesión y escuchar cambios de auth
   useEffect(() => {
@@ -350,6 +360,11 @@ export default function PremiumPage() {
     e.preventDefault();
     setFormError(null);
 
+    if (!giftCode.trim()) {
+      setFormError(t.gateway.codeLabel);
+      return;
+    }
+
     // Iniciar flujo de procesamiento animado
     setPaymentStep("processing");
     
@@ -368,12 +383,13 @@ export default function PremiumPage() {
     setTimeout(() => {
       clearInterval(interval);
       startTransition(async () => {
-        const res = await upgradeToPremiumAction("gifted");
+        const res = await upgradeToPremiumAction("gifted", giftCode);
         if (res.error) {
           setFormError(res.error);
           setPaymentStep("form");
         } else {
           setPaymentStep("success");
+          setGiftCode("");
           window.dispatchEvent(new Event("profile-updated"));
         }
       });
@@ -818,19 +834,54 @@ export default function PremiumPage() {
                       {t.gateway.testMode}
                     </p>
 
+                    <div className="flex flex-col gap-4">
+                      {/* Botón de Enlace a Telegram */}
+                      <a
+                        href="https://t.me/+dtPKjcBfiDUyOWQx"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#24A1DE]/30 bg-[#24A1DE]/10 py-3 text-xs font-bold text-[#24A1DE] hover:bg-[#24A1DE]/15 transition-all text-center cursor-pointer shadow-sm"
+                      >
+                        {t.gateway.telegramLinkText}
+                      </a>
+
+                      {/* Input del código */}
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-wider mb-2 text-zinc-400">
+                          {t.gateway.codeLabel}
+                        </label>
+                        <input
+                          type="text"
+                          value={giftCode}
+                          onChange={(e) => setGiftCode(e.target.value)}
+                          placeholder={t.gateway.codePlaceholder}
+                          className="w-full px-4 py-2.5 rounded-xl border bg-neutral-900/60 text-sm font-medium focus:outline-none focus:border-yellow-500/50 transition-all uppercase"
+                          style={{
+                            borderColor: C.border || "rgba(247,242,232,0.15)",
+                            color: C.fg || "#F7F2E8",
+                          }}
+                        />
+                      </div>
+                    </div>
+
                     {formError && <StatusBanner error={formError} />}
 
                     <div className="flex gap-3 mt-4">
                       <Button
                         type="submit"
                         className="flex-1"
+                        disabled={!giftCode.trim()}
                       >
                         {t.gateway.confirmButton}
                       </Button>
                       <Button
                         variant="secondary"
                         type="button"
-                        onClick={() => setIsPayModalOpen(false)}
+                        onClick={() => {
+                          setIsPayModalOpen(false);
+                          setGiftCode("");
+                          setFormError(null);
+                        }}
                         className="flex-1"
                       >
                         {t.gateway.cancelButton}

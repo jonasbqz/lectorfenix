@@ -100,8 +100,7 @@ export const metadata: Metadata = {
     },
   },
   other: {
-    // Monetag desactivado temporalmente.
-    // monetag: "4022d02a52caca255fe36d90c0a054af",
+    monetag: "4022d02a52caca255fe36d90c0a054af",
     "mobile-web-app-capable": "yes",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-title": SITE_NAME,
