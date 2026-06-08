@@ -836,24 +836,31 @@ export async function fetchMangaDexChapterPreviews(
     }
 
     const payload = await response.json();
-    const total = payload.total ?? payload.data?.length ?? 0;
-    let chapters = payload.data ?? [];
+    const total: number = payload.total ?? payload.data?.length ?? 0;
+    let chapters: any[] = [...(payload.data ?? [])];
 
     if (total > chapters.length) {
-      const tailParams = new URLSearchParams(params);
-      tailParams.set("offset", String(Math.max(0, total - 100)));
-      const tailResponse = await fetch(
-        `/api/mangadex/feed/${mangaId}?${tailParams.toString()}`,
-        { signal }
-      );
+      const additionalRequests: Promise<Response>[] = [];
+      let offset = LIMIT;
 
-      if (tailResponse.ok) {
-        const tailPayload = await tailResponse.json();
-        chapters = tailPayload.data ?? chapters;
+      while (offset < total) {
+        const pageParams = new URLSearchParams(params);
+        pageParams.set("offset", String(offset));
+        additionalRequests.push(
+          fetch(`/api/mangadex/feed/${mangaId}?${pageParams.toString()}`, { signal })
+        );
+        offset += LIMIT;
+      }
+
+      const responses = await Promise.all(additionalRequests);
+      for (const res of responses) {
+        if (res.ok) {
+          const pagePayload = await res.json();
+          chapters.push(...(pagePayload.data ?? []));
+        }
       }
     }
 
-    // Deduplicate chapters by chapter number (attributes.chapter)
     const uniqueChaptersMap = new Map<string, any>();
     chapters.forEach((ch: any) => {
       const chNum = ch.attributes?.chapter ?? "";
@@ -1384,7 +1391,7 @@ export async function resolveBestSource(idOrSlug: string): Promise<ResolvedSourc
     leercapituloDetails,
   };
 
-  await setCached(cacheKey, result, 7200); // 2 hours
+  await setCached(cacheKey, result, 1800); // 30 minutos (antes eran 2 horas)
   return result;
 }
 

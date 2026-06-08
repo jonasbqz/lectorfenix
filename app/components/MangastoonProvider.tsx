@@ -4,8 +4,35 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "../../utils/supabase/client";
 
-const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutos
-const LAST_SHOW_KEY = "mangastoon_last_ad_time";
+// Clave y TTL para la caché del estado de premium en sessionStorage
+const PREMIUM_CACHE_KEY = "mangastoon_is_premium";
+const PREMIUM_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+function getCachedPremiumState(): boolean | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PREMIUM_CACHE_KEY);
+    if (!raw) return null;
+    const { value, expiresAt } = JSON.parse(raw);
+    if (Date.now() > expiresAt) {
+      sessionStorage.removeItem(PREMIUM_CACHE_KEY);
+      return null;
+    }
+    return value as boolean;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedPremiumState(isPremium: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      PREMIUM_CACHE_KEY,
+      JSON.stringify({ value: isPremium, expiresAt: Date.now() + PREMIUM_CACHE_TTL_MS })
+    );
+  } catch {}
+}
 
 export default function MangastoonProvider() {
   const pathname = usePathname();
@@ -21,6 +48,13 @@ export default function MangastoonProvider() {
         return;
       }
 
+      // Usar caché de sessionStorage para evitar un fetch a Supabase en cada navegación entre capítulos
+      const cachedPremium = getCachedPremiumState();
+      if (cachedPremium !== null) {
+        setShouldLoad(!cachedPremium);
+        return;
+      }
+
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -33,11 +67,17 @@ export default function MangastoonProvider() {
             .eq("id", user.id)
             .maybeSingle();
 
-          if (profile?.is_premium) {
+          const isPremium = !!profile?.is_premium;
+          setCachedPremiumState(isPremium);
+
+          if (isPremium) {
             // Usuario Premium: no cargamos nada de publicidad
             setShouldLoad(false);
             return;
           }
+        } else {
+          // Sin usuario logueado: no es premium, cacheamos false
+          setCachedPremiumState(false);
         }
 
         // Para incentivar la suscripción Premium, removemos el cooldown
@@ -51,13 +91,20 @@ export default function MangastoonProvider() {
 
     checkMonetizationState();
   }, [pathname]);
-
   // ─── ANUNCIOS ACTIVADOS ──────────────────────────────────────────────────
   useEffect(() => {
     if (!shouldLoad) return;
 
+    // Si ya cargamos el script de Monetag en esta sesión SPA, no lo volvemos a inyectar
+    // para evitar DOM thrashing, re-compilación de JS y el lag por re-evaluación en cada click.
+    if (typeof window !== "undefined" && (window as any).__monetagLoaded) {
+      return;
+    }
+    if (typeof window !== "undefined") {
+      (window as any).__monetagLoaded = true;
+    }
+
     let active = true;
-    const scriptsToClean: HTMLScriptElement[] = [];
 
     async function loadDynamicAds() {
       try {
@@ -85,7 +132,6 @@ export default function MangastoonProvider() {
           }
           
           document.head.appendChild(newScript);
-          scriptsToClean.push(newScript);
         });
       } catch (err) {
         console.warn("[MangastoonProvider] Error loading dynamic ads:", err);
@@ -96,7 +142,6 @@ export default function MangastoonProvider() {
 
     return () => {
       active = false;
-      scriptsToClean.forEach((script) => script.remove());
     };
   }, [shouldLoad]);
 

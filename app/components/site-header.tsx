@@ -177,10 +177,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         const currentUser = user ?? null;
         setUser(currentUser);
         setLoadingUser(false);
-        if (currentUser) {
-          useFavoritesStore.getState().syncWithServer();
-          useHistoryStore.getState().syncWithServer();
-        }
+        // No llamar syncWithServer aquí — se llama una sola vez en SIGNED_IN de onAuthStateChange
       }
     }).catch(() => {
       if (active) {
@@ -195,6 +192,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         setUser(currentUser);
         setLoadingUser(false);
         if (event === "SIGNED_IN" && currentUser) {
+          // Sincronizar stores una sola vez por evento real de login
           useFavoritesStore.getState().syncWithServer();
           useHistoryStore.getState().syncWithServer();
         } else if (event === "SIGNED_OUT") {
@@ -241,25 +239,22 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
 
         if (fallbackData && active) {
           setProfile({ ...fallbackData, is_premium: false });
-          useFavoritesStore.getState().syncWithServer();
-          useHistoryStore.getState().syncWithServer();
+          // No llamar syncWithServer aquí — ya se llama en SIGNED_IN
         }
       } else {
         setProfile(data || null);
-        if (data && active) {
-          useFavoritesStore.getState().syncWithServer();
-          useHistoryStore.getState().syncWithServer();
-        }
+        // No llamar syncWithServer aquí — ya se llama en SIGNED_IN
       }
       setLoadingProfile(false);
     };
 
     fetchProfile();
 
-    // Suscribirse a cambios en tiempo real en la tabla profiles para este usuario con un canal único
-    const uniqueChannelName = `header-profile-realtime-${user.id}-${Math.random().toString(36).substring(2, 10)}`;
+    // Canal realtime con nombre ESTABLE por userId (sin Math.random)
+    // Esto evita abrir WebSockets nuevos en cada remount del componente
+    const stableChannelName = `header-profile-${user.id}`;
     channel = supabase
-      .channel(uniqueChannelName)
+      .channel(stableChannelName)
       .on(
         "postgres_changes",
         {

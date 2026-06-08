@@ -37,7 +37,7 @@ export function normalizeMangaStoonLanguage(value: string | null | undefined): M
 
 export function getMangaDexAvailableLanguages(language: MangaStoonLanguage) {
   if (language === "es") {
-    return ["es", "es-la"];
+    return ["es", "es-la", "es-419"];
   }
 
   if (language === "pt") {

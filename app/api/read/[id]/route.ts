@@ -562,7 +562,14 @@ async function resolveAllChapters(mangaId: string, lang: SupportedLanguage) {
 
     for (const response of responses) {
       if (!response.ok) {
-        throw new Error(response.status === 429 ? "RATE_LIMIT" : "CHAPTER_FEED_FAILED");
+        if (response.status === 429) {
+          // Rate limit en un batch parcial: no abortamos todo, seguimos con lo que tenemos
+          logger.warn("[resolveAllChapters] Rate limit (429) en un batch parcial, devolviendo resultados parciales");
+          continue;
+        }
+        // Otro error no crítico: logueamos y continuamos
+        logger.warn(`[resolveAllChapters] Request fallido con status ${response.status}, saltando batch`);
+        continue;
       }
       const payload = (await response.json()) as ChapterFeedResponse;
       chapters.push(...(payload.data ?? []));
