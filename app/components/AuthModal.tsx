@@ -136,7 +136,7 @@ function generateRandomUsername(): string {
 }
 
 type Tab = "signin" | "signup";
-type View = "main" | "forgot" | "forgot-sent";
+type View = "main" | "forgot" | "forgot-sent" | "signup-success";
 
 interface Props {
   open: boolean;
@@ -273,6 +273,10 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
   // Check stored cooldowns on mount/open
   useEffect(() => {
     if (!open) return;
+    setView("main");
+    setTab(defaultTab || "signin");
+    clearError();
+ 
     const lastForgot = localStorage.getItem("mangastoon_last_forgot_sent");
     if (lastForgot) {
       const elapsed = Math.floor((Date.now() - parseInt(lastForgot, 10)) / 1000);
@@ -280,7 +284,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
         setForgotCooldown(120 - elapsed);
       }
     }
-
+ 
     const lastSignup = localStorage.getItem("mangastoon_last_signup_sent");
     if (lastSignup) {
       const elapsed = Math.floor((Date.now() - parseInt(lastSignup, 10)) / 1000);
@@ -288,7 +292,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
         setSignupCooldown(120 - elapsed);
       }
     }
-  }, [open]);
+  }, [open, defaultTab]);
 
   useEffect(() => {
     if (!open || !isCaptchaEnabled) return;
@@ -575,15 +579,9 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
       return;
     }
 
-    const successMsg = language === "es"
-      ? "¡Cuenta creada! Revisa tu correo para verificarla."
-      : language === "pt"
-      ? "Conta criada! Verifique seu e-mail para confirmá-la."
-      : "Account created! Check your email to verify it.";
-    toast.success(successMsg);
     localStorage.setItem("mangastoon_last_signup_sent", String(Date.now()));
     setSignupCooldown(120);
-    onClose();
+    setView("signup-success");
   };
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -983,6 +981,37 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                   className="mt-2 w-full rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all border border-white/5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
                 >
                   Cerrar
+                </button>
+              </div>
+            )}
+
+            {/* ── VISTA DE REGISTRO CON ÉXITO (VERIFICACIÓN) ───────────────────── */}
+            {view === "signup-success" && (
+              <div className="p-8 flex flex-col items-center text-center gap-5 select-none animate-fade-in">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-2xl animate-bounce"
+                  style={{ background: "rgba(255, 107, 0, 0.08)", border: "1px solid rgba(255, 107, 0, 0.2)" }}
+                >
+                  <Mail size={28} style={{ color: C.accent }} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-heading font-extrabold text-gray-100">
+                    {language === "es" ? "¡Verificá tu correo!" : language === "pt" ? "Verifique seu e-mail!" : "Verify your email!"}
+                  </h2>
+                  <p className="text-xs leading-relaxed max-w-[280px] text-neutral-400 mt-2">
+                    {language === "es" 
+                      ? "Te enviamos un enlace de confirmación a tu correo. Por favor, buscalo en tu bandeja de entrada o en la carpeta de spam para activar tu cuenta y poder ingresar." 
+                      : language === "pt"
+                      ? "Enviamos um link de confirmação para o seu e-mail. Por favor, procure na sua caixa de entrada ou spam para ativar sua conta e poder entrar."
+                      : "We sent a confirmation link to your email. Please check your inbox or spam folder to activate your account and log in."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="mt-2 w-full rounded-xl py-3 text-xs font-bold uppercase tracking-wider transition-all border border-white/5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 cursor-pointer"
+                >
+                  {language === "es" ? "Entendido" : language === "pt" ? "Entendido" : "Understood"}
                 </button>
               </div>
             )}
