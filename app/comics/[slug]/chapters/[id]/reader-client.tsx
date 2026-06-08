@@ -5,7 +5,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Download, Eye, EyeOff, FileText, List, ImageOff, RefreshCw, BookOpen, Scroll, Palette, Sparkles, Lock, Crown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, Eye, EyeOff, FileText, List, ImageOff, RefreshCw, BookOpen, Scroll, Palette, Sparkles, Lock, Crown, AlertCircle } from "lucide-react";
+import MangaAdBanner from "./components/MangaAdBanner";
 import { SupportedLanguage, useLanguage } from "../../../../components/language-provider";
 import { useHistoryStore } from "../../../../store/useHistoryStore";
 import { useReaderSettingsStore, type ReadingMode, type PageSize } from "../../../../store/useReaderSettingsStore";
@@ -692,6 +693,7 @@ export default function ReaderClient({
   const [isAtTop, setIsAtTop] = useState(true);
 
   const [isPremium, setIsPremium] = useState(false);
+  const [telegramGraceStarted, setTelegramGraceStarted] = useState<string | null>(null);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [readerTheme, setReaderTheme] = useState<ReaderTheme>("dark");
   const [hasScrolledPastHalf, setHasScrolledPastHalf] = useState(false);
@@ -774,7 +776,7 @@ export default function ReaderClient({
 
         const { data } = await supabase
           .from("profiles")
-          .select("id, username, avatar_url, is_premium")
+          .select("id, username, avatar_url, is_premium, telegram_grace_started, premium_until")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -784,6 +786,9 @@ export default function ReaderClient({
           if (data.is_premium) {
             setIsPremium(true);
             isUserPremium = true;
+          }
+          if (data.telegram_grace_started) {
+            setTelegramGraceStarted(data.telegram_grace_started);
           }
         }
 
@@ -1442,6 +1447,41 @@ export default function ReaderClient({
     router.push(`/comics/${routeSlug}#chapters`);
   }
 
+  const renderGraceWarning = () => {
+    if (!telegramGraceStarted) return null;
+    const graceStart = new Date(telegramGraceStarted);
+    const graceEnd = new Date(graceStart.getTime() + 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const diffMs = graceEnd.getTime() - now.getTime();
+    if (diffMs <= 0) return null;
+    
+    const diffHours = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+    const diffMins = Math.max(0, Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60)));
+    
+    return (
+      <div 
+        className="w-full bg-red-950/90 border-b border-red-500/30 text-red-200 px-4 py-3 text-center text-xs font-semibold shadow-inner flex flex-wrap items-center justify-center gap-3 relative z-[45] animate-fade-in"
+      >
+        <AlertCircle size={14} className="text-red-400 shrink-0" />
+        <span>
+          {readerLanguage === "es"
+            ? `⚠️ ¡Tu Premium corre peligro! Detectamos que saliste de nuestro Telegram. Volvé a unirte en las próximas ${diffHours}h ${diffMins}m o se te revocará el Pase Premium.`
+            : readerLanguage === "pt"
+              ? `⚠️ Seu Premium está em perigo! Detectamos que você saiu do Telegram. Volte a entrar nas próximas ${diffHours}h ${diffMins}m ou seu Passe Premium será revogado.`
+              : `⚠️ Your Premium is in danger! We detected that you left our Telegram. Rejoin within the next ${diffHours}h ${diffMins}m or your Premium Pass will be revoked.`}
+        </span>
+        <a
+          href="https://t.me/+dtPKjcBfiDUyOWQx"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-red-500 text-black px-3 py-1 rounded-lg hover:bg-red-400 transition-all font-bold text-[10px] uppercase tracking-wider"
+        >
+          {readerLanguage === "es" ? "Unirse al Grupo" : readerLanguage === "pt" ? "Entrar no Grupo" : "Join Group"}
+        </a>
+      </div>
+    );
+  };
+
   return (
     <main
       className={`${
@@ -1450,6 +1490,7 @@ export default function ReaderClient({
           : "min-h-screen px-0 pb-10 pt-2"
       } ${THEME_CLASSES[readerTheme].bg} ${THEME_CLASSES[readerTheme].text} transition-colors duration-300`}
     >
+      {renderGraceWarning()}
       <ReaderHeader
         isAtTop={isAtTop}
         scrollDirection={scrollDirection}
@@ -1623,17 +1664,28 @@ export default function ReaderClient({
               />
             ) : (
               <div className={`mx-auto flex w-full flex-col transition-all duration-300 ${PAGE_SIZE_CLASSES[pageSize]}`}>
-                {pages.map((pageUrl, index) => (
-                  <MangaPageImage
-                    key={pageUrl}
-                    pageUrl={pageUrl}
-                    alt={`${dictionary.page} ${index + 1} · ${getChapterLabel(currentChapter, dictionary)}`}
-                    priority={index < 2}
-                    retryVersion={pageRetryVersions[index] || 0}
-                    onRetrySubsequent={() => handleRetrySubsequent(index)}
-                    pageIndex={index}
-                  />
-                ))}
+                {pages.map((pageUrl, index) => {
+                  const showAd = !isPremium && index > 0 && index % 5 === 0;
+                  return (
+                    <div key={pageUrl} className="flex flex-col w-full items-center">
+                      <MangaPageImage
+                        pageUrl={pageUrl}
+                        alt={`${dictionary.page} ${index + 1} · ${getChapterLabel(currentChapter, dictionary)}`}
+                        priority={index < 2}
+                        retryVersion={pageRetryVersions[index] || 0}
+                        onRetrySubsequent={() => handleRetrySubsequent(index)}
+                        pageIndex={index}
+                      />
+                      {showAd && (
+                        <MangaAdBanner
+                          index={index}
+                          onUpgrade={() => setShowPremiumModal(true)}
+                          lang={readerLanguage}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>

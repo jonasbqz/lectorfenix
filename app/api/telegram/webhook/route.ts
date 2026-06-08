@@ -248,15 +248,15 @@ export async function POST(req: Request) {
         }
 
         // Intentar enviar el código por privado
-        const codeToday = await getDailyTelegramCode(arg || "tu_usuario", 0);
-        const privateText = `🔑 *MangaStoon Pase Premium Gratis* 🔑\n\n` +
+        const codeToday = await getDailyTelegramCode(arg || "tu_usuario", 0, senderId);
+        const privateText = `🔑 *MangaStoon Pase Premium Gratis (1 Mes)* 🔑\n\n` +
           `👤 Usuario: *${arg || "usuario"}*\n` +
           `🔑 Código único de hoy:\n` +
           `👉 \`${codeToday}\` 👈\n\n` +
           `*¿Cómo usarlo?*\n` +
           `1. Ingresa a tu perfil en MangaStoon.\n` +
           `2. Haz clic en *Reclamar Pase Gratis*.\n` +
-          `3. Pega este código y ¡listo!`;
+          `3. Pega este código y ¡listo! Disfruta de 30 días de premium gratis.`;
 
         const sentPrivate = await sendTelegramMessage(token, senderId, privateText);
 
@@ -315,18 +315,18 @@ export async function POST(req: Request) {
           }
 
           // Generar código único para ese usuario
-          const codeToday = await getDailyTelegramCode(arg, 0);
+          const codeToday = await getDailyTelegramCode(arg, 0, senderId);
           const currentCount = limitInfo && limitInfo.date === todayStr ? limitInfo.count + 1 : 1;
           telegramRequestLimitMap.set(senderId, { count: currentCount, date: todayStr });
 
-          const codeText = `🔑 *MangaStoon Pase Premium Gratis* 🔑\n\n` +
+          const codeText = `🔑 *MangaStoon Pase Premium Gratis (1 Mes)* 🔑\n\n` +
             `👤 Usuario: *${arg}*\n` +
             `🔑 Código único de hoy:\n` +
             `👉 \`${codeToday}\` 👈\n\n` +
             `*¿Cómo usarlo?*\n` +
             `1. Ingresa a tu perfil en MangaStoon.\n` +
             `2. Haz clic en *Reclamar Pase Gratis*.\n` +
-            `3. Pega este código y ¡listo! Disfruta de todos los beneficios premium por 24 horas.\n\n` +
+            `3. Pega este código y ¡listo! Disfruta de todos los beneficios premium por 30 días gratis.\n\n` +
             `_(Este código es exclusivo para la cuenta *${arg}*. Si colocas otro usuario en la web, el código no funcionará)_`;
 
           await sendTelegramMessage(token, chatId, codeText, message.message_id);
@@ -341,7 +341,7 @@ export async function POST(req: Request) {
           `⚠️ *Errores comunes y soluciones:*\n` +
           `• **"Código incorrecto"**: Asegúrate de haber escrito tu nombre de usuario exactamente igual a como aparece en tu perfil de MangaStoon (respetando mayúsculas, minúsculas, puntos y guiones).\n` +
           `• **"Debes formar parte del grupo oficial"**: Es obligatorio unirse a nuestro grupo antes de pedir el código. [Únete aquí](https://t.me/+dtPKjcBfiDUyOWQx).\n` +
-          `• **"Límite diario alcanzado"**: Solo puedes solicitar tus códigos hasta 3 veces al día. Si ya activaste tu pase, tendrás 24 horas de premium.\n\n` +
+          `• **"Límite diario alcanzado"**: Solo puedes solicitar tus códigos hasta 3 veces al día. Si ya activaste tu pase, tendrás 30 días de premium gratis.\n\n` +
           `💬 *¿Tienes dudas o preguntas?*\n` +
           `Por seguridad y para darte una mejor atención, por favor **haz tu pregunta en nuestro grupo oficial de Telegram**. Allí, los administradores de la página te brindarán ayuda lo antes posible.\n` +
           `👉 [Ir al Grupo Oficial de MangaStoon](https://t.me/+dtPKjcBfiDUyOWQx)`;

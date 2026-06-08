@@ -78,7 +78,7 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Activación de Período de Prueba Premium",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "Para reclamar tu prueba gratuita Premium, debes solicitar tu código diario único hablando en privado con nuestro bot de Telegram usando tu nombre de usuario. Luego, pega el código que recibas en el campo de abajo.",
+      testMode: "Para reclamar tu mes de prueba gratuita Premium, es requisito obligatorio unirse a nuestro grupo de la comunidad en Telegram. Una vez dentro, solicita tu código hablando en privado con nuestro bot usando tu nombre de usuario. Luego, pega el código recibido abajo.",
       confirmButton: "Comenzar Prueba Gratis",
       cancelButton: "Cancelar",
       telegramLinkText: "💬 Conseguir Código en Telegram",
@@ -155,7 +155,7 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Premium Trial Activation",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "To claim your free Premium trial, enter the daily activation code published on our official Telegram community.",
+      testMode: "To claim your free 1-month Premium trial, you must first join our official Telegram community group. Once inside, request your activation code by chatting privately with our bot. Then, paste the received code below.",
       confirmButton: "Start Free Trial",
       cancelButton: "Cancel",
       telegramLinkText: "💬 Get Code on Telegram",
@@ -232,7 +232,7 @@ const PREMIUM_COPY = {
     gateway: {
       title: "Ativação do Período de Teste Premium",
       subtitle: "MangaStoon Trial Activation",
-      testMode: "Para resgatar seu teste Premium gratuito, insira o código de ativação diário publicado em nossa comunidade oficial do Telegram.",
+      testMode: "Para resgatar seu teste Premium gratuito de 1 mês, você deve primeiro entrar em nosso grupo oficial da comunidade no Telegram. Uma vez dentro, solicite seu código de ativação conversando privadamente com nosso bot. Depois, cole o código abaixo.",
       confirmButton: "Iniciar Teste Grátis",
       cancelButton: "Cancelar",
       telegramLinkText: "💬 Obter Código no Telegram",
@@ -896,10 +896,22 @@ export default function PremiumPage() {
                         href="https://t.me/RaphaelPremiumBot?start=codigo"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#24A1DE]/30 bg-[#24A1DE]/10 py-3 text-xs font-bold text-[#24A1DE] hover:bg-[#24A1DE]/15 transition-all text-center cursor-pointer shadow-sm"
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#24A1DE]/30 bg-[#24A1DE]/10 py-3 text-xs font-bold text-[#24A1DE] hover:bg-[#24A1DE]/15 transition-all text-center cursor-pointer shadow-sm animate-pulse"
                       >
                         {t.gateway.telegramLinkText}
                       </a>
+
+                      {/* Alerta de requisito obligatorio de Telegram */}
+                      <div className="flex items-start gap-2.5 rounded-xl border p-3.5 text-xs text-amber-500 bg-amber-500/5 border-amber-500/20 leading-relaxed">
+                        <AlertCircle size={15} className="shrink-0 mt-0.5" />
+                        <span>
+                          {language === "es" 
+                            ? "Requisito: Debés formar parte de nuestro grupo de la comunidad en Telegram. Si te salís del grupo, tu Pase Premium será revocado." 
+                            : language === "pt"
+                            ? "Requisito: Você deve fazer parte do nosso grupo da comunidade no Telegram. Se você sair do grupo, seu Passe Premium será revogado."
+                            : "Requirement: You must be a member of our community group on Telegram. If you leave the group, your Premium Pass will be revoked."}
+                        </span>
+                      </div>
 
                       {/* Input del código */}
                       <div>

@@ -13,7 +13,7 @@ export async function getProfile() {
 
     let { data: profile } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at")
+      .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -21,7 +21,7 @@ export async function getProfile() {
     // la creamos automáticamente con sus metadatos de auth
     if (!profile) {
       const fallbackUsername = user.user_metadata?.username || user.email?.split("@")[0] || "Usuario";
-      const fallbackAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+      const fallbackAvatar = user.user_metadata?.picture || null;
 
       const { data: newProfile, error: insertError } = await supabase
         .from("profiles")
@@ -31,13 +31,125 @@ export async function getProfile() {
           avatar_url: fallbackAvatar,
           updated_at: new Date().toISOString(),
         })
-        .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at")
+        .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type")
         .maybeSingle();
 
       if (!insertError && newProfile) {
         profile = newProfile;
       } else {
         console.error("[getProfile] failed to auto-create profile:", insertError);
+      }
+    }
+
+    // Validación perezosa (Lazy Validation) para usuarios premium de regalo
+    if (profile && profile.is_premium && profile.premium_type === "gifted") {
+      const now = new Date();
+
+      // 1. Verificar si ya expiró el período de 30 días
+      if (profile.premium_until && new Date(profile.premium_until) < now) {
+        console.log(`[getProfile] El premium de regalo de ${profile.username} ha expirado.`);
+        const { error: updateErr } = await supabase
+          .from("profiles")
+          .update({
+            is_premium: false,
+            premium_until: null,
+            telegram_grace_started: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", user.id);
+
+        if (!updateErr) {
+          profile.is_premium = false;
+          profile.premium_until = null;
+          profile.telegram_grace_started = null;
+        }
+      }
+      // 2. Si sigue siendo premium, chequear membresía de Telegram si pasaron más de 24 horas desde la última revisión
+      else if (profile.telegram_id) {
+        const lastChecked = profile.telegram_last_checked ? new Date(profile.telegram_last_checked) : null;
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        if (!lastChecked || lastChecked < oneDayAgo) {
+          const token = process.env.TELEGRAM_BOT_TOKEN;
+          const channelId = process.env.TELEGRAM_CHANNEL_ID || "-1003763338725";
+          
+          let isMember = false;
+          if (token) {
+            try {
+              const res = await fetch(`https://api.telegram.org/bot${token}/getChatMember?chat_id=${channelId}&user_id=${profile.telegram_id}`);
+              const data = await res.json();
+              if (res.ok && data.ok) {
+                const status = data.result?.status;
+                isMember = ["member", "administrator", "creator", "restricted"].includes(status);
+              }
+            } catch (err) {
+              console.warn("[getProfile] Error consultando membresía en Telegram, asumiendo miembro temporalmente:", err);
+              isMember = true;
+            }
+          } else {
+            isMember = true;
+          }
+
+          if (isMember) {
+            // Sigue en el grupo, actualizar fecha de chequeo y limpiar gracia (si estaba en gracia)
+            const { error: updateErr } = await supabase
+              .from("profiles")
+              .update({
+                telegram_last_checked: new Date().toISOString(),
+                telegram_grace_started: null,
+                updated_at: new Date().toISOString()
+              })
+              .eq("id", user.id);
+
+            if (!updateErr) {
+              profile.telegram_last_checked = new Date().toISOString();
+              profile.telegram_grace_started = null;
+            }
+          } else {
+            // Ya no está en el grupo
+            if (!profile.telegram_grace_started) {
+              // Iniciar período de gracia de 24 horas
+              const graceStart = new Date().toISOString();
+              const { error: updateErr } = await supabase
+                .from("profiles")
+                .update({
+                  telegram_last_checked: new Date().toISOString(),
+                  telegram_grace_started: graceStart,
+                  updated_at: new Date().toISOString()
+                })
+                .eq("id", user.id);
+
+              if (!updateErr) {
+                profile.telegram_last_checked = new Date().toISOString();
+                profile.telegram_grace_started = graceStart;
+              }
+            } else {
+              // Ya estaba en gracia, ver si ya pasaron las 24 horas
+              const graceStart = new Date(profile.telegram_grace_started);
+              const graceExpiration = new Date(graceStart.getTime() + 24 * 60 * 60 * 1000);
+
+              if (now > graceExpiration) {
+                // Período de gracia expiró! Revocar premium.
+                console.log(`[getProfile] Período de gracia de 24h expiró para ${profile.username}. Revocando premium.`);
+                const { error: updateErr } = await supabase
+                  .from("profiles")
+                  .update({
+                    is_premium: false,
+                    premium_until: null,
+                    telegram_grace_started: null,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq("id", user.id);
+
+                if (!updateErr) {
+                  profile.is_premium = false;
+                  profile.premium_until = null;
+                  profile.telegram_grace_started = null;
+                }
+              }
+            }
+          }
+        }
       }
     }
 
@@ -271,7 +383,7 @@ export async function deleteAccountAction() {
 }
 
 // ─── Generación de código diario de Telegram ──────────────────────────────
-export async function getDailyTelegramCode(username: string, offsetDays = 0) {
+export async function getDailyTelegramCode(username: string, offsetDays = 0, telegramId?: number) {
   const date = new Date();
   if (offsetDays !== 0) {
     date.setDate(date.getDate() + offsetDays);
@@ -279,7 +391,13 @@ export async function getDailyTelegramCode(username: string, offsetDays = 0) {
   const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
   const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
   const normalizedUsername = username.trim().toLowerCase();
-  const hash = crypto.createHash("md5").update(normalizedUsername + dateString + salt).digest("hex");
+  
+  const tid = telegramId !== undefined ? telegramId : 0;
+  const hash = crypto.createHash("md5").update(normalizedUsername + tid + dateString + salt).digest("hex");
+  
+  if (telegramId !== undefined) {
+    return `MST-${tid}-${hash.substring(0, 5).toUpperCase()}`;
+  }
   return `MST-${hash.substring(0, 5).toUpperCase()}`;
 }
 
@@ -294,7 +412,9 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
     return { error: "No autorizado." };
   }
 
-  // Validación de código diario de Telegram para el Pase de Regalo
+  let verifiedTelegramId: number | null = null;
+
+  // Validación de código de Telegram para el Pase de Regalo (1 mes)
   if (type === "gifted") {
     const userId = user.id;
 
@@ -322,9 +442,24 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
 
     const username = profile.username;
     const cleanCode = code.trim().toUpperCase();
-    const codeToday = await getDailyTelegramCode(username, 0);
-    const codeYesterday = await getDailyTelegramCode(username, -1);
-    const codeTomorrow = await getDailyTelegramCode(username, 1);
+
+    // Parsear código MST-{telegramId}-{hash}
+    const parts = cleanCode.split("-");
+    if (parts.length !== 3 || parts[0] !== "MST") {
+      return { error: "Código inválido o formato incorrecto." };
+    }
+
+    const telegramIdStr = parts[1];
+    const receivedHash = parts[2];
+    const telegramId = parseInt(telegramIdStr, 10);
+
+    if (isNaN(telegramId)) {
+      return { error: "Código inválido. ID de Telegram incorrecto." };
+    }
+
+    const codeToday = await getDailyTelegramCode(username, 0, telegramId);
+    const codeYesterday = await getDailyTelegramCode(username, -1, telegramId);
+    const codeTomorrow = await getDailyTelegramCode(username, 1, telegramId);
 
     if (cleanCode !== codeToday && cleanCode !== codeYesterday && cleanCode !== codeTomorrow) {
       // Incrementar contador de intentos fallidos
@@ -345,15 +480,27 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
       }
     }
 
-    // Código correcto: limpiar intentos fallidos del usuario
+    // Código correcto
+    verifiedTelegramId = telegramId;
     failedAttemptsMap.delete(userId);
   }
+
+  const premiumUntilDate = type === "gifted" 
+    ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 días
+    : null;
 
   const updateData: any = {
     id: user.id,
     is_premium: true,
     updated_at: new Date().toISOString(),
+    premium_until: premiumUntilDate,
+    telegram_last_checked: type === "gifted" ? new Date().toISOString() : null,
+    telegram_grace_started: null,
   };
+
+  if (verifiedTelegramId !== null) {
+    updateData.telegram_id = verifiedTelegramId;
+  }
 
   // Guardar premium_since en los metadatos de auth del usuario para persistir la fecha original si no existe ya
   const existingPremiumSince = user.user_metadata?.premium_since;
