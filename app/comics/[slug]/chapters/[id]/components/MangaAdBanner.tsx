@@ -98,12 +98,26 @@ export default function MangaAdBanner({ index, onUpgrade, lang }: MangaAdBannerP
   
   // Rotar anuncios según el índice de página para que no se repita siempre el mismo
   const adIndex = (Math.floor(index / 5) - 1) % t.ads.length;
-  const ad = t.ads[adIndex >= 0 ? adIndex : 0];
+  const resolvedAdIndex = adIndex >= 0 ? adIndex : 0;
+  const ad = t.ads[resolvedAdIndex];
+
+  const handleClick = () => {
+    // Si es el anuncio de MangaStoon Pro (Premium), abrimos el modal de upgrade
+    if (resolvedAdIndex === 2) {
+      onUpgrade();
+    } else {
+      // Si son los otros anuncios de Monetag, abrimos el Direct Link de Monetag en pestaña nueva
+      if (typeof window !== "undefined") {
+        window.open("https://go.transferzenad.com/link?zoneId=11014955", "_blank", "noopener,noreferrer");
+      }
+    }
+  };
 
   return (
     <div className="w-full my-6 px-4 flex flex-col items-center">
       <div 
-        className="w-full max-w-2xl rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-amber-500/20"
+        onClick={handleClick}
+        className="w-full max-w-2xl rounded-2xl p-5 border relative overflow-hidden transition-all duration-300 hover:border-amber-500/30 cursor-pointer group hover:scale-[1.01]"
         style={{
           background: "linear-gradient(135deg, rgba(20, 18, 16, 0.9) 0%, rgba(13, 12, 11, 0.95) 100%)",
           borderColor: "rgba(255, 255, 255, 0.04)",
@@ -126,7 +140,7 @@ export default function MangaAdBanner({ index, onUpgrade, lang }: MangaAdBannerP
             </div>
             
             {/* Título */}
-            <h4 className="text-sm font-heading font-extrabold text-white tracking-wide uppercase leading-tight">
+            <h4 className="text-sm font-heading font-extrabold text-white tracking-wide uppercase leading-tight group-hover:text-amber-400 transition-colors">
               {ad.title}
             </h4>
             
@@ -140,7 +154,10 @@ export default function MangaAdBanner({ index, onUpgrade, lang }: MangaAdBannerP
           <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-start w-full sm:w-auto gap-2.5 pt-3 sm:pt-0 border-t border-white/5 sm:border-0 shrink-0">
             <button
               type="button"
-              onClick={onUpgrade}
+              onClick={(e) => {
+                e.stopPropagation(); // Evitar abrir el direct link
+                onUpgrade();
+              }}
               className="text-[10px] font-heading font-bold text-amber-500 hover:text-amber-400 hover:underline transition-all flex items-center gap-1 py-1"
             >
               <Crown size={12} className="text-amber-500 fill-amber-500/20" />
@@ -149,7 +166,10 @@ export default function MangaAdBanner({ index, onUpgrade, lang }: MangaAdBannerP
 
             <button
               type="button"
-              onClick={onUpgrade} // Al hacer clic en el CTA del anuncio también los llevamos a premium/telegram para engancharlos
+              onClick={(e) => {
+                e.stopPropagation(); // Evitar doble ejecución
+                handleClick();
+              }}
               className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-400 text-black text-xs font-heading font-black transition-all hover:scale-[1.03] active:scale-95 flex items-center gap-1.5 shadow-md shadow-orange-500/10"
             >
               <Play size={10} className="fill-black stroke-black" />

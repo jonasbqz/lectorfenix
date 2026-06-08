@@ -13,9 +13,10 @@ export default function MangastoonProvider() {
 
   useEffect(() => {
     async function checkMonetizationState() {
-      // Don't load ads on premium, profile, reset-password, callback, etc.
-      const excludedPaths = ["/profile", "/premium", "/reset-password", "/auth"];
-      if (excludedPaths.some(p => pathname.startsWith(p))) {
+      // Solo cargar publicidad en las páginas de cómic (detalle/preview y lector de capítulos).
+      // Estas páginas tienen rutas que empiezan con "/comics/".
+      // Evitamos cargar publicidad en el Home (/), explorar, perfil, favoritos, etc.
+      if (!pathname.startsWith("/comics/")) {
         setShouldLoad(false);
         return;
       }
@@ -33,31 +34,18 @@ export default function MangastoonProvider() {
             .maybeSingle();
 
           if (profile?.is_premium) {
-            // Usuario Premium: no cargamos nada
+            // Usuario Premium: no cargamos nada de publicidad
             setShouldLoad(false);
             return;
           }
         }
 
-        // Si no está registrado o no es premium, verificamos cooldown
-        const lastAdTime = localStorage.getItem(LAST_SHOW_KEY);
-        const now = Date.now();
-
-        if (!lastAdTime || now - Number(lastAdTime) >= COOLDOWN_MS) {
-          localStorage.setItem(LAST_SHOW_KEY, String(now));
-          setShouldLoad(true);
-        } else {
-          setShouldLoad(false);
-        }
+        // Para incentivar la suscripción Premium, removemos el cooldown
+        // de 10 minutos para que los anuncios aparezcan en cada navegación.
+        setShouldLoad(true);
       } catch (error) {
-        console.warn("[MangastoonProvider] Cooldown check bypassed:", error);
-        // Fallback: intentar cargar anuncios aplicando el cooldown
-        const lastAdTime = localStorage.getItem(LAST_SHOW_KEY);
-        const now = Date.now();
-        if (!lastAdTime || now - Number(lastAdTime) >= COOLDOWN_MS) {
-          localStorage.setItem(LAST_SHOW_KEY, String(now));
-          setShouldLoad(true);
-        }
+        console.warn("[MangastoonProvider] Error checking monetization, falling back to show ads:", error);
+        setShouldLoad(true);
       }
     }
 

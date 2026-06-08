@@ -8,6 +8,7 @@ import { SITE_NAME, absoluteUrl, safeJsonLd } from "../../../../utils/seo";
 import { extractComicIdFromSlugId } from "../../../../utils/slugify";
 import { fetchMangaDetails, hasSensitiveAdultTag } from "../../../../utils/mangadex";
 import AdultContentBlocker from "../../../../components/AdultContentBlocker";
+import { createClient } from "../../../../../utils/supabase/server";
 
 type SupportedLanguage = "es" | "en" | "pt";
 
@@ -203,9 +204,28 @@ export default async function ReadPage({
 
   const realMangaId = canonicalSlug ? extractComicIdFromSlugId(canonicalSlug) : mangaId;
 
+  let isPremium = false;
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", user.id)
+        .maybeSingle();
+      isPremium = !!profile?.is_premium;
+    }
+  } catch (err) {
+    console.error("[ReadPage Server] error fetching profile:", err);
+  }
+
   return (
     <>
       <Script id="reader-chapter-jsonld" type="application/ld+json" dangerouslySetInnerHTML={safeJsonLd(jsonLd)} />
+      {!isPremium && (
+        <Script id="monetag-vignette" src="https://dd133.com/vignette.min.js" data-zone="10986315" strategy="afterInteractive" />
+      )}
       <ReaderClient
         initialData={data}
         initialMangaId={realMangaId}

@@ -1,5 +1,6 @@
 import { logger } from "../../utils/logger";
 import { cookies, headers } from "next/headers";
+import Script from "next/script";
 import type { Metadata } from "next";
 import { cache } from "react";
 import Link from "next/link";
@@ -1196,6 +1197,7 @@ export default async function MangaDetailsPage({
   let userId: string | null = null;
   let dbLikesCount = 0;
   let userHasLiked = false;
+  let isPremium = false;
 
   try {
     const supabase = await createClient();
@@ -1209,6 +1211,13 @@ export default async function MangaDetailsPage({
     dbLikesCount = count || 0;
 
     if (userId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_premium")
+        .eq("id", userId)
+        .maybeSingle();
+      isPremium = !!profile?.is_premium;
+
       const { data: likeRecord } = await supabase
         .from("likes")
         .select("*")
@@ -1218,7 +1227,7 @@ export default async function MangaDetailsPage({
       userHasLiked = !!likeRecord;
     }
   } catch (err) {
-    logger.error(`[MangaStoon] Error al cargar likes/usuario para ${manga.id}:`, err);
+    logger.error(`[MangaStoon] Error al cargar likes/usuario/premium para ${manga.id}:`, err);
   }
 
   let chapters = initialChapters;
@@ -1443,7 +1452,10 @@ export default async function MangaDetailsPage({
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Sistema de anuncios desactivado temporalmente. */}
+      {/* Anuncio Vignette de Monetag */}
+      {!isPremium && (
+        <Script id="monetag-vignette" src="https://dd133.com/vignette.min.js" data-zone="10986315" strategy="afterInteractive" />
+      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
