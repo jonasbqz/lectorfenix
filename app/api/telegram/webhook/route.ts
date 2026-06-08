@@ -29,7 +29,14 @@ async function checkGroupMembership(token: string, userId: number): Promise<bool
   }
 }
 
-async function sendTelegramMessage(token: string, chatId: number, text: string, replyToMessageId?: number, replyMarkup?: any): Promise<boolean> {
+async function sendTelegramMessage(
+  token: string, 
+  chatId: number, 
+  text: string, 
+  replyToMessageId?: number, 
+  replyMarkup?: any,
+  autoDeleteDelayMs?: number
+): Promise<boolean> {
   const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
   try {
     const res = await fetch(telegramUrl, {
@@ -47,6 +54,19 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
       }),
     });
     const data = await res.json();
+    
+    // Auto-limpieza en segundo plano si hay un delay especificado
+    const messageId = data.result?.message_id;
+    if (res.ok && data.ok && autoDeleteDelayMs && messageId) {
+      setTimeout(async () => {
+        try {
+          await fetch(`https://api.telegram.org/bot${token}/deleteMessage?chat_id=${chatId}&message_id=${messageId}`);
+        } catch (err) {
+          console.warn("[Telegram Webhook] Failed to delete temporary warning:", err);
+        }
+      }, autoDeleteDelayMs);
+    }
+
     return res.ok && data.ok;
   } catch (err) {
     console.error("[Telegram Webhook] Failed to send telegram message:", err);
@@ -59,6 +79,16 @@ export async function POST(req: Request) {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
       return NextResponse.json({ error: "TELEGRAM_BOT_TOKEN not configured" }, { status: 500 });
+    }
+
+    // Verificar token secreto para evitar suplantación (spoofing)
+    const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
+    const expectedSecret = require("crypto").createHash("sha256").update(salt).digest("hex");
+    const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
+
+    if (receivedSecret !== expectedSecret) {
+      console.warn("[Telegram Webhook] Request blocked: Invalid secret token.");
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const body = await req.json();
@@ -102,7 +132,7 @@ export async function POST(req: Request) {
           // Borrar el mensaje infractor
           await fetch(`https://api.telegram.org/bot${token}/deleteMessage?chat_id=${GROUP_CHAT_ID}&message_id=${message.message_id}`);
           
-          await sendTelegramMessage(token, chatId, `🔇 *@${message.from.username || message.from.first_name}* fue silenciado/a por *30 minutos* por mandar mensajes demasiado rápido (Anti-Flood).`);
+          await sendTelegramMessage(token, chatId, `🔇 *@${message.from.username || message.from.first_name}* fue silenciado/a por *30 minutos* por mandar mensajes demasiado rápido (Anti-Flood).`, undefined, undefined, 30000);
           return NextResponse.json({ ok: true });
         }
 
@@ -112,7 +142,7 @@ export async function POST(req: Request) {
           const isAllowed = mimeType.startsWith("image/") || mimeType === "application/pdf";
           if (!isAllowed) {
             await fetch(`https://api.telegram.org/bot${token}/deleteMessage?chat_id=${GROUP_CHAT_ID}&message_id=${message.message_id}`);
-            await sendTelegramMessage(token, chatId, `⚠️ *@${message.from.username || message.from.first_name}*, por seguridad de todos no se permite compartir archivos potencialmente peligrosos (.zip, .exe, etc.).`);
+            await sendTelegramMessage(token, chatId, `⚠️ *@${message.from.username || message.from.first_name}*, por seguridad de todos no se permite compartir archivos potencialmente peligrosos (.zip, .exe, etc.).`, undefined, undefined, 30000);
             return NextResponse.json({ ok: true });
           }
         }
@@ -174,7 +204,7 @@ export async function POST(req: Request) {
 
         const replyTo = message.reply_to_message;
         if (!replyTo) {
-          await sendTelegramMessage(token, chatId, "⚠️ Respondé al mensaje del usuario que querés moderar con este comando.", message.message_id);
+          await sendTelegramMessage(token, chatId, "⚠️ Respondé al mensaje del usuario que querés moderar con este comando.", message.message_id, undefined, 30000);
           return NextResponse.json({ ok: true });
         }
 
@@ -223,11 +253,11 @@ export async function POST(req: Request) {
 
         if (sentPrivate) {
           const publicNotice = `🔒 *@${message.from.username || message.from.first_name}*, por seguridad te mandé tu código diario por chat privado. ¡Revisá tus mensajes directos!`;
-          await sendTelegramMessage(token, chatId, publicNotice);
+          await sendTelegramMessage(token, chatId, publicNotice, undefined, undefined, 30000);
         } else {
           const publicError = `⚠️ *@${message.from.username || message.from.first_name}*, no te pude mandar el código por privado.\n\n` +
             `Hacé clic acá 👉 [Iniciar Chat Privado con el Bot](https://t.me/RaphaelPremiumBot?start=codigo) para activarlo y escribí el comando ahí.`;
-          await sendTelegramMessage(token, chatId, publicError);
+          await sendTelegramMessage(token, chatId, publicError, undefined, undefined, 60000);
         }
         return NextResponse.json({ ok: true });
       }

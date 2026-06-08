@@ -16,7 +16,10 @@ export async function GET(req: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || `${proto}://${host}`;
   const webhookUrl = `${siteUrl}/api/telegram/webhook`;
 
-  const telegramUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}`;
+  const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
+  const secretToken = require("crypto").createHash("sha256").update(salt).digest("hex");
+
+  const telegramUrl = `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(webhookUrl)}&secret_token=${secretToken}`;
 
   try {
     const res = await fetch(telegramUrl);
