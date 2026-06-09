@@ -292,6 +292,39 @@ export default function App() {
     setLoading(false);
   };
 
+  // Handle Magic Link (OTP) Login bypasses password Captchas in production
+  const handleMagicLink = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (loginLoading) return;
+    setLoginError(null);
+    setLoginSuccess(null);
+    setLoginLoading(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: window.location.origin,
+          captchaToken: captchaToken || undefined,
+        }
+      });
+
+      if (error) {
+        setLoginError(error.message);
+        if ((window as any).turnstile) {
+          try { (window as any).turnstile.reset(); } catch (e) {}
+        }
+        setCaptchaToken(null);
+      } else {
+        setLoginSuccess("¡Enlace enviado! Revisá tu bandeja de entrada de " + email + " para ingresar.");
+      }
+    } catch (err: any) {
+      setLoginError("Error de red al intentar enviar el enlace de acceso.");
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
   // Resolve Broken Chapter (delete from alerts)
   const handleResolveChapter = async (id: string) => {
     try {
