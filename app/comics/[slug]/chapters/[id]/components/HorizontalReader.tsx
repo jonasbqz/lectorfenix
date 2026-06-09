@@ -156,8 +156,8 @@ function HorizontalReaderImage({
           }}
           className={`select-none shadow-2xl rounded-xl mx-auto block transition-all duration-150 ${
             isTall
-              ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} h-auto`
-              : `max-h-[calc(100vh-200px)] w-auto max-w-full object-contain`
+              ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} max-h-[calc(100dvh-150px)] object-contain h-auto`
+              : `max-h-[calc(100dvh-150px)] w-auto max-w-full object-contain`
           } ${loaded ? "opacity-100" : "opacity-0"}`}
           loading="eager"
           decoding="sync"
