@@ -167,7 +167,7 @@ export default function ChapterList({
             }}
             aria-label={sortLabel}
             title={sortLabel}
-            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-500 transition-all duration-300 hover:border-amber-500/50 hover:text-white active:scale-95"
+            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-gray-800 text-gray-400 transition-all duration-300 hover:border-amber-500/50 hover:text-white active:scale-95"
           >
             <ArrowDown
               className={`h-5 w-5 transition-transform duration-500 ease-[cubic-bezier(0.87,_0,_0.13,_1)] ${

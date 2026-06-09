@@ -120,6 +120,7 @@ export default function LikeButton({
           type="button"
           onClick={handleLikeToggle}
           disabled={isPending}
+          aria-label={`${optimisticState.liked ? likedLabel : label} - ${displayedCount}`}
           className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold transition-all active:scale-95 cursor-pointer shrink-0 w-full
             ${
               optimisticState.liked
@@ -236,6 +237,7 @@ export default function LikeButton({
         type="button"
         onClick={handleLikeToggle}
         disabled={isPending}
+        aria-label={`${optimisticState.liked ? likedLabel : label} - ${displayedCount}`}
         className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-semibold w-full transition-all duration-300 active:scale-95
           ${
             optimisticState.liked

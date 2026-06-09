@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "../../utils/logger";
+import { createClient } from "../../../utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Search request failed" }, { status: response.status });
     }
     const data = await response.json();
+
+    // Registrar en segundo plano si la búsqueda no devolvió resultados
+    if (!data.results || data.results.length === 0) {
+      try {
+        const supabase = await createClient();
+        const { data: existing, error: findError } = await supabase
+          .from("failed_searches")
+          .select("id, count")
+          .eq("query", query)
+          .maybeSingle();
+
+        if (!findError) {
+          if (existing) {
+            await supabase
+              .from("failed_searches")
+              .update({
+                count: existing.count + 1,
+                last_searched: new Date().toISOString()
+              })
+              .eq("id", existing.id);
+          } else {
+            await supabase
+              .from("failed_searches")
+              .insert({
+                query: query,
+                count: 1,
+                last_searched: new Date().toISOString()
+              });
+          }
+        }
+      } catch (dbErr) {
+        logger.error("Failed to log empty search to database", dbErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (error) {
     logger.error("Error proxying search request", error);
     return NextResponse.json({ error: "An error occurred while proxying search." }, { status: 500 });
   }
 }
+

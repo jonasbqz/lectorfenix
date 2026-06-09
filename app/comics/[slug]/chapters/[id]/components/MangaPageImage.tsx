@@ -27,6 +27,8 @@ interface MangaPageImageProps {
   retryVersion?: number;
   onRetrySubsequent?: () => void;
   pageIndex: number;
+  mangaId?: string;
+  chapterId?: string;
 }
 
 export default function MangaPageImage({
@@ -36,6 +38,8 @@ export default function MangaPageImage({
   retryVersion = 0,
   onRetrySubsequent,
   pageIndex,
+  mangaId,
+  chapterId,
 }: MangaPageImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoad, setShouldLoad] = useState(priority);
@@ -44,6 +48,13 @@ export default function MangaPageImage({
   const [currentSrc, setCurrentSrc] = useState(pageUrl);
   const [retryCount, setRetryCount] = useState(0);
   const [zoomLevel, setZoomLevel] = useState<1 | 1.5 | 2>(1);
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (shouldLoad && currentSrc) {
+      startTimeRef.current = performance.now();
+    }
+  }, [shouldLoad, currentSrc]);
 
   useEffect(() => {
     setLoaded(false);
@@ -91,6 +102,29 @@ export default function MangaPageImage({
 
     return () => observer.disconnect();
   }, [shouldLoad]);
+
+  // Timeout de seguridad: si la imagen tarda más de 12 segundos en cargar, forzamos reintento
+  useEffect(() => {
+    if (!shouldLoad || loaded || failed) return;
+
+    const timeoutId = setTimeout(() => {
+      if (!loaded && !failed) {
+        console.warn(`[MangaPageImage] Timeout cargando imagen, reintentando: ${currentSrc}`);
+        if (retryCount < MAX_IMAGE_RETRIES) {
+          const nextRetry = retryCount + 1;
+          setRetryCount(nextRetry);
+          setLoaded(false);
+          setFailed(false);
+          setCurrentSrc(withImageRetryParam(pageUrl, nextRetry));
+        } else {
+          setLoaded(true);
+          setFailed(true);
+        }
+      }
+    }, 12000);
+
+    return () => clearTimeout(timeoutId);
+  }, [shouldLoad, loaded, failed, currentSrc, retryCount, pageUrl]);
 
   const cycleZoom = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -168,7 +202,7 @@ export default function MangaPageImage({
           onDoubleClick={handleDoubleClick}
           style={{ width: zoomLevel === 1 ? "100%" : `${zoomLevel * 100}%` }}
           className={`block h-auto transition-all duration-300 ease-out select-none ${
-            zoomLevel === 1 ? "w-full cursor-zoom-in" : "max-w-none cursor-zoom-out"
+            zoomLevel === 1 ? "w-full max-w-full cursor-zoom-in" : "max-w-none cursor-zoom-out"
           } ${loaded || priority ? "opacity-100" : "opacity-0"}`}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
@@ -179,7 +213,19 @@ export default function MangaPageImage({
               setLoaded(true);
             }
           }}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(
+                mangaId || "",
+                chapterId || "",
+                currentSrc,
+                loadTime,
+                true
+              );
+            }
+          }}
           onError={() => {
             if (retryCount < MAX_IMAGE_RETRIES) {
               const nextRetry = retryCount + 1;
@@ -192,6 +238,16 @@ export default function MangaPageImage({
 
             setLoaded(true);
             setFailed(true);
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(
+                mangaId || "",
+                chapterId || "",
+                currentSrc,
+                loadTime,
+                false
+              );
+            }
           }}
         />
       ) : null}

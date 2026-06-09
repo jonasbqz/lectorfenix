@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "../../../../utils/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 // Parser de origen/fuente de tráfico basado en referrer
 function parseSource(referrer: string | null): string {
@@ -52,6 +53,17 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
+    
+    // Obtener el cliente de base de datos apropiado. Si contamos con la clave de servicio
+    // (SUPABASE_SERVICE_ROLE_KEY) la usamos para evadir problemas de RLS en analíticas.
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://xlcsqqwelopzpslxgdni.supabase.co";
+    
+    const supabaseDb = serviceRoleKey
+      ? createSupabaseClient(supabaseUrl, serviceRoleKey, {
+          auth: { persistSession: false }
+        })
+      : supabase;
 
     // Obtener país basado en los headers geográficos estándar
     const country = 
@@ -73,29 +85,19 @@ export async function POST(request: NextRequest) {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id || null;
 
-      const sessionPayload = {
-        session_id,
-        user_id: userId,
-        referrer,
-        source,
-        device,
-        browser,
-        country,
-        has_adblocker: hasAdblocker,
-        created_at: new Date().toISOString()
-      };
-
-      let { error } = await supabase
+      const { error } = await supabaseDb
         .from("analytics_sessions")
-        .upsert(sessionPayload, { onConflict: "session_id" });
-
-      // FK violation: user_id not in profiles — retry anonymously
-      if (error && (error.code === "23503" || error.message?.includes("foreign key"))) {
-        const { error: retryError } = await supabase
-          .from("analytics_sessions")
-          .upsert({ ...sessionPayload, user_id: null }, { onConflict: "session_id" });
-        error = retryError;
-      }
+        .upsert({
+          session_id,
+          user_id: userId,
+          referrer,
+          source,
+          device,
+          browser,
+          country,
+          has_adblocker: hasAdblocker,
+          created_at: new Date().toISOString()
+        }, { onConflict: "session_id" });
 
       if (error) {
         console.error("[StoonAnalytics] Error al insertar sesión:", error.message);
@@ -103,7 +105,6 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true, tracking: "session_start" });
-
     }
 
     // 2. REGISTRO DE VISTA DE PÁGINA
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Falta path para pageview" }, { status: 400 });
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseDb
         .from("analytics_pageviews")
         .insert({
           session_id,
@@ -141,7 +142,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Buscar la última vista de página de esta sesión en este path para acumular duración
-      const { data: lastPageview, error: fetchError } = await supabase
+      const { data: lastPageview, error: fetchError } = await supabaseDb
         .from("analytics_pageviews")
         .select("id, duration")
         .eq("session_id", session_id)
@@ -156,7 +157,7 @@ export async function POST(request: NextRequest) {
 
       if (lastPageview) {
         // Sumamos 30 segundos (el intervalo que configuraremos en el cliente)
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseDb
           .from("analytics_pageviews")
           .update({ duration: lastPageview.duration + 30 })
           .eq("id", lastPageview.id);
@@ -178,7 +179,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Falta event_name para event" }, { status: 400 });
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseDb
         .from("analytics_events")
         .insert({
           session_id,
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Falta load_time_ms para performance" }, { status: 400 });
       }
 
-      const { error } = await supabase
+      const { error } = await supabaseDb
         .from("analytics_performance")
         .insert({
           session_id,

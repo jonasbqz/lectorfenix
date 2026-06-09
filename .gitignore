@@ -28,4 +28,5 @@ next-env.d.ts
 # Agent directories
 /brain
 /scratch
+/unlighthouse-report/
 

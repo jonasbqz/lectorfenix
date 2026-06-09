@@ -1446,7 +1446,7 @@ export function mapMangaVfChapters(details: MangaVfDetails): ChapterFeedItem[] {
 }
 
 function getChapterLanguageVariants(language: string): string[] {
-  if (language === "es") return ["es", "es-la"];
+  if (language === "es") return ["es", "es-la", "es-419"];
   if (language === "pt") return ["pt", "pt-br"];
   return [language];
 }

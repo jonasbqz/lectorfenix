@@ -210,6 +210,8 @@ export default function AddToListButton({ mangaId, mangaTitle, coverImage, langu
       <button
         type="button"
         onClick={handleButtonClick}
+        aria-label={t.addToList}
+        title={t.addToList}
         className="flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-gray-300
           hover:text-orange-500 hover:border-orange-500/20 hover:bg-orange-500/10 active:scale-95 transition-all duration-300 w-full"
       >
