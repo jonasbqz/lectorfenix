@@ -131,13 +131,14 @@ export async function GET(req: Request) {
       referer = "https://mangadex.org/";
     }
 
-    const userAgent = req.headers.get("user-agent") ?? "";
-    const isNextImageOptimizer = userAgent.includes("Next.js Image Optimizer") || userAgent.includes("Next.js");
-
     const isHotlinkingBlockedHost = hostname.endsWith("olympusbiblioteca.com") || hostname.endsWith("olympusxyz.com") || hostname.endsWith("yoveo.xyz");
 
-    if (isNextImageOptimizer) {
-      // 1. Intentar fetch directo al origen
+    if (isHotlinkingBlockedHost) {
+      // IMPORTANT: Next.js Image Optimizer calls this route internally but does NOT
+      // send a "Next.js Image Optimizer" User-Agent. Any 307 redirect from here causes
+      // a 400 error in /_next/image. We MUST always serve bytes directly for these hosts.
+
+      // 1. Direct server-side fetch with proper Referer
       try {
         const response = await fetch(imageUrl, {
           headers: {
@@ -150,87 +151,70 @@ export async function GET(req: Request) {
         if (response.ok) {
           const contentType = response.headers.get("Content-Type") || "image/webp";
           const buffer = await response.arrayBuffer();
-
           return new Response(buffer, {
             status: 200,
             headers: {
               "Content-Type": contentType,
               "Cache-Control": "public, max-age=31536000, immutable",
-              "X-Proxy-Method": "direct-server-fetch-optimizer",
+              "X-Proxy-Method": "direct-server-fetch",
             },
           });
         }
       } catch (error) {
-        console.error("[ProxyImage] Direct fetch failed for optimizer:", error);
+        console.error("[ProxyImage] Direct fetch failed:", error);
       }
 
-      // 2. Si es host bloqueado por hotlinking, intentar fetch a través de nuestro Cloudflare Worker
-      if (isHotlinkingBlockedHost) {
-        try {
-          const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-          const response = await fetch(workerUrl, {
-            next: { revalidate: 31536000 },
-          });
-
-          if (response.ok) {
-            const contentType = response.headers.get("Content-Type") || "image/webp";
-            const buffer = await response.arrayBuffer();
-
-            return new Response(buffer, {
-              status: 200,
-              headers: {
-                "Content-Type": contentType,
-                "Cache-Control": "public, max-age=31536000, immutable",
-                "X-Proxy-Method": "worker-server-fetch-optimizer",
-              },
-            });
-          }
-        } catch (error) {
-          console.error("[ProxyImage] Worker fetch failed for optimizer:", error);
-        }
-      }
-
-      // 3. Fallback a Weserv para procesar y cachear
+      // 2. Fetch via Cloudflare Worker (server-side, never redirect)
       try {
-        const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&default=${encodeURIComponent(imageUrl)}&output=webp&q=75`;
-        const response = await fetch(weservUrl, {
+        const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
+        const workerRes = await fetch(workerUrl, {
           next: { revalidate: 31536000 },
         });
 
-        if (response.ok) {
-          const contentType = response.headers.get("Content-Type") || "image/webp";
-          const buffer = await response.arrayBuffer();
-
+        if (workerRes.ok) {
+          const contentType = workerRes.headers.get("Content-Type") || "image/webp";
+          const buffer = await workerRes.arrayBuffer();
           return new Response(buffer, {
             status: 200,
             headers: {
               "Content-Type": contentType,
               "Cache-Control": "public, max-age=31536000, immutable",
-              "X-Proxy-Method": "weserv-server-fetch-optimizer",
+              "X-Proxy-Method": "worker-server-fetch",
             },
           });
         }
       } catch (error) {
-        console.error("[ProxyImage] Weserv fetch failed for optimizer:", error);
+        console.error("[ProxyImage] Worker server-side fetch failed:", error);
       }
 
-      // 4. Si todo falla, devolver el fallback SVG con status 200
-      return fallbackImage("OPTIMIZER_FETCH_FAILED");
+      // 3. Fallback via weserv (server-side fetch, never redirect)
+      try {
+        const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&output=webp&q=75`;
+        const weservRes = await fetch(weservUrl, {
+          next: { revalidate: 31536000 },
+        });
+
+        if (weservRes.ok) {
+          const contentType = weservRes.headers.get("Content-Type") || "image/webp";
+          const buffer = await weservRes.arrayBuffer();
+          return new Response(buffer, {
+            status: 200,
+            headers: {
+              "Content-Type": contentType,
+              "Cache-Control": "public, max-age=31536000, immutable",
+              "X-Proxy-Method": "weserv-server-fetch",
+            },
+          });
+        }
+      } catch (error) {
+        console.error("[ProxyImage] Weserv server-side fetch failed:", error);
+      }
+
+      // All fetches failed — return SVG fallback (200, never redirect)
+      return fallbackImage("ALL_FETCHES_FAILED");
     }
 
-    if (isHotlinkingBlockedHost) {
-      const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-      return new Response(null, {
-        status: 307,
-        headers: {
-          "Location": workerUrl,
-          "Cache-Control": "public, max-age=31536000, immutable",
-          "X-Proxy-Method": "worker-redirect",
-        },
-      });
-    }
-
-    // Para todos los demás hosts, redireccionar a images.weserv.nl para cache global y conversión a WebP automática con compresión (calidad 75)
+    // For non-hotlinking-blocked hosts, redirect to weserv.nl (browser follows it fine)
     const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&default=${encodeURIComponent(imageUrl)}&output=webp&q=75`;
     return new Response(null, {
       status: 307,
