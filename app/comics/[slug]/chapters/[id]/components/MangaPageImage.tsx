@@ -168,7 +168,7 @@ export default function MangaPageImage({
           onDoubleClick={handleDoubleClick}
           style={{ width: zoomLevel === 1 ? "100%" : `${zoomLevel * 100}%` }}
           className={`block h-auto transition-all duration-300 ease-out select-none ${
-            zoomLevel === 1 ? "w-full cursor-zoom-in" : "max-w-none cursor-zoom-out"
+            zoomLevel === 1 ? "w-full max-w-full cursor-zoom-in" : "max-w-none cursor-zoom-out"
           } ${loaded || priority ? "opacity-100" : "opacity-0"}`}
           loading={priority ? "eager" : "lazy"}
           decoding="async"
