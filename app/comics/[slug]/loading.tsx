@@ -2,7 +2,7 @@ import MangaLoader from "../../components/MangaLoader";
 
 export default function MangaDetailsLoading() {
   return (
-    <main className="relative min-h-screen bg-transparent px-4 py-8 text-white">
+    <main className="relative min-h-screen bg-[#0a0a0a] px-4 py-8 text-white">
       {/* Blurred details skeleton */}
       <div className="pointer-events-none mx-auto max-w-7xl opacity-25 blur-xs">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
