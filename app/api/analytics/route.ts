@@ -1,0 +1,228 @@
+import { NextResponse } from "next/server";
+import { createClient } from "../../../utils/supabase/server";
+
+export async function GET() {
+  try {
+    // 1. Validar que el usuario que consulta sea Administrador
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile || !profile.is_admin) {
+      return NextResponse.json({ error: "Acceso denegado. Se requiere cuenta de administrador." }, { status: 403 });
+    }
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 2. Ejecutar consultas en paralelo para máxima optimización
+    const [
+      sessionsCountRes,
+      uniqueUsersCountRes,
+      pageviewsRes,
+      performanceRes
+    ] = await Promise.all([
+      // Total de Sesiones (últimos 30 días)
+      supabase
+        .from("analytics_sessions")
+        .select("session_id, country, device, source, created_at")
+        .gte("created_at", thirtyDaysAgo),
+      
+      // Lectores Activos (únicos por user_id o session_id)
+      supabase
+        .from("analytics_sessions")
+        .select("session_id, user_id")
+        .gte("created_at", thirtyDaysAgo),
+
+      // Páginas y duración (últimos 30 días)
+      supabase
+        .from("analytics_pageviews")
+        .select("session_id, path, duration, created_at")
+        .gte("created_at", thirtyDaysAgo),
+
+      // Performance de carga
+      supabase
+        .from("analytics_performance")
+        .select("load_time_ms, success, created_at")
+        .gte("created_at", thirtyDaysAgo)
+    ]);
+
+    const sessionsData = sessionsCountRes.data || [];
+    const uniqueUsersData = uniqueUsersCountRes.data || [];
+    const pageviewsData = pageviewsRes.data || [];
+    const performanceData = performanceRes.data || [];
+
+    // --- PROCESAR MÉTRICAS GENERALES (KPIs) ---
+    const totalSessions = sessionsData.length;
+    const totalPageViews = pageviewsData.length;
+    
+    // Contar usuarios únicos (si user_id es nulo, sumamos por session_id)
+    const uniqueUserIds = new Set<string>();
+    const anonSessionIds = new Set<string>();
+    uniqueUsersData.forEach(row => {
+      if (row.user_id) {
+        uniqueUserIds.add(row.user_id);
+      } else {
+        anonSessionIds.add(row.session_id);
+      }
+    });
+    const totalActiveUsers = uniqueUserIds.size + anonSessionIds.size;
+
+    // Calcular duración promedio de lectura (tiempo acumulado en vistas de página)
+    const pageviewsWithDuration = pageviewsData.filter(p => p.duration > 0);
+    const totalDuration = pageviewsWithDuration.reduce((acc, p) => acc + p.duration, 0);
+    const avgDurationSecs = pageviewsWithDuration.length > 0 ? Math.round(totalDuration / pageviewsWithDuration.length) : 0;
+    
+    const mins = Math.floor(avgDurationSecs / 60);
+    const secs = avgDurationSecs % 60;
+    const averageSessionDuration = `${mins}m ${secs}s`;
+
+    // --- PROCESAR GRÁFICO DIARIO DE VISITAS ---
+    // Agrupar vistas de página por fecha DD/MM
+    const dailyViewsMap: { [date: string]: number } = {};
+    const now = new Date();
+    
+    // Inicializar los últimos 30 días con 0 para que no falten fechas en el gráfico
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      dailyViewsMap[`${day}/${month}`] = 0;
+    }
+
+    pageviewsData.forEach(p => {
+      const pDate = new Date(p.created_at);
+      const day = String(pDate.getDate()).padStart(2, "0");
+      const month = String(pDate.getMonth() + 1).padStart(2, "0");
+      const key = `${day}/${month}`;
+      if (dailyViewsMap[key] !== undefined) {
+        dailyViewsMap[key]++;
+      }
+    });
+
+    const dailyViews = Object.keys(dailyViewsMap).map(date => ({
+      date,
+      views: dailyViewsMap[date]
+    }));
+
+    // --- PROCESAR PAÍSES ---
+    const countryMap: { [country: string]: number } = {};
+    sessionsData.forEach(s => {
+      const country = s.country || "Desconocido";
+      countryMap[country] = (countryMap[country] || 0) + 1;
+    });
+    const countries = Object.keys(countryMap)
+      .map(country => ({
+        country,
+        users: countryMap[country],
+        percentage: totalSessions > 0 ? parseFloat(((countryMap[country] / totalSessions) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.users - a.users)
+      .slice(0, 6);
+
+    // --- PROCESAR DISPOSITIVOS ---
+    const deviceMap: { [device: string]: number } = {};
+    sessionsData.forEach(s => {
+      const device = s.device || "Desktop";
+      deviceMap[device] = (deviceMap[device] || 0) + 1;
+    });
+    const devices = Object.keys(deviceMap)
+      .map(device => ({
+        device,
+        users: deviceMap[device],
+        percentage: totalSessions > 0 ? parseFloat(((deviceMap[device] / totalSessions) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.users - a.users);
+
+    // --- PROCESAR FUENTES DE TRÁFICO ---
+    const sourceMap: { [source: string]: number } = {};
+    sessionsData.forEach(s => {
+      const source = s.source || "Direct";
+      sourceMap[source] = (sourceMap[source] || 0) + 1;
+    });
+    const trafficSources = Object.keys(sourceMap)
+      .map(source => ({
+        source,
+        users: sourceMap[source],
+        percentage: totalSessions > 0 ? parseFloat(((sourceMap[source] / totalSessions) * 100).toFixed(1)) : 0
+      }))
+      .sort((a, b) => b.users - a.users)
+      .slice(0, 6);
+
+    // --- PROCESAR PÁGINAS MÁS LEÍDAS (Manga / Comics) ---
+    const pagesMap: { [path: string]: { views: number; title: string } } = {};
+    pageviewsData.forEach(p => {
+      const path = p.path;
+      // Filtrar rutas de manga
+      if (path.startsWith("/comics/") || path.startsWith("/manga/")) {
+        const parts = path.split("/");
+        // Queremos el manga_id, que suele ser la tercera parte (ej: /comics/solo-leveling -> solo-leveling)
+        const mangaId = parts[2];
+        if (mangaId) {
+          const key = `/comics/${mangaId}`;
+          // Generamos un título legible basado en el ID
+          const title = mangaId
+            .split("-")
+            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+          
+          if (!pagesMap[key]) {
+            pagesMap[key] = { views: 0, title };
+          }
+          pagesMap[key].views++;
+        }
+      }
+    });
+    const topPages = Object.keys(pagesMap)
+      .map(path => ({
+        path,
+        title: pagesMap[path].title,
+        views: pagesMap[path].views
+      }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 8);
+
+    // --- PROCESAR PERFORMANCE DE CARGA ---
+    const loadTimes = performanceData.map(p => p.load_time_ms);
+    const avgLoadTime = loadTimes.length > 0 ? Math.round(loadTimes.reduce((acc, t) => acc + t, 0) / loadTimes.length) : 0;
+    const loadSuccesses = performanceData.filter(p => p.success).length;
+    const successRate = performanceData.length > 0 ? parseFloat(((loadSuccesses / performanceData.length) * 100).toFixed(1)) : 100;
+
+    return NextResponse.json({
+      isDemo: false,
+      summary: {
+        activeUsers: totalActiveUsers,
+        screenPageViews: totalPageViews,
+        averageSessionDuration,
+        sessions: totalSessions,
+      },
+      charts: {
+        dailyViews,
+      },
+      countries,
+      devices,
+      trafficSources,
+      topPages,
+      performance: {
+        avgLoadTimeMs: avgLoadTime,
+        successRatePercentage: successRate,
+        totalMeasurements: performanceData.length
+      }
+    });
+  } catch (error: any) {
+    console.error("Error global en endpoint /api/analytics:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+  }
+}
