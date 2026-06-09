@@ -106,18 +106,42 @@ export default function MangastoonProvider() {
 
     let active = true;
 
+    function runFallback() {
+      if (!active) return;
+      console.log("[MangastoonProvider] Loading ads via fallback client-side proxy...");
+
+      const inlineScript = document.createElement("script");
+      inlineScript.innerHTML = `
+        (function(s,u,z,p){s.src=u,s.setAttribute('data-zone',z),p.appendChild(s);})(document.createElement('script'),'/api/v1/stats/tracker',11014956,document.body||document.documentElement)
+      `;
+      inlineScript.id = "mangastoon-ad-inline-fallback";
+
+      document.head.appendChild(inlineScript);
+    }
+
     async function loadDynamicAds() {
       try {
         const res = await fetch("/api/ads/tag");
-        if (!res.ok) return;
+        if (!res.ok) {
+          runFallback();
+          return;
+        }
         const data = await res.json();
-        if (!active || !data.tag) return;
+        if (!active || !data.tag) {
+          runFallback();
+          return;
+        }
 
         // Parse HTML and extract script tags
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = data.tag;
 
         const originalScripts = Array.from(tempDiv.querySelectorAll("script"));
+        if (originalScripts.length === 0) {
+          runFallback();
+          return;
+        }
+
         originalScripts.forEach((oldScript) => {
           const newScript = document.createElement("script");
           
@@ -134,7 +158,8 @@ export default function MangastoonProvider() {
           document.head.appendChild(newScript);
         });
       } catch (err) {
-        console.warn("[MangastoonProvider] Error loading dynamic ads:", err);
+        console.warn("[MangastoonProvider] Error loading dynamic ads, running fallback:", err);
+        runFallback();
       }
     }
 
