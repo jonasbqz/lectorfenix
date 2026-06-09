@@ -96,11 +96,24 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     imageUrl = searchParams.get("url") ?? "";
+    const retry = searchParams.get("retry");
 
     if (!imageUrl) return fallbackImage("NO_URL");
 
     if (!isAllowedUrl(imageUrl)) {
       return fallbackImage("URL_BLOCKED");
+    }
+
+    // Propagar parámetro de reintento para evadir cachés intermedias
+    if (retry) {
+      try {
+        const parsedTarget = new URL(imageUrl);
+        parsedTarget.searchParams.set("retry", retry);
+        imageUrl = parsedTarget.toString();
+      } catch {
+        const separator = imageUrl.includes("?") ? "&" : "?";
+        imageUrl = `${imageUrl}${separator}retry=${encodeURIComponent(retry)}`;
+      }
     }
 
     const parsedUrl = new URL(imageUrl);

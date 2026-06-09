@@ -92,6 +92,29 @@ export default function MangaPageImage({
     return () => observer.disconnect();
   }, [shouldLoad]);
 
+  // Timeout de seguridad: si la imagen tarda más de 12 segundos en cargar, forzamos reintento
+  useEffect(() => {
+    if (!shouldLoad || loaded || failed) return;
+
+    const timeoutId = setTimeout(() => {
+      if (!loaded && !failed) {
+        console.warn(`[MangaPageImage] Timeout cargando imagen, reintentando: ${currentSrc}`);
+        if (retryCount < MAX_IMAGE_RETRIES) {
+          const nextRetry = retryCount + 1;
+          setRetryCount(nextRetry);
+          setLoaded(false);
+          setFailed(false);
+          setCurrentSrc(withImageRetryParam(pageUrl, nextRetry));
+        } else {
+          setLoaded(true);
+          setFailed(true);
+        }
+      }
+    }, 12000);
+
+    return () => clearTimeout(timeoutId);
+  }, [shouldLoad, loaded, failed, currentSrc, retryCount, pageUrl]);
+
   const cycleZoom = (e: React.MouseEvent) => {
     e.stopPropagation();
     setZoomLevel((prev) => {

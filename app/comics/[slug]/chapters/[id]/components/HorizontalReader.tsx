@@ -89,6 +89,29 @@ function HorizontalReaderImage({
     return () => clearTimeout(timer);
   }, [currentSrc, loaded, failed]);
 
+  // Timeout de seguridad: si la imagen tarda más de 12 segundos en cargar, forzamos reintento
+  useEffect(() => {
+    if (loaded || failed) return;
+
+    const timeoutId = setTimeout(() => {
+      if (!loaded && !failed) {
+        console.warn(`[HorizontalReaderImage] Timeout cargando imagen, reintentando: ${currentSrc}`);
+        if (retryCount < MAX_IMAGE_RETRIES) {
+          const nextRetry = retryCount + 1;
+          setRetryCount(nextRetry);
+          setLoaded(false);
+          setFailed(false);
+          setCurrentSrc(withImageRetryParam(pageUrl, nextRetry));
+        } else {
+          setLoaded(true);
+          setFailed(true);
+        }
+      }
+    }, 12000);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentSrc, loaded, failed, retryCount, pageUrl]);
+
   return (
     <div className="relative w-full h-full min-h-[50vh] sm:min-h-[70vh] flex justify-center items-center">
       {/* Premium Skeleton Placeholder */}
