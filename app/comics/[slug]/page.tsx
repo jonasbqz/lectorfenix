@@ -1126,8 +1126,24 @@ export default async function MangaDetailsPage({
   const cookieLang = normalizeLanguage(rawCookieLang);
   const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
 
-  // 1. Obtener detalles primero para poder calcular los slugs de cada idioma
-  const manga = await cachedFetchMangaDetails(id, cookieLang);
+  // 1. Lanzar fetches iniciales en paralelo
+  const mangaPromise = cachedFetchMangaDetails(id, cookieLang);
+  const ratingSummaryPromise = cachedFetchMangaRatingSummary(id);
+  const suggestedLocalPromise = cachedFetchSuggestedLocalMangas(id);
+  const supabasePromise = createClient().then(async (supabase) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return { supabase, user };
+    } catch (err) {
+      logger.error("[MangaStoon] Error al obtener usuario de Supabase:", err);
+      return { supabase, user: null };
+    }
+  }).catch((err) => {
+    logger.error("[MangaStoon] Error al inicializar cliente Supabase:", err);
+    return { supabase: null, user: null };
+  });
+
+  const manga = await mangaPromise;
 
   if (!manga) {
     notFound();
@@ -1187,48 +1203,116 @@ export default async function MangaDetailsPage({
 
   const copy = UI_COPY[currentLanguage];
 
-  // 3. Traer los capítulos correspondientes al idioma real resuelto
-  const [initialChapters, ratingSummary] = await Promise.all([
-    cachedFetchMangaChapters(id, currentLanguage),
-    cachedFetchMangaRatingSummary(id),
+  // 3. Lanzar fetches secundarios en paralelo
+  const chaptersPromise = cachedFetchMangaChapters(id, currentLanguage);
+
+  const tags = (manga.attributes?.tags ?? [])
+    .filter((tag) => tag.attributes?.group === "genre")
+    .map((tag) => ({
+      id: tag.id,
+      name: translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage),
+    }));
+
+  const similarMangasPromise = cachedFetchSimilarMangas(
+    manga.id,
+    tags.map((tag) => tag.id),
+    currentLanguage,
+    isAdult
+  );
+
+  const descriptionPromise = cachedGetOriginalContent(manga, currentLanguage, copy);
+
+  const supabaseDataPromise = supabasePromise.then(async (authResult) => {
+    const supabase = authResult?.supabase;
+    const user = authResult?.user;
+    const userId = user?.id ?? null;
+
+    let dbLikesCount = 0;
+    let userHasLiked = false;
+    let isPremium = false;
+
+    if (!supabase) {
+      return { userId, isPremium, dbLikesCount, userHasLiked };
+    }
+
+    try {
+      const countPromise = (async () => {
+        try {
+          const { count } = await supabase
+            .from("likes")
+            .select("*", { count: "exact", head: true })
+            .eq("manga_id", manga.id);
+          return count || 0;
+        } catch {
+          return 0;
+        }
+      })();
+
+      let profilePromise = Promise.resolve(false);
+      let likeRecordPromise = Promise.resolve(false);
+
+      if (userId) {
+        profilePromise = (async () => {
+          try {
+            const { data } = await supabase
+              .from("profiles")
+              .select("is_premium")
+              .eq("id", userId)
+              .maybeSingle();
+            return !!data?.is_premium;
+          } catch {
+            return false;
+          }
+        })();
+
+        likeRecordPromise = (async () => {
+          try {
+            const { data } = await supabase
+              .from("likes")
+              .select("*")
+              .eq("user_id", userId)
+              .eq("manga_id", manga.id)
+              .maybeSingle();
+            return !!data;
+          } catch {
+            return false;
+          }
+        })();
+      }
+
+      const [resCount, resPremium, resLiked] = await Promise.all([
+        countPromise,
+        profilePromise,
+        likeRecordPromise,
+      ]);
+
+      dbLikesCount = resCount;
+      isPremium = resPremium;
+      userHasLiked = resLiked;
+    } catch (err) {
+      logger.error(`[MangaStoon] Error al cargar likes/usuario/premium para ${manga.id}:`, err);
+    }
+
+    return { userId, isPremium, dbLikesCount, userHasLiked };
+  });
+
+  const [
+    initialChapters,
+    ratingSummary,
+    supabaseData,
+    description,
+    similarMangas,
+    fallbackSuggestedMangas
+  ] = await Promise.all([
+    chaptersPromise,
+    ratingSummaryPromise,
+    supabaseDataPromise,
+    descriptionPromise,
+    similarMangasPromise,
+    suggestedLocalPromise,
   ]);
 
-  // Obtener cliente Supabase Server y chequear valoración de likes
-  let userId: string | null = null;
-  let dbLikesCount = 0;
-  let userHasLiked = false;
-  let isPremium = false;
-
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    userId = user?.id ?? null;
-
-    const { count } = await supabase
-      .from("likes")
-      .select("*", { count: "exact", head: true })
-      .eq("manga_id", manga.id);
-    dbLikesCount = count || 0;
-
-    if (userId) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_premium")
-        .eq("id", userId)
-        .maybeSingle();
-      isPremium = !!profile?.is_premium;
-
-      const { data: likeRecord } = await supabase
-        .from("likes")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("manga_id", manga.id)
-        .maybeSingle();
-      userHasLiked = !!likeRecord;
-    }
-  } catch (err) {
-    logger.error(`[MangaStoon] Error al cargar likes/usuario/premium para ${manga.id}:`, err);
-  }
+  const { userId, isPremium, dbLikesCount, userHasLiked } = supabaseData;
 
   let chapters = initialChapters;
 
@@ -1256,13 +1340,6 @@ export default async function MangaDetailsPage({
     logger.warn(`[MangaStoon] Manga sin titulo utilizable: ${manga.id}`);
   }
 
-  const tags = (manga.attributes?.tags ?? [])
-    .filter((tag) => tag.attributes?.group === "genre")
-    .map((tag) => ({
-      id: tag.id,
-      name: translateTagName(getLocalizedTagName(tag, currentLanguage), currentLanguage),
-    }));
-
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
   const fallbackCoverPages = chapters.flatMap((chapter) => chapter.localPages ?? []);
   const fallbackCoverUrl = fallbackCoverPages[1] ?? fallbackCoverPages[0] ?? "";
@@ -1278,17 +1355,6 @@ export default async function MangaDetailsPage({
 
   const relationshipAuthor = manga.relationships?.find((rel) => rel.type === "author")?.attributes?.name || null;
   const realAuthorResolved = databaseAuthor || relationshipAuthor || null;
-
-  // Ejecutar las solicitudes asíncronas restantes en paralelo
-  const [
-    description,
-    similarMangas,
-    fallbackSuggestedMangas
-  ] = await Promise.all([
-    cachedGetOriginalContent(manga, currentLanguage, copy),
-    cachedFetchSimilarMangas(manga.id, tags.map((tag) => tag.id), currentLanguage, isAdult),
-    cachedFetchSuggestedLocalMangas(manga.id)
-  ]);
 
   const suggestedMangas = similarMangas.length > 0 ? similarMangas.slice(0, 12) : fallbackSuggestedMangas.slice(0, 12);
   const isExplicitContent =

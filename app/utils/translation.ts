@@ -102,6 +102,9 @@ export function sanitizeText(text: string): string {
   return cleaned;
 }
 
+const translationCache = new Map<string, string>();
+const paraphraseCache = new Map<string, string>();
+
 export function applyFallbackDictionary(text: string, targetLang: "es" | "pt" | "en") {
   return FALLBACK_TRANSLATIONS[targetLang].reduce(
     (value, [pattern, replacement]) => value.replace(pattern, replacement),
@@ -114,6 +117,11 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
 
   if (!cleanText || sourceLang === targetLang) return cleanText;
 
+  const cacheKey = `${sourceLang}->${targetLang}:${cleanText}`;
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey)!;
+  }
+
   const isEsOrPt = targetLang === "es" || targetLang === "pt";
   const dictionaryFallback = isEsOrPt ? applyFallbackDictionary(cleanText, targetLang) : cleanText;
 
@@ -123,15 +131,22 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
       { next: { revalidate: 86400 } }
     );
 
-    if (!response.ok) return dictionaryFallback;
+    if (!response.ok) {
+      translationCache.set(cacheKey, dictionaryFallback);
+      return dictionaryFallback;
+    }
 
     const payload = (await response.json()) as Array<Array<[string]>>;
     const translated = payload?.[0]?.map((part) => part?.[0] ?? "").join("").trim();
 
     const finalResult = translated || dictionaryFallback;
     const processedResult = isEsOrPt ? applyFallbackDictionary(finalResult, targetLang) : finalResult;
-    return sanitizeText(processedResult);
+    const sanitizedResult = sanitizeText(processedResult);
+    
+    translationCache.set(cacheKey, sanitizedResult);
+    return sanitizedResult;
   } catch {
+    translationCache.set(cacheKey, dictionaryFallback);
     return dictionaryFallback;
   }
 }
@@ -165,6 +180,11 @@ export async function paraphraseSynopsis(
     }
   }
 
+  const cacheKey = `${targetLang}:${sourceLang}:${seedId}:${cleaned}`;
+  if (paraphraseCache.has(cacheKey)) {
+    return paraphraseCache.get(cacheKey)!;
+  }
+
   let translated = cleaned;
 
   try {
@@ -180,6 +200,6 @@ export async function paraphraseSynopsis(
   }
 
   const finalBody = translated || cleaned;
-
+  paraphraseCache.set(cacheKey, finalBody);
   return finalBody;
 }
