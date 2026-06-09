@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "./supabase";
 import {
   Users,
@@ -56,7 +56,10 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginSuccess, setLoginSuccess] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
 
   // Dashboard Data States
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
@@ -96,6 +99,63 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  // 1b. Load Turnstile script dynamically
+  useEffect(() => {
+    if (session && currentUserProfile) return;
+    if (document.getElementById("turnstile-script")) return;
+
+    const script = document.createElement("script");
+    script.id = "turnstile-script";
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }, [session, currentUserProfile]);
+
+  // 1c. Render Turnstile Widget
+  useEffect(() => {
+    if (session && currentUserProfile) return;
+
+    let turnstileId: string | null = null;
+    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAADWKN1xJkjzWCcOP";
+
+    const interval = setInterval(() => {
+      if ((window as any).turnstile && turnstileContainerRef.current) {
+        clearInterval(interval);
+        try {
+          // Remove previous widget if existed
+          if (turnstileId !== null) {
+            try { (window as any).turnstile.remove(turnstileId); } catch (e) {}
+          }
+
+          turnstileId = (window as any).turnstile.render(turnstileContainerRef.current, {
+            sitekey: siteKey,
+            callback: (token: string) => {
+              setCaptchaToken(token);
+            },
+            "error-callback": () => {
+              setCaptchaToken(null);
+            },
+            "expired-callback": () => {
+              setCaptchaToken(null);
+            }
+          });
+        } catch (e) {
+          console.error("[Turnstile] Render error:", e);
+        }
+      }
+    }, 300);
+
+    return () => {
+      clearInterval(interval);
+      if ((window as any).turnstile && turnstileId !== null) {
+        try {
+          (window as any).turnstile.remove(turnstileId);
+        } catch (e) {}
+      }
+    };
+  }, [session, currentUserProfile]);
 
   // Check if logged-in user is actually an admin
   const checkAdminStatus = async (userId: string) => {
@@ -204,10 +264,17 @@ export default function App() {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: {
+          captchaToken: captchaToken || undefined,
+        }
       });
 
       if (error) {
         setLoginError(error.message);
+        if ((window as any).turnstile) {
+          try { (window as any).turnstile.reset(); } catch (e) {}
+        }
+        setCaptchaToken(null);
       }
     } catch (err: any) {
       setLoginError("Error de red o servidor al intentar iniciar sesión.");
@@ -336,6 +403,11 @@ export default function App() {
           <div className="login-subtitle">Panel de Control Administrativo</div>
 
           {loginError && <div className="login-error">{loginError}</div>}
+          {loginSuccess && (
+            <div className="badge badge-green" style={{ width: "100%", padding: "10px", borderRadius: "var(--radius-sm)", marginBottom: "16px", textTransform: "none" }}>
+              {loginSuccess}
+            </div>
+          )}
 
           <form className="login-form" onSubmit={handleLogin}>
             <div className="form-group">
@@ -350,19 +422,29 @@ export default function App() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Contraseña</label>
+              <label className="form-label">Contraseña (opcional para Magic Link)</label>
               <input
                 type="password"
-                required
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
-            <button type="submit" className="btn-primary" style={{ marginTop: "10px" }} disabled={loginLoading}>
-              {loginLoading ? "Accediendo..." : "Iniciar Sesión"}
-            </button>
+            {/* Cloudflare Turnstile Captcha container */}
+            <div className="form-group" style={{ display: "flex", justifyContent: "center", margin: "14px 0 6px 0", minHeight: "65px" }}>
+              <div ref={turnstileContainerRef} id="turnstile-container"></div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "10px" }}>
+              <button type="submit" className="btn-primary" disabled={loginLoading || !email || !captchaToken}>
+                {loginLoading ? "Procesando..." : "Iniciar con Contraseña"}
+              </button>
+
+              <button type="button" className="btn-secondary" onClick={handleMagicLink} disabled={loginLoading || !email || !captchaToken}>
+                {loginLoading ? "Enviando..." : "Enviar Acceso por Email (Magic Link)"}
+              </button>
+            </div>
           </form>
         </div>
       </div>
