@@ -19,7 +19,11 @@ import SiteHeader, { type SupportedLanguage } from "../../components/site-header
 import SeoSynopsis from "./synopsis";
 import ChapterList from "./chapter-list";
 import ComicCoverImage from "./cover-image";
-import MangaComments from "./manga-comments";
+import dynamic from "next/dynamic";
+
+const MangaComments = dynamic(() => import("./manga-comments"), {
+  loading: () => <div className="h-64 flex items-center justify-center text-gray-400">Cargando comentarios...</div>,
+});
 import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-localized-title";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
@@ -439,10 +443,6 @@ export async function generateMetadata({
         description: "Explora manga, manhwa y comics online en MangaStoon.",
         alternates: {
           canonical: fallbackCanonicalUrl,
-        },
-        robots: {
-          index: false,
-          follow: true,
         },
       };
     }

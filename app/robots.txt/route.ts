@@ -10,9 +10,19 @@ export async function GET() {
 
 User-agent: *
 Content-Signal: search=yes,ai-train=no
+Disallow: /search
+Disallow: /favoritos
+Disallow: /profile
+Disallow: /premium
+Disallow: /lists
 Allow: /
 
 User-agent: Googlebot
+Disallow: /search
+Disallow: /favoritos
+Disallow: /profile
+Disallow: /premium
+Disallow: /lists
 Allow: /
 
 User-agent: Bingbot

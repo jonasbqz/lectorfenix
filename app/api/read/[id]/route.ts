@@ -1,7 +1,7 @@
 import { logger } from "../../../utils/logger";
 import { getCached, getOrSetCached, setCached, stableCacheKey } from "../../../utils/server-cache";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../utils/supabase/server";
+import { createClient } from "../../../../utils/supabase/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../utils/mangadex-config";
 import { getLocalizedTitleAsync } from "../../../utils/get-localized-title";
 import { MONLINE_API_URL } from "../../../utils/monline-config";
@@ -174,7 +174,7 @@ function wait(ms: number) {
 }
 
 function getLanguageVariants(lang: SupportedLanguage) {
-  if (lang === "es") return ["es-la", "es"];
+  if (lang === "es") return ["es-la", "es", "es-419"];
   if (lang === "pt") return ["pt-br", "pt"];
   return ["en"];
 }
@@ -799,16 +799,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       let lcDetails: any = null;
       let paginatedChapters = mergedChapters;
 
-      // Try to fetch and merge external chapters for Spanish language
-      if (lang === "es" && !excludeChapters) {
+      // Try to fetch and merge external chapters (Spanish from LeerCapitulo/MangaDex, others from MangaDex)
+      if (!excludeChapters) {
         try {
           const resolution = await resolveBestSource(id);
           const [mdChapters, lcChapters] = await Promise.all([
             resolution.mangadexId ? fetchMangaDexChaptersOnly(resolution.mangadexId, lang) : Promise.resolve([]),
-            resolution.leercapituloSlug ? fetchLeerCapituloChaptersOnly(resolution.leercapituloSlug) : Promise.resolve([])
+            (lang === "es" && resolution.leercapituloSlug) ? fetchLeerCapituloChaptersOnly(resolution.leercapituloSlug) : Promise.resolve([])
           ]);
           
-          if (resolution.leercapituloSlug) {
+          if (lang === "es" && resolution.leercapituloSlug) {
             lcDetails = resolution.leercapituloDetails || await fetchMangaVfDetailsBySlug(resolution.leercapituloSlug);
           }
 
@@ -818,7 +818,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               .filter(Boolean)
           );
 
-          // Add unique chapters from LeerCapitulo / MangaDex
+          // Add unique chapters from external sources
           const externalChapters = [...lcChapters, ...mdChapters];
           const missingChapters = externalChapters.filter((ch) => {
             const num = ch.attributes?.chapter?.trim();
@@ -837,7 +837,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           paginatedChapters = mergedChapters;
         }
       } else {
-        paginatedChapters = excludeChapters ? [] : mergedChapters;
+        paginatedChapters = [];
       }
 
       const currentChapter =

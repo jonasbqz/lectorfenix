@@ -99,15 +99,15 @@ export async function generateMetadata({
   const chapterId = resolvedSearchParams.chapter ?? id;
 
   const data = await cachedFetchReaderData({ id: mangaId, chapter: chapterId, lang });
-  if (!data) {
-    return {
-      title: `Capítulo no encontrado | ${SITE_NAME}`,
-      description: "Explora y lee mangas online gratis en MangaStoon.",
-    };
-  }
 
-  const mangaTitle = data.mangaTitle || SITE_NAME;
-  const currentChapter = data.currentChapter ?? null;
+  const fallbackMangaTitle = slug
+    .replace(/-\d{8}-[a-zA-Z0-9]+$/, "")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c: string) => c.toUpperCase())
+    .trim() || SITE_NAME;
+
+  const mangaTitle = data?.mangaTitle || fallbackMangaTitle;
+  const currentChapter = data?.currentChapter ?? ({ attributes: { chapter: chapterId } } as any);
   const currentLabel = getChapterLabel(currentChapter, "Capítulo");
 
   let title = "";
@@ -137,13 +137,13 @@ export async function generateMetadata({
       description,
       url: canonical,
       type: "book",
-      images: data.coverImage ? [{ url: data.coverImage }] : undefined,
+      images: data?.coverImage ? [{ url: data.coverImage }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: data.coverImage ? [data.coverImage] : undefined,
+      images: data?.coverImage ? [data.coverImage] : undefined,
     },
   };
 }

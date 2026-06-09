@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDailyTelegramCode } from "../../../actions/profile";
+import { createClient } from "../../../../utils/supabase/server";
 
 const GROUP_CHAT_ID = "-1003763338725";
 const telegramRequestLimitMap = new Map<number, { count: number; date: string }>();
@@ -198,6 +199,101 @@ export async function POST(req: Request) {
       const arg = parts.slice(1).join(" ").trim();
 
       // Comandos de moderación para administradores
+      if (command === "/scraper_status" && senderId) {
+        const isAdmin = await isUserAdmin(token, senderId);
+        if (!isAdmin) {
+          await sendTelegramMessage(token, chatId, "⚠️ No tenés permisos de administrador para ejecutar este comando.", message.message_id, undefined, 10000);
+          return NextResponse.json({ ok: true });
+        }
+
+        try {
+          const supabase = await createClient();
+          const { data: queueItems, error: queueError } = await supabase
+            .from("scraper_queue")
+            .select("status");
+
+          if (queueError) {
+            await sendTelegramMessage(token, chatId, `❌ Error al consultar la cola del scraper: ${queueError.message}`, message.message_id);
+            return NextResponse.json({ ok: true });
+          }
+
+          const counts = { pending: 0, processing: 0, completed: 0, failed: 0 };
+          (queueItems || []).forEach((item: any) => {
+            const status = item.status;
+            if (status in counts) {
+              counts[status as keyof typeof counts]++;
+            }
+          });
+
+          const statusText = `📊 *Estado del Scraper* 📊\n\n` +
+            `⏳ Pendientes: *${counts.pending}*\n` +
+            `⚙️ Procesando: *${counts.processing}*\n` +
+            `✅ Completados: *${counts.completed}*\n` +
+            `❌ Fallidos: *${counts.failed}*`;
+
+          await sendTelegramMessage(token, chatId, statusText, message.message_id);
+        } catch (err: any) {
+          await sendTelegramMessage(token, chatId, `❌ Error del servidor: ${err.message}`, message.message_id);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      if (command === "/prioritize" && senderId) {
+        const isAdmin = await isUserAdmin(token, senderId);
+        if (!isAdmin) {
+          await sendTelegramMessage(token, chatId, "⚠️ No tenés permisos de administrador para ejecutar este comando.", message.message_id, undefined, 10000);
+          return NextResponse.json({ ok: true });
+        }
+
+        if (!arg) {
+          await sendTelegramMessage(token, chatId, "⚠️ Por favor, especificá la URL del manga a priorizar.\n\nEjemplo: `/prioritize https://leercapitulo.com/manga/solo-leveling`", message.message_id);
+          return NextResponse.json({ ok: true });
+        }
+
+        if (!arg.startsWith("http://") && !arg.startsWith("https://")) {
+          await sendTelegramMessage(token, chatId, "⚠️ La URL provista no es válida. Debe comenzar con http:// o https://", message.message_id);
+          return NextResponse.json({ ok: true });
+        }
+
+        try {
+          const supabase = await createClient();
+          
+          let mangaTitle = "Manga Encolado via Telegram";
+          try {
+            const url = new URL(arg);
+            const pathParts = url.pathname.split("/").filter(Boolean);
+            if (pathParts.length > 0) {
+              const lastPart = pathParts[pathParts.length - 1];
+              mangaTitle = lastPart
+                .replace(/[-_]/g, " ")
+                .replace(/\b\w/g, c => c.toUpperCase());
+            }
+          } catch {}
+
+          const { error: insertErr } = await supabase
+            .from("scraper_queue")
+            .upsert({
+              manga_title: mangaTitle,
+              source_url: arg,
+              status: "pending",
+              priority: 10,
+              updated_at: new Date().toISOString()
+            }, { onConflict: "source_url" });
+
+          if (insertErr) {
+            await sendTelegramMessage(token, chatId, `❌ Error al encolar en la base de datos: ${insertErr.message}`, message.message_id);
+          } else {
+            const escapedTitle = mangaTitle.replace(/_/g, "\\_").replace(/\*/g, "\\*");
+            const escapedUrl = arg.replace(/_/g, "\\_").replace(/\*/g, "\\*");
+            await sendTelegramMessage(token, chatId, `✅ ¡Manga priorizado con éxito!\n\n📖 Título: *${escapedTitle}*\n🔗 URL: ${escapedUrl}\n⚡ Prioridad asignada: *10*`, message.message_id);
+          }
+        } catch (err: any) {
+          await sendTelegramMessage(token, chatId, `❌ Error del servidor: ${err.message}`, message.message_id);
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Comandos de moderación para administradores (kick/mute)
       if ((command === "/kick" || command === "/mute") && chatId.toString() === GROUP_CHAT_ID && senderId) {
         const isAdmin = await isUserAdmin(token, senderId);
         if (!isAdmin) return NextResponse.json({ ok: true });

@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { getOptimizedImageUrl } from "../../utils/image";
 
 const MAX_RETRIES = 2;
 
@@ -22,11 +21,11 @@ export default function ComicCoverImage({
   fallbackSrc?: string;
   alt: string;
 }) {
-  const [currentSrc, setCurrentSrc] = useState(() => getOptimizedImageUrl(src));
+  const [currentSrc, setCurrentSrc] = useState(src);
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    setCurrentSrc(getOptimizedImageUrl(src));
+    setCurrentSrc(src);
     setRetryCount(0);
   }, [src]);
 
@@ -38,11 +37,10 @@ export default function ComicCoverImage({
       sizes="(max-width: 640px) 112px, (max-width: 768px) 150px, 320px"
       className="object-cover object-top"
       priority
-      unoptimized
       referrerPolicy="no-referrer"
       onError={() => {
-        if (fallbackSrc && currentSrc !== getOptimizedImageUrl(fallbackSrc)) {
-          setCurrentSrc(getOptimizedImageUrl(fallbackSrc));
+        if (fallbackSrc && currentSrc !== fallbackSrc) {
+          setCurrentSrc(fallbackSrc);
           setRetryCount(0);
           return;
         }
@@ -50,7 +48,7 @@ export default function ComicCoverImage({
         if (retryCount < MAX_RETRIES) {
           const nextRetry = retryCount + 1;
           setRetryCount(nextRetry);
-          setCurrentSrc(getOptimizedImageUrl(withRetryParam(src, nextRetry)));
+          setCurrentSrc(withRetryParam(src, nextRetry));
         }
       }}
     />
