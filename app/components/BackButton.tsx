@@ -33,6 +33,7 @@ export default function BackButton({
         referrer &&
         !referrer.includes("/chapters/") &&
         !referrer.includes("/read/") &&
+        !referrer.includes("/comics/") && // Evitar bucles entre fichas de mangas
         !referrer.includes(window.location.pathname)
       ) {
         sessionStorage.setItem("mangastoon_manga_referrer", referrer);
@@ -54,11 +55,13 @@ export default function BackButton({
       if (storedReferrer) {
         try {
           const urlObj = new URL(storedReferrer);
-          if (urlObj.host !== window.location.host) {
+          if (urlObj.host !== window.location.host || urlObj.pathname.includes("/comics/")) {
             safeReferrer = null;
           }
         } catch {
-          // If it's a relative URL, it's safe.
+          if (storedReferrer.includes("/comics/")) {
+            safeReferrer = null;
+          }
         }
       }
 
