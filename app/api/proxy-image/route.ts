@@ -131,9 +131,40 @@ export async function GET(req: Request) {
       referer = "https://mangadex.org/";
     }
 
+    const userAgent = req.headers.get("user-agent") ?? "";
+    const isNextImageOptimizer = userAgent.includes("Next.js Image Optimizer") || userAgent.includes("Next.js");
+
     const isHotlinkingBlockedHost = hostname.endsWith("olympusbiblioteca.com") || hostname.endsWith("olympusxyz.com") || hostname.endsWith("yoveo.xyz");
 
     if (isHotlinkingBlockedHost) {
+      if (isNextImageOptimizer) {
+        try {
+          const response = await fetch(imageUrl, {
+            headers: {
+              "Referer": referer,
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            },
+            next: { revalidate: 31536000 },
+          });
+
+          if (response.ok) {
+            const contentType = response.headers.get("Content-Type") || "image/webp";
+            const buffer = await response.arrayBuffer();
+
+            return new Response(buffer, {
+              status: 200,
+              headers: {
+                "Content-Type": contentType,
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "X-Proxy-Method": "direct-server-fetch-optimizer",
+              },
+            });
+          }
+        } catch (error) {
+          console.error("[ProxyImage] Next.js image optimizer server fetch failed:", error);
+        }
+      }
+
       const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
       return new Response(null, {
         status: 307,
