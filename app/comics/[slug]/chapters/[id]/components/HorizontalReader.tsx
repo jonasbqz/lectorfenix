@@ -52,6 +52,8 @@ interface HorizontalReaderImageProps {
   alt: string;
   dictionary: ReaderDictionary;
   pageSize: PageSize;
+  mangaId: string;
+  chapterId: string;
 }
 
 function HorizontalReaderImage({
@@ -59,6 +61,8 @@ function HorizontalReaderImage({
   alt,
   dictionary,
   pageSize,
+  mangaId,
+  chapterId,
 }: HorizontalReaderImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -66,6 +70,7 @@ function HorizontalReaderImage({
   const [currentSrc, setCurrentSrc] = useState(pageUrl);
   const [isTall, setIsTall] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(false);
+  const startTimeRef = useRef<number>(0);
 
   // Sync state immediately in render phase when pageUrl changes to avoid showing the previous page's image
   const [prevPageUrl, setPrevPageUrl] = useState(pageUrl);
@@ -77,6 +82,12 @@ function HorizontalReaderImage({
     setCurrentSrc(pageUrl);
     setShowSkeleton(false);
   }
+
+  useEffect(() => {
+    if (currentSrc) {
+      startTimeRef.current = performance.now();
+    }
+  }, [currentSrc]);
 
   useEffect(() => {
     if (loaded || failed) return;
@@ -166,6 +177,10 @@ function HorizontalReaderImage({
             if (img.naturalHeight && img.naturalWidth) {
               setIsTall(img.naturalHeight > img.naturalWidth * 1.7);
             }
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(mangaId, chapterId, currentSrc, loadTime, true);
+            }
           }}
           onError={() => {
             if (retryCount < MAX_IMAGE_RETRIES) {
@@ -178,6 +193,10 @@ function HorizontalReaderImage({
             }
             setLoaded(true);
             setFailed(true);
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(mangaId, chapterId, currentSrc, loadTime, false);
+            }
           }}
           className={`select-none shadow-2xl rounded-xl mx-auto block transition-all duration-150 ${
             isTall
@@ -361,6 +380,8 @@ export default function HorizontalReader({
                     alt={`${dictionary.page} ${index + 1} - ${chapterLabel}`}
                     dictionary={dictionary}
                     pageSize={pageSize}
+                    mangaId={mangaId}
+                    chapterId={chapterId}
                   />
                 ) : (
                   <div className="w-full h-full min-h-[50vh] flex justify-center items-center bg-[#0a0a0c] rounded-2xl">

@@ -1703,6 +1703,8 @@ export default function ReaderClient({
                         retryVersion={pageRetryVersions[index] || 0}
                         onRetrySubsequent={() => handleRetrySubsequent(index)}
                         pageIndex={index}
+                        mangaId={mangaId}
+                        chapterId={currentChapter?.id || ""}
                       />
                       {showAd && (
                         <MangaAdBanner

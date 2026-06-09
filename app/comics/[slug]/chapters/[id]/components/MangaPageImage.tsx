@@ -27,6 +27,8 @@ interface MangaPageImageProps {
   retryVersion?: number;
   onRetrySubsequent?: () => void;
   pageIndex: number;
+  mangaId?: string;
+  chapterId?: string;
 }
 
 export default function MangaPageImage({
@@ -36,6 +38,8 @@ export default function MangaPageImage({
   retryVersion = 0,
   onRetrySubsequent,
   pageIndex,
+  mangaId,
+  chapterId,
 }: MangaPageImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoad, setShouldLoad] = useState(priority);
@@ -44,6 +48,13 @@ export default function MangaPageImage({
   const [currentSrc, setCurrentSrc] = useState(pageUrl);
   const [retryCount, setRetryCount] = useState(0);
   const [zoomLevel, setZoomLevel] = useState<1 | 1.5 | 2>(1);
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (shouldLoad && currentSrc) {
+      startTimeRef.current = performance.now();
+    }
+  }, [shouldLoad, currentSrc]);
 
   useEffect(() => {
     setLoaded(false);
@@ -202,7 +213,19 @@ export default function MangaPageImage({
               setLoaded(true);
             }
           }}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(
+                mangaId || "",
+                chapterId || "",
+                currentSrc,
+                loadTime,
+                true
+              );
+            }
+          }}
           onError={() => {
             if (retryCount < MAX_IMAGE_RETRIES) {
               const nextRetry = retryCount + 1;
@@ -215,6 +238,16 @@ export default function MangaPageImage({
 
             setLoaded(true);
             setFailed(true);
+            const loadTime = Math.round(performance.now() - startTimeRef.current);
+            if (typeof window !== "undefined" && (window as any).trackStoonPerformance) {
+              (window as any).trackStoonPerformance(
+                mangaId || "",
+                chapterId || "",
+                currentSrc,
+                loadTime,
+                false
+              );
+            }
           }}
         />
       ) : null}
