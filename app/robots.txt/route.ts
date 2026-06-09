@@ -15,6 +15,7 @@ Disallow: /favoritos
 Disallow: /profile
 Disallow: /premium
 Disallow: /lists
+Disallow: /admin
 Allow: /
 
 User-agent: Googlebot
@@ -23,6 +24,7 @@ Disallow: /favoritos
 Disallow: /profile
 Disallow: /premium
 Disallow: /lists
+Disallow: /admin
 Allow: /
 
 User-agent: Bingbot

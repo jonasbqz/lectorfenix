@@ -1,5 +1,7 @@
+"use client";
+
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "./supabase";
+import { createClient } from "../../../utils/supabase/client";
 import {
   Users,
   AlertTriangle,
@@ -17,7 +19,9 @@ import {
   Cpu,
   Send
 } from "lucide-react";
-import "./App.css";
+import "../admin.css";
+
+const supabase = createClient();
 
 type Profile = {
   id: string;
@@ -48,8 +52,7 @@ type BrokenChapter = {
 
 type ActiveTab = "dashboard" | "broken-chapters" | "team" | "failed-searches" | "comment-moderation" | "scraper-queue" | "telegram" | "readers";
 
-
-export default function App() {
+export default function AdminClient() {
   const [session, setSession] = useState<any>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,13 +91,12 @@ export default function App() {
   const [scraperStatusMsg, setScraperStatusMsg] = useState<string | null>(null);
   const [scraperLoading, setScraperLoading] = useState(false);
 
-  // Telegram Form States
-  const [telegramBotToken, setTelegramBotToken] = useState(() => localStorage.getItem("admin_tg_token") || "");
-  const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem("admin_tg_chat_id") || "-1003763338725");
+  // Telegram Form States (loaded inside useEffect to support Next.js SSR hydration safely)
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("-1003763338725");
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementStatus, setAnnouncementStatus] = useState<string | null>(null);
   const [announcementLoading, setAnnouncementLoading] = useState(false);
-
 
   // Reader Management States
   const [readerSearchQuery, setReaderSearchQuery] = useState("");
@@ -111,9 +113,18 @@ export default function App() {
   const [analyticsData, setAnalyticsData] = useState<any | null>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
+  // Load localstorage values on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setTelegramBotToken(localStorage.getItem("admin_tg_token") || "");
+      setTelegramChatId(localStorage.getItem("admin_tg_chat_id") || "-1003763338725");
+    }
+  }, []);
+
   // 1. Auth Listener
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then((res: any) => {
+      const session = res?.data?.session;
       setSession(session);
       if (session) {
         checkAdminStatus(session.user.id);
@@ -123,7 +134,7 @@ export default function App() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setSession(session);
       if (session) {
         checkAdminStatus(session.user.id);
@@ -157,7 +168,7 @@ export default function App() {
     if (session && currentUserProfile) return;
 
     let turnstileId: string | null = null;
-    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAADWKN1xJkjzWCcOP";
+    const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "0x4AAAAAADWKN1xJkjzWCcOP";
 
     const interval = setInterval(() => {
       if ((window as any).turnstile && turnstileContainerRef.current) {
@@ -563,7 +574,6 @@ export default function App() {
       fetchScraperQueue();
     }
   }, [activeTab, currentUserProfile]);
-
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
