@@ -113,7 +113,9 @@ function HorizontalReaderImage({
   }, [currentSrc, loaded, failed, retryCount, pageUrl]);
 
   return (
-    <div className="relative w-full h-full min-h-[50vh] sm:min-h-[70vh] flex justify-center items-center">
+    <div className={`relative w-full h-full max-h-[calc(100dvh-100px)] flex justify-center ${
+      isTall ? "overflow-y-auto items-start custom-scrollbar" : "items-center overflow-hidden"
+    }`}>
       {/* Premium Skeleton Placeholder */}
       <div
         aria-hidden="true"
@@ -162,7 +164,7 @@ function HorizontalReaderImage({
             setLoaded(true);
             const img = e.currentTarget;
             if (img.naturalHeight && img.naturalWidth) {
-              setIsTall(img.naturalHeight > img.naturalWidth * 1.25);
+              setIsTall(img.naturalHeight > img.naturalWidth * 1.7);
             }
           }}
           onError={() => {
@@ -179,8 +181,8 @@ function HorizontalReaderImage({
           }}
           className={`select-none shadow-2xl rounded-xl mx-auto block transition-all duration-150 ${
             isTall
-              ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} max-h-[calc(100dvh-150px)] object-contain h-auto`
-              : `max-h-[calc(100dvh-150px)] w-auto max-w-full object-contain`
+              ? `w-full ${HORIZONTAL_PAGE_SIZE_CLASSES[pageSize]} h-auto`
+              : `max-h-[calc(100dvh-100px)] w-auto max-w-full object-contain`
           } ${loaded ? "opacity-100" : "opacity-0"}`}
           loading="eager"
           decoding="sync"
