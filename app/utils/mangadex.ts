@@ -1120,6 +1120,7 @@ async function fetchMangaVfSourceBySlug(id: string) {
 
     const source =
       results.find((item) => item.slug === lookupId) ??
+      results.find((item) => item.slug.endsWith("-" + lookupId)) ??
       results.find((item) => slugify(item.title) === lookupId) ??
       null;
 
@@ -1288,6 +1289,8 @@ async function searchLeerCapituloByTitle(title: string): Promise<string | null> 
     const slugifiedTarget = slugify(title);
     const matched =
       results.find((item) => slugify(item.title || "") === slugifiedTarget) ??
+      results.find((item) => item.slug === slugifiedTarget) ??
+      results.find((item) => item.slug.endsWith("-" + slugifiedTarget)) ??
       results.find((item) => item.title?.toLowerCase() === title.toLowerCase()) ??
       null;
 
@@ -1418,7 +1421,7 @@ export type ChapterFeedResponse = {
 
 export function getMangaVfChapterId(chapter: MangaVfChapter) {
   const number = chapter.number?.trim() || chapter.title?.match(/\d+(?:\.\d+)?/)?.[0] || "1";
-  return slugify(`${number}-${chapter.title || "capitulo"}`);
+  return `lc-ch-${number}`;
 }
 
 export function mapMangaVfChapters(details: MangaVfDetails): ChapterFeedItem[] {

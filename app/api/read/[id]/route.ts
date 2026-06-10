@@ -1065,7 +1065,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     let requestedChapterNumber: string | null = null;
     if (chapterId && !isMangaDexUuid(chapterId)) {
-      const match = chapterId.match(/^(\d+(?:\.\d+)?)/);
+      const match = chapterId.match(/(?:lc-ch-)?(\d+(?:\.\d+)?)/);
       requestedChapterNumber = match ? match[1] : null;
     }
 
