@@ -1107,7 +1107,7 @@ async function fetchMangaVfSourceBySlug(id: string) {
   const lookupId = cleanId.replace(/^manga[-_]?vf[-_]?/i, "");
   const query = lookupId.replace(/-/g, " ");
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(
@@ -1143,7 +1143,7 @@ export async function fetchMangaVfDetailsBySlug(id: string) {
       if (!sourceUrl) return null;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
       try {
         const response = await fetch(
           `${MANGAVF_API_URL}/api/v1/manga/chapters?url=${encodeURIComponent(sourceUrl)}`,
@@ -1284,7 +1284,7 @@ async function searchMangaDexByTitle(title: string): Promise<string | null> {
 
 async function searchLeerCapituloByTitle(title: string): Promise<string | null> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 4000);
+  const timeout = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(
       `${MANGAVF_API_URL}/api/v1/manga/search?q=${encodeURIComponent(title)}`,
@@ -1565,7 +1565,7 @@ export async function fetchMangaVfPages(details: MangaVfDetails, chapterId: stri
       if (!chapterUrl) return [];
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
+      const timeout = setTimeout(() => controller.abort(), 15000);
       try {
         const response = await fetch(
           `${MANGAVF_API_URL}/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
