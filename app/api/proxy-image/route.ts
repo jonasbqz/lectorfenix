@@ -90,6 +90,20 @@ function fallbackImage(errorCode: string) {
   });
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 export async function GET(req: Request) {
   let imageUrl = "";
 
@@ -140,13 +154,13 @@ export async function GET(req: Request) {
 
       // 1. Direct server-side fetch with proper Referer
       try {
-        const response = await fetch(imageUrl, {
+        const response = await fetchWithTimeout(imageUrl, {
           headers: {
             "Referer": referer,
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
           },
           next: { revalidate: 31536000 },
-        });
+        } as any, 5000);
 
         if (response.ok) {
           const contentType = response.headers.get("Content-Type") || "image/webp";
@@ -167,9 +181,9 @@ export async function GET(req: Request) {
       // 2. Fetch via Cloudflare Worker (server-side, never redirect)
       try {
         const workerUrl = `https://server-img.platformoctopus.workers.dev/img?url=${encodeURIComponent(imageUrl)}&origin=${encodeURIComponent(referer)}`;
-        const workerRes = await fetch(workerUrl, {
+        const workerRes = await fetchWithTimeout(workerUrl, {
           next: { revalidate: 31536000 },
-        });
+        } as any, 5000);
 
         if (workerRes.ok) {
           const contentType = workerRes.headers.get("Content-Type") || "image/webp";
@@ -190,9 +204,9 @@ export async function GET(req: Request) {
       // 3. Fallback via weserv (server-side fetch, never redirect)
       try {
         const weservUrl = `https://images.weserv.nl/?url=${encodeURIComponent(imageUrl)}&output=webp&q=75`;
-        const weservRes = await fetch(weservUrl, {
+        const weservRes = await fetchWithTimeout(weservUrl, {
           next: { revalidate: 31536000 },
-        });
+        } as any, 5000);
 
         if (weservRes.ok) {
           const contentType = weservRes.headers.get("Content-Type") || "image/webp";
