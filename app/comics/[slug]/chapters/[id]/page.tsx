@@ -64,7 +64,8 @@ async function fetchReaderData({
   lang: SupportedLanguage;
 }) {
   const headersList = await headers();
-  const url = new URL(`/api/read/${encodeURIComponent(id)}`, getRequestBaseUrl(headersList));
+  const port = process.env.PORT || "3000";
+  const url = new URL(`/api/read/${encodeURIComponent(id)}`, `http://127.0.0.1:${port}`);
   url.searchParams.set("lang", lang);
   if (chapter) url.searchParams.set("chapter", chapter);
 
@@ -72,12 +73,19 @@ async function fetchReaderData({
     const response = await fetch(url.toString(), {
       cache: "no-store",
       headers: {
+        host: headersList.get("host") ?? "localhost:3000",
         cookie: headersList.get("cookie") ?? "",
       },
     });
 
+    if (!response.ok) {
+      console.error(`[fetchReaderData] Failed response status: ${response.status}`);
+      return null;
+    }
+
     return (await response.json()) as ReaderApiResponse;
-  } catch {
+  } catch (err) {
+    console.error("[fetchReaderData] Catch error fetching reader data:", err);
     return null;
   }
 }
