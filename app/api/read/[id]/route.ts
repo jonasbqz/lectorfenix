@@ -52,16 +52,43 @@ async function reportBrokenChapter(
       ? createSupabaseClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
       : await createClient();
 
-    await supabase.from("broken_chapters").upsert({
-      manga_id: mangaId,
-      manga_title: mangaTitle,
-      chapter_id: chapterId,
-      chapter_number: chapterNumber,
-      detected_at: new Date().toISOString(),
-    }, {
-      onConflict: "manga_id,chapter_id",
-    });
-    logger.info(`[broken_chapters] Successfully reported broken chapter ${chapterNumber} for manga ${mangaId}`);
+    const { data: existing, error: findError } = await supabase
+      .from("broken_chapters")
+      .select("manga_id, chapter_id")
+      .eq("manga_id", mangaId)
+      .eq("chapter_id", chapterId)
+      .maybeSingle();
+
+    if (!findError && !existing) {
+      const { error: insertError } = await supabase.from("broken_chapters").insert({
+        manga_id: mangaId,
+        manga_title: mangaTitle,
+        chapter_id: chapterId,
+        chapter_number: chapterNumber,
+        detected_at: new Date().toISOString(),
+      });
+      if (insertError) {
+        logger.error("[broken_chapters] Error inserting broken chapter:", insertError);
+      } else {
+        logger.info(`[broken_chapters] Successfully reported new broken chapter ${chapterNumber} for manga ${mangaId}`);
+      }
+    } else if (!findError && existing) {
+      const { error: updateError } = await supabase.from("broken_chapters")
+        .update({
+          manga_title: mangaTitle,
+          chapter_number: chapterNumber,
+          detected_at: new Date().toISOString(),
+        })
+        .eq("manga_id", mangaId)
+        .eq("chapter_id", chapterId);
+      if (updateError) {
+        logger.error("[broken_chapters] Error updating broken chapter:", updateError);
+      } else {
+        logger.info(`[broken_chapters] Successfully updated broken chapter ${chapterNumber} detection time for manga ${mangaId}`);
+      }
+    } else if (findError) {
+      logger.error("[broken_chapters] Error searching broken chapter in database:", findError);
+    }
   } catch (dbErr) {
     logger.error("[broken_chapters] Error reporting broken chapter:", dbErr);
   }

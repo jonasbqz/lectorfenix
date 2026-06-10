@@ -133,14 +133,30 @@ export default function HeartbeatTracker() {
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id || null;
 
-        await supabase.from("user_presence").upsert({
-          session_id: sessionId,
-          user_id: userId,
-          path: pathname,
-          last_active: new Date().toISOString(),
-        }, {
-          onConflict: "session_id",
-        });
+        let isUserAdmin = false;
+        if (userId) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", userId)
+            .maybeSingle();
+          if (profile?.is_admin) {
+            isUserAdmin = true;
+          }
+        }
+
+        if (isUserAdmin) {
+          await supabase.from("user_presence").delete().eq("session_id", sessionId);
+        } else {
+          await supabase.from("user_presence").upsert({
+            session_id: sessionId,
+            user_id: userId,
+            path: pathname,
+            last_active: new Date().toISOString(),
+          }, {
+            onConflict: "session_id",
+          });
+        }
       } catch (err) {
         console.warn("[Heartbeat] Traditional presence exception:", err);
       }
@@ -166,14 +182,31 @@ export default function HeartbeatTracker() {
         // Actualizar presencia en vivo en la base de datos
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id || null;
-        await supabase.from("user_presence").upsert({
-          session_id: sessionId,
-          user_id: userId,
-          path: pathname,
-          last_active: new Date().toISOString(),
-        }, {
-          onConflict: "session_id",
-        });
+
+        let isUserAdmin = false;
+        if (userId) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_admin")
+            .eq("id", userId)
+            .maybeSingle();
+          if (profile?.is_admin) {
+            isUserAdmin = true;
+          }
+        }
+
+        if (isUserAdmin) {
+          await supabase.from("user_presence").delete().eq("session_id", sessionId);
+        } else {
+          await supabase.from("user_presence").upsert({
+            session_id: sessionId,
+            user_id: userId,
+            path: pathname,
+            last_active: new Date().toISOString(),
+          }, {
+            onConflict: "session_id",
+          });
+        }
       } catch (e) {
         console.warn("[StoonAnalytics] Heartbeat error:", e);
       }
