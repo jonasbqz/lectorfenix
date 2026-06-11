@@ -12,7 +12,7 @@ import {
 import { translateTagName } from "./tagTranslations";
 import { buildComicPath, slugify } from "./slugify";
 import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
-import { getCached, setCached, getOrSetCached } from "./server-cache";
+import { getCached, setCached, getOrSetCached, stableCacheKey } from "./server-cache";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -1681,17 +1681,24 @@ export function mapLeerCapituloLatestToShowcase(
 }
 
 export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"): Promise<MangaDexShowcaseItem[]> {
-  try {
-    const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
-      next: { revalidate: 600 }
-    });
-    if (!response.ok) return [];
-    const payload = (await response.json()) as LeerCapituloLatestResponse;
-    const recientes = payload.recientes ?? [];
-    return mapLeerCapituloLatestToShowcase(recientes, language);
-  } catch (error) {
-    logger.error("Error fetching LeerCapitulo latest", error);
-    return [];
-  }
+  return getOrSetCached(
+    stableCacheKey("leercapitulo-latest-showcase", [language]),
+    600,
+    async () => {
+      try {
+        const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return [];
+        const payload = (await response.json()) as LeerCapituloLatestResponse;
+        const recientes = payload.recientes ?? [];
+        return mapLeerCapituloLatestToShowcase(recientes, language);
+      } catch (error) {
+        logger.error("Error fetching LeerCapitulo latest", error);
+        return [];
+      }
+    },
+    { shouldCache: (items) => items.length > 0 }
+  );
 }
 

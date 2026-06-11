@@ -180,9 +180,18 @@ type MangaVfDetails = {
 };
 type MangaVfExtractResponse = {
   pages?: string[];
+  images?: string[];
 };
 type MangaVfSearchResponse = {
   results?: Array<{ title?: string; slug?: string; url?: string; cover?: string }>;
+};
+type MangaVfLatestResponse = {
+  recientes?: Array<{
+    title?: string;
+    slug?: string;
+    cover?: string;
+    chapters?: MangaVfChapter[];
+  }>;
 };
 
 const RETRY_DELAY_MS = 1200;
@@ -392,6 +401,75 @@ function slugToReadableTitle(slug: string): string {
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .trim() || "Mangastoon";
+}
+
+function getRequestedLeerCapituloChapterNumber(chapterId: string | null) {
+  return chapterId?.match(/^lc-ch-(\d+(?:\.\d+)?)$/)?.[1] ?? null;
+}
+
+async function resolveLatestLeerCapituloChapter(slug: string, chapterNumber: string) {
+  const cacheKey = stableCacheKey("leercapitulo-latest-chapter", [slug, chapterNumber]);
+  return getOrSetCached(
+    cacheKey,
+    60 * 5,
+    async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return null;
+
+        const payload = (await response.json()) as MangaVfLatestResponse;
+        const cleanSlug = cleanMangaSlug(slug.startsWith("lc-") ? slug.substring(3) : slug);
+        const item = (payload.recientes ?? []).find((entry) => cleanMangaSlug(entry.slug ?? "") === cleanSlug);
+        const chapter = item?.chapters?.find((entry) => entry.number?.trim() === chapterNumber);
+        const chapterUrl = chapter?.url?.trim();
+        if (!item || !chapter || !chapterUrl) return null;
+
+        return {
+          title: item.title || slugToReadableTitle(slug),
+          cover: item.cover || "",
+          chapter,
+        };
+      } catch {
+        return null;
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+    { shouldCache: (value) => value !== null }
+  );
+}
+
+async function fetchLeerCapituloPagesByUrl(chapterUrl: string) {
+  const cacheKey = stableCacheKey("leercapitulo-pages-url", [chapterUrl]);
+  return getOrSetCached(
+    cacheKey,
+    CHAPTER_PAGES_TTL_SECONDS,
+    async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+
+      try {
+        const response = await fetch(
+          `${MANGAVF_API_URL}/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
+          { cache: "no-store", signal: controller.signal }
+        );
+        if (!response.ok) return [];
+        const payload = (await response.json()) as MangaVfExtractResponse;
+        return (payload.images ?? payload.pages ?? []).filter(Boolean);
+      } catch {
+        return [];
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+    { shouldCache: (pages) => pages.length > 0 }
+  );
 }
 
 async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
@@ -997,6 +1075,41 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         isExternalSource: false,
         isLocal: true,
       });
+    }
+
+    const latestChapterNumber = getRequestedLeerCapituloChapterNumber(chapterId);
+    if (!localManga && lang === "es" && latestChapterNumber) {
+      const latestChapter = await resolveLatestLeerCapituloChapter(id, latestChapterNumber);
+      const chapterUrl = latestChapter?.chapter.url?.trim();
+      const pages = chapterUrl ? await fetchLeerCapituloPagesByUrl(chapterUrl) : [];
+
+      if (latestChapter && pages.length > 0) {
+        const currentChapter = {
+          id: chapterId || `lc-ch-${latestChapterNumber}`,
+          attributes: {
+            chapter: latestChapterNumber,
+            title: latestChapter.chapter.title || `Capitulo ${latestChapterNumber}`,
+            translatedLanguage: "es",
+            readableAt: new Date().toISOString(),
+            publishAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        };
+
+        return cachedReadResponse(responseCacheKey, {
+          mangaTitle: latestChapter.title,
+          comicSlug: id,
+          coverImage: latestChapter.cover,
+          chapters: excludeChapters ? [] : [stripChapterForClient(currentChapter)],
+          currentChapter: stripChapterForClient(currentChapter),
+          pages: pages.map(normalizePageUrlToProxy),
+          englishFallbackChapter: null,
+          fallbackReason: null,
+          isExternalSource: false,
+          isLocal: true,
+        });
+      }
     }
 
     const resolution = await resolveBestSource(id);

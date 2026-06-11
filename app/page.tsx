@@ -605,7 +605,7 @@ export default async function HomePage() {
       fetchLocalTop(10, currentLanguage),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=views&v=2", currentLanguage),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=created_at&v=2", currentLanguage),
-      fetchMonlineComics("/api/comics?limit=15&order=updated_at&sort=desc&v=2", currentLanguage, true),
+      fetchMonlineComics("/api/comics?limit=15&order=updated_at&sort=desc&v=2", currentLanguage),
       fetchLeerCapituloLatest(currentLanguage).catch(() => []),
     ]);
   }
