@@ -5,8 +5,8 @@ import { logger } from "../../utils/logger";
 
 export const dynamic = "force-dynamic";
 
-const SCRAPER_TIMEOUT_MS = 3000;
-const MONLINE_TIMEOUT_MS = 5000;
+const SCRAPER_TIMEOUT_MS = 15000;
+const MONLINE_TIMEOUT_MS = 12000;
 const MONLINE_API_URL = (
   process.env.MONLINE_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
