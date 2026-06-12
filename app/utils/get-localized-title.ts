@@ -3,6 +3,9 @@ import { applyFallbackDictionary, forceTranslate, sanitizeText } from "./transla
 type LocalizedTextMap = Record<string, string>;
 
 type LocalizableManga = {
+  id?: string;
+  mangaDexId?: string | null;
+  isLocal?: boolean;
   attributes?: {
     title?: LocalizedTextMap;
     altTitles?: LocalizedTextMap[];
@@ -190,6 +193,18 @@ export async function getLocalizedTitleAsync(
 
   const cleaned = cleanTitle(baseTitle.value);
   const safeTargetLang = targetLang === "en" || targetLang === "pt" ? targetLang : "es";
+
+  const isLocal =
+    manga.isLocal ||
+    manga.id?.startsWith("lc-") ||
+    manga.mangaDexId?.startsWith("lc-") ||
+    manga.id?.startsWith("manga-vf-") ||
+    manga.mangaDexId?.startsWith("manga-vf-");
+
+  if (isLocal) {
+    const processed = safeTargetLang === "en" ? cleaned : applyFallbackDictionary(cleaned, safeTargetLang);
+    return cleanTitle(processed);
+  }
 
   const isRough = looksLikeRoughTransliteration(cleaned);
 

@@ -552,7 +552,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     }
     const comicSlug = getStringValue(fullComic, ["slug", "manga_slug", "comic_slug"]) || cleanSlug;
     const rawTitle = getStringValue(fullComic, ["title", "name", "comic_title", "original_title"]);
-    const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle }, lang) || "Mangastoon";
+    const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle, isLocal: true }, lang) || "Mangastoon";
     const coverImage = normalizeLocalImageUrl(
       getStringValue(fullComic, ["coverImage", "cover_image", "cover", "thumbnail", "image", "poster", "url_cover"])
     );

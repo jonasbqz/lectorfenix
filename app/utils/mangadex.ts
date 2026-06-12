@@ -933,15 +933,20 @@ function isMangaDexUuid(value: string) {
 
 async function fetchMangaDex(url: string, retries = 1): Promise<Response> {
   let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   try {
     response = await fetch(toMangaDexApiUrl(url), {
       headers: getMangaDexRequestHeaders(),
       next: { revalidate: 3600 },
+      signal: controller.signal,
     });
   } catch (error) {
     logger.error("[mangadex-fetch-details] MangaDex fetch failed", error);
     return new Response(null, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (response.status === 429 && retries > 0) {
@@ -990,13 +995,20 @@ export async function fetchLocalComicBySlug(slug: string) {
       searchParams.set("title", cleanTitle);
       searchParams.set("limit", "15");
 
-      let listResponse = await fetch(
-        `${LOCAL_API_URL}/api/comics?${searchParams.toString()}`,
-        { next: { revalidate: 3600 } }
-      );
-      let comics: any[] = [];
+      const controller1 = new AbortController();
+      const timeout1 = setTimeout(() => controller1.abort(), 4000);
+      let listResponse: Response;
+      try {
+        listResponse = await fetch(
+          `${LOCAL_API_URL}/api/comics?${searchParams.toString()}`,
+          { next: { revalidate: 3600 }, signal: controller1.signal }
+        );
+      } finally {
+        clearTimeout(timeout1);
+      }
 
-      if (listResponse.ok) {
+      let comics: any[] = [];
+      if (listResponse && listResponse.ok) {
         comics = extractLocalApiComics(await listResponse.json());
       }
 
@@ -1006,13 +1018,20 @@ export async function fetchLocalComicBySlug(slug: string) {
         return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
       });
 
-
       if (!summary) {
-        const fallbackResponse = await fetch(
-          `${LOCAL_API_URL}/api/comics?limit=150`,
-          { next: { revalidate: 3600 } }
-        );
-        if (fallbackResponse.ok) {
+        const controller2 = new AbortController();
+        const timeout2 = setTimeout(() => controller2.abort(), 4000);
+        let fallbackResponse: Response;
+        try {
+          fallbackResponse = await fetch(
+            `${LOCAL_API_URL}/api/comics?limit=300`,
+            { next: { revalidate: 3600 }, signal: controller2.signal }
+          );
+        } finally {
+          clearTimeout(timeout2);
+        }
+
+        if (fallbackResponse && fallbackResponse.ok) {
           const allComics = extractLocalApiComics(await fallbackResponse.json());
           summary = allComics.find((comic) => {
             const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
@@ -1026,11 +1045,19 @@ export async function fetchLocalComicBySlug(slug: string) {
 
       if (!summary || !numericId) return null;
 
-      const detailResponse = await fetch(
-        `${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`,
-        { next: { revalidate: 3600 } }
-      );
-      if (!detailResponse.ok) return summary;
+      const controller3 = new AbortController();
+      const timeout3 = setTimeout(() => controller3.abort(), 4000);
+      let detailResponse: Response;
+      try {
+        detailResponse = await fetch(
+          `${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`,
+          { next: { revalidate: 3600 }, signal: controller3.signal }
+        );
+      } finally {
+        clearTimeout(timeout3);
+      }
+
+      if (!detailResponse || !detailResponse.ok) return summary;
 
       const details = extractLocalApiComics(await detailResponse.json())[0];
       if (details) {

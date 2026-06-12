@@ -468,10 +468,12 @@ async function localizeShowcaseTitles(items: MangaShowcaseItem[], language: Supp
     items.map(async (item) => {
       const title = await getLocalizedTitleAsync(
         {
+          id: item.mangaDexId || undefined,
+          isLocal: item.isLocal,
           titleMap: item.titleMap,
           altTitles: item.altTitles,
           title: item.title,
-        },
+        } as any,
         language
       );
 

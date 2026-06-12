@@ -718,15 +718,20 @@ function wait(ms: number) {
 
 async function fetchMangaDex(url: string, retries = 1) {
   let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   try {
     response = await fetch(toMangaDexApiUrl(url), {
       headers: getMangaDexRequestHeaders(),
       next: { revalidate: 3600 },
+      signal: controller.signal,
     });
   } catch (error) {
     logger.error("[manga-page] MangaDex fetch failed", error);
     return new Response(null, { status: 502 });
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (response.status === 429 && retries > 0) {
@@ -1178,7 +1183,9 @@ export default async function MangaDetailsPage({
   // Evita contenido duplicado y links desactualizados en Google.
   if (pageSlug !== slugEs && pageSlug !== slugEn && pageSlug !== slugPt) {
     const targetSlug = preferredLanguage === "en" ? slugEn : preferredLanguage === "pt" ? slugPt : slugEs;
-    permanentRedirect(`/comics/${targetSlug}`);
+    if (targetSlug !== pageSlug) {
+      permanentRedirect(`/comics/${targetSlug}`);
+    }
   }
 
   let slugLanguage: SupportedLanguage = "es";
@@ -1196,7 +1203,9 @@ export default async function MangaDetailsPage({
   // lo redireccionamos automáticamente a la versión de su idioma.
   if (rawCookieLang && rawCookieLang !== slugLanguage) {
     const targetSlug = rawCookieLang === "en" ? slugEn : rawCookieLang === "pt" ? slugPt : slugEs;
-    redirect(`/comics/${targetSlug}`);
+    if (targetSlug !== pageSlug) {
+      redirect(`/comics/${targetSlug}`);
+    }
   }
 
   const currentLanguage: SupportedLanguage = slugLanguage;

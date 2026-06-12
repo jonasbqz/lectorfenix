@@ -362,10 +362,12 @@ async function fetchSearchResults(query: string, language: "es" | "en" | "pt", i
     combined.map(async (manga) => {
       const translatedTitle = await getLocalizedTitleAsync(
         {
+          id: manga.mangaDexId || undefined,
+          isLocal: manga.isLocal,
           titleMap: manga.titleMap,
           altTitles: manga.altTitles,
           title: manga.title,
-        },
+        } as any,
         language
       );
       return {
