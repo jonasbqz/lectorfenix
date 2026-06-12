@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import SiteHeader from "../components/site-header";
 import { fetchMangaDexCollection, buildMangaDexMangaUrl, mapToShowcaseItems } from "../utils/mangadex";
 import { SITE_DESCRIPTION, SITE_NAME, absoluteUrl } from "../utils/seo";
@@ -13,15 +14,22 @@ export const metadata: Metadata = {
   },
 };
 
+function normalizeLocalImageUrl(value: string, apiBaseUrl: string) {
+  if (!value) return "";
+  return value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `${apiBaseUrl.replace(/\/$/, "")}/${value.replace(/^\/+/, "")}`;
+}
+
 async function getLocalMangas() {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8085';
+    const apiUrl = process.env.MONLINE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://46.224.213.127:8085';
     const res = await fetch(`${apiUrl}/api/comics`, { cache: 'no-store' });
     const json = await res.json();
     return (json.data || []).map((m: any) => ({
       mangaDexId: m.slug,
       title: m.title,
-      coverImage: m.coverImage,
+      coverImage: normalizeLocalImageUrl(m.coverImage, apiUrl),
       type: m.type || 'Manga'
     }));
   } catch (e) { return []; }
@@ -42,13 +50,13 @@ export default async function ExplorePage() {
         <h1 className="text-3xl font-bold mb-8 border-l-4 border-orange-500 pl-4">Explorar Catálogo</h1>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
           {all.map((manga) => (
-            <a key={manga.mangaDexId} href={`/manga/${manga.mangaDexId}`} className="group block">
+            <Link key={manga.mangaDexId} href={`/comics/${manga.mangaDexId}`} className="group block">
               <div className="relative aspect-[3/4] rounded-lg overflow-hidden border border-gray-800 bg-gray-900">
                 <img src={manga.coverImage} alt={manga.title} className="object-cover w-full h-full group-hover:scale-105 transition duration-300" />
               </div>
               <h3 className="mt-3 text-sm font-semibold truncate group-hover:text-orange-500 transition">{manga.title}</h3>
               <p className="text-xs text-gray-500 mt-1 uppercase">{manga.type || 'Manga'}</p>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

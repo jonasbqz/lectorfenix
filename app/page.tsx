@@ -15,17 +15,30 @@ export const metadata: Metadata = {
   },
 };
 
+function normalizeLocalImageUrl(value: string, apiBaseUrl: string) {
+  if (!value) return "";
+  return value.startsWith("http://") || value.startsWith("https://")
+    ? value
+    : `${apiBaseUrl.replace(/\/$/, "")}/${value.replace(/^\/+/, "")}`;
+}
+
 async function fetchLocalMangas() {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8085';
+    const apiUrl = process.env.MONLINE_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://46.224.213.127:8085';
     const res = await fetch(`${apiUrl}/api/comics`, { cache: 'no-store' });
     const json = await res.json();
-    // Mapeamos tus datos: El título limpio y el slug completo para el link
-    return (json.data || []).map((m: any) => ({
-      mangaDexId: m.slug, 
-      title: m.title,     
-      coverImage: m.coverImage,
-    }));
+    return (json.data || []).map((m: any) => {
+      const cover = normalizeLocalImageUrl(m.coverImage, apiUrl);
+      return {
+        mangaDexId: m.slug, 
+        title: m.title,     
+        images: {
+          webp: { large_image_url: cover, image_url: cover },
+          jpg: { large_image_url: cover, image_url: cover },
+        },
+        isLocal: true,
+      };
+    });
   } catch (e) { return []; }
 }
 
