@@ -467,7 +467,7 @@ async function fetchLeerCapituloPagesByUrl(chapterUrl: string) {
   const cacheKey = stableCacheKey("leercapitulo-pages-url", [chapterUrl]);
   return getOrSetCached(
     cacheKey,
-    CHAPTER_PAGES_TTL_SECONDS,
+    300, // 5 minutos (evita URLs de CDN rotadas/expiradas de LeerCapitulo)
     async () => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);

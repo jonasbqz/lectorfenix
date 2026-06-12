@@ -18,6 +18,7 @@ import {
   type MangaDexManga,
 } from "../utils/mangadex";
 import { buildComicPath, slugify } from "../utils/slugify";
+import { getOptimizedImageUrl } from "../utils/image";
 
 const MONLINE_API_URL = "/api/monline";
 const MONLINE_SEARCH_LOOKUP_LIMIT = 2000;
@@ -347,13 +348,13 @@ async function fetchMonlineSearch(query: string, language: "es" | "en" | "pt", i
 }
 
 function getResultImage(result: MangaShowcaseItem) {
-  return (
+  const rawUrl =
     result.images?.webp?.large_image_url ??
     result.images?.jpg?.large_image_url ??
     result.images?.webp?.image_url ??
     result.images?.jpg?.image_url ??
-    ""
-  );
+    "";
+  return getOptimizedImageUrl(rawUrl);
 }
 
 export default function SearchBar() {

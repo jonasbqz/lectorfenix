@@ -1590,7 +1590,7 @@ export async function fetchMangaVfPages(details: MangaVfDetails, chapterId: stri
   const cacheKey = `leercapitulo-pages:${chapterId}`;
   return getOrSetCached(
     cacheKey,
-    86400, // 24 horas (las páginas de un capítulo nunca cambian)
+    300, // 5 minutos (evita URLs de CDN rotadas/expiradas de LeerCapitulo)
     async () => {
       const chapterUrl = (details.chapters ?? []).find((chapter) => getMangaVfChapterId(chapter) === chapterId)?.url?.trim();
       if (!chapterUrl) return [];

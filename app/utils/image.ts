@@ -8,6 +8,19 @@ export function getOptimizedImageUrl(url: string): string {
 
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
+
+    // Detectar URLs rotas del buscador del scraper (ej: https://c14c4b3dd51396dc.jpg)
+    // donde el nombre del archivo se convirtió erróneamente en el nombre del host.
+    if (
+      hostname.endsWith(".jpg") ||
+      hostname.endsWith(".jpeg") ||
+      hostname.endsWith(".png") ||
+      hostname.endsWith(".webp") ||
+      hostname.endsWith(".gif")
+    ) {
+      return "/icon.png";
+    }
+
     const isHotlinkingBlockedHost =
       hostname.endsWith("olympusbiblioteca.com") ||
       hostname.endsWith("olympusxyz.com") ||

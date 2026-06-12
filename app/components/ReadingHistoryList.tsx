@@ -8,19 +8,15 @@ import { useHistoryStore } from "../store/useHistoryStore";
 import { buildChapterPath } from "../utils/slugify";
 import { useLanguage } from "./language-provider";
 
+import { getOptimizedImageUrl } from "../utils/image";
+
 function formatChapterLabel(chapterNumber: string) {
   return chapterNumber ? `Capítulo ${chapterNumber}` : "Continuar leyendo";
 }
 
 function normalizeStoredCoverImage(value: string) {
   if (!value) return value;
-  if (value.startsWith("/api/proxy-image")) return value;
-
-  if (value.includes("dashboard.olympusbiblioteca.com")) {
-    return `/api/proxy-image?url=${encodeURIComponent(value)}`;
-  }
-
-  return value;
+  return getOptimizedImageUrl(value);
 }
 
 function formatRelativeTime(timestamp: number, language: string): string {
