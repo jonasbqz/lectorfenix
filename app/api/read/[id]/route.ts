@@ -591,7 +591,8 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
       segments: uniqueNonEmpty([comicSlug, title].map(toMonlineSegment)),
       chapters: getLocalChapters(fullComic),
     };
-  } catch {
+  } catch (error) {
+    logger.error(`[resolveLocalMangaIdentity] Error resolving manga for slug ${slug}:`, error);
     return null;
   }
 }
@@ -642,7 +643,8 @@ async function resolveLocalChapterPages(chapterId: string) {
     const pages = filterMonlineChapterPageUrls(rawPages);
 
     return pages.map(normalizeLocalImageUrl);
-  } catch {
+  } catch (error) {
+    logger.error(`[resolveLocalChapterPages] Error fetching pages for chapter ${chapterId}:`, error);
     return [];
   }
 }

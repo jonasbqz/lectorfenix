@@ -1068,7 +1068,8 @@ export async function fetchLocalComicBySlug(slug: string) {
         };
       }
       return summary;
-    } catch {
+    } catch (error) {
+      logger.error(`[fetchLocalComicBySlug] Error fetching comic by slug ${slug}:`, error);
       return null;
     }
   });
