@@ -55,11 +55,16 @@ export function isMonlineChapterPageUrl(value: string) {
   if (normalized.includes("z (reporte)") || normalized.includes("z%20(reporte)")) return false;
   if (normalized.includes("reporte).webp")) return false;
 
-  // Filtrar píxeles de rastreo y anuncios de terceros
+  // Filtrar píxeles de rastreo y anuncios de terceros.
+  // Usamos una regex para evitar falsos positivos con "uploads", "downloads", "reads", etc.
+  const hasAds = /(?:^|[^a-zA-Z])ads(?:[^a-zA-Z]|$)/.test(normalized) || 
+                 normalized.includes("googleads") || 
+                 normalized.includes("adservice");
+
   if (
     normalized.includes("yandex") ||
     normalized.includes("analytics") ||
-    normalized.includes("ads")
+    hasAds
   ) {
     return false;
   }
