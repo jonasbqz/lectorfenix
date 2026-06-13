@@ -984,6 +984,35 @@ function cleanMangaSlug(slug: string): string {
   return cleaned;
 }
 
+async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const urls = [
+    `${LOCAL_API_URL}${cleanPath}`,
+    `http://172.17.0.1:8085${cleanPath}`,
+    `http://127.0.0.1:8085${cleanPath}`,
+    `http://localhost:8085${cleanPath}`,
+  ];
+
+  let lastError: any = null;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      
+      const res = await fetch(url, {
+        ...init,
+        signal: init?.signal ?? controller.signal,
+      });
+      clearTimeout(timeout);
+      return res;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error(`All fetch attempts failed for path: ${cleanPath}`);
+}
+
 export async function fetchLocalComicBySlug(slug: string) {
   const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;
   const cleanSlug = cleanMangaSlug(normalizedSlug);
@@ -999,8 +1028,8 @@ export async function fetchLocalComicBySlug(slug: string) {
       const timeout1 = setTimeout(() => controller1.abort(), 8000);
       let listResponse: Response;
       try {
-        listResponse = await fetch(
-          `${LOCAL_API_URL}/api/comics?${searchParams.toString()}`,
+        listResponse = await fetchLocalAPI(
+          `/api/comics?${searchParams.toString()}`,
           { next: { revalidate: 3600 }, signal: controller1.signal }
         );
       } finally {
@@ -1023,8 +1052,8 @@ export async function fetchLocalComicBySlug(slug: string) {
         const timeout2 = setTimeout(() => controller2.abort(), 8000);
         let fallbackResponse: Response;
         try {
-          fallbackResponse = await fetch(
-            `${LOCAL_API_URL}/api/comics?limit=300`,
+          fallbackResponse = await fetchLocalAPI(
+            "/api/comics?limit=300",
             { next: { revalidate: 3600 }, signal: controller2.signal }
           );
         } finally {
@@ -1049,8 +1078,8 @@ export async function fetchLocalComicBySlug(slug: string) {
       const timeout3 = setTimeout(() => controller3.abort(), 8000);
       let detailResponse: Response;
       try {
-        detailResponse = await fetch(
-          `${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`,
+        detailResponse = await fetchLocalAPI(
+          `/api/comics/${encodeURIComponent(numericId)}`,
           { next: { revalidate: 3600 }, signal: controller3.signal }
         );
       } finally {

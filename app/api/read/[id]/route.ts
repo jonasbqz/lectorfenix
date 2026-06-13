@@ -490,6 +490,35 @@ async function fetchLeerCapituloPagesByUrl(chapterUrl: string) {
   );
 }
 
+async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const urls = [
+    `${LOCAL_API_URL}${cleanPath}`,
+    `http://172.17.0.1:8085${cleanPath}`,
+    `http://127.0.0.1:8085${cleanPath}`,
+    `http://localhost:8085${cleanPath}`,
+  ];
+
+  let lastError: any = null;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      
+      const res = await fetch(url, {
+        ...init,
+        signal: init?.signal ?? controller.signal,
+      });
+      clearTimeout(timeout);
+      return res;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error(`All fetch attempts failed for path: ${cleanPath}`);
+}
+
 async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) {
   try {
     const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;
@@ -503,7 +532,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     const timeout1 = setTimeout(() => controller1.abort(), 8000);
     let response: Response;
     try {
-      response = await fetch(`${LOCAL_API_URL}/api/comics?${searchParams.toString()}`, {
+      response = await fetchLocalAPI(`/api/comics?${searchParams.toString()}`, {
         cache: "no-store",
         signal: controller1.signal,
       });
@@ -528,7 +557,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
       const timeout2 = setTimeout(() => controller2.abort(), 8000);
       let fallbackResponse: Response;
       try {
-        fallbackResponse = await fetch(`${LOCAL_API_URL}/api/comics?limit=300`, {
+        fallbackResponse = await fetchLocalAPI("/api/comics?limit=300", {
           cache: "no-store",
           signal: controller2.signal,
         });
@@ -557,7 +586,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     let detailResponse: Response | null = null;
     try {
       if (numericId) {
-        detailResponse = await fetch(`${LOCAL_API_URL}/api/comics/${encodeURIComponent(numericId)}`, {
+        detailResponse = await fetchLocalAPI(`/api/comics/${encodeURIComponent(numericId)}`, {
           cache: "no-store",
           signal: controller3.signal,
         });
@@ -626,7 +655,7 @@ async function resolveLocalChapterPages(chapterId: string) {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     let response: Response;
     try {
-      response = await fetch(`${LOCAL_API_URL}/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
+      response = await fetchLocalAPI(`/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
         cache: "no-store",
         signal: controller.signal,
       });
