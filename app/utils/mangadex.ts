@@ -1139,7 +1139,7 @@ export async function fetchMangaVfSourceBySlug(id: string) {
       const lookupId = cleanId.replace(/^manga[-_]?vf[-_]?/i, "");
       const query = lookupId.replace(/-/g, " ");
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
 
       try {
         const response = await fetch(
@@ -1178,7 +1178,7 @@ export async function fetchMangaVfDetailsBySlug(id: string) {
       if (!sourceUrl) return null;
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       try {
         const response = await fetch(
           `${MANGAVF_API_URL}/api/v1/manga/chapters?url=${encodeURIComponent(sourceUrl)}`,
@@ -1332,7 +1332,7 @@ async function searchLeerCapituloByTitle(title: string): Promise<string | null> 
     2592000, // 30 días
     async () => {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       try {
         const response = await fetch(
           `${MANGAVF_API_URL}/api/v1/manga/search?q=${encodeURIComponent(title)}`,
@@ -1623,7 +1623,7 @@ export async function fetchMangaVfPages(details: MangaVfDetails, chapterId: stri
       if (!chapterUrl) return [];
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
+      const timeout = setTimeout(() => controller.abort(), 3000);
       try {
         const response = await fetch(
           `${MANGAVF_API_URL}/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
@@ -1743,9 +1743,12 @@ export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"
     stableCacheKey("leercapitulo-latest-showcase", [language]),
     600,
     async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
       try {
         const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
           cache: "no-store",
+          signal: controller.signal,
         });
         if (!response.ok) return [];
         const payload = (await response.json()) as LeerCapituloLatestResponse;
@@ -1754,6 +1757,8 @@ export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"
       } catch (error) {
         logger.error("Error fetching LeerCapitulo latest", error);
         return [];
+      } finally {
+        clearTimeout(timeout);
       }
     },
     { shouldCache: (items) => items.length > 0 }
