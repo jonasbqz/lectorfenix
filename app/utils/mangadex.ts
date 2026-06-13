@@ -989,28 +989,48 @@ async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response
   const urls = [
     `${LOCAL_API_URL}${cleanPath}`,
     `http://172.17.0.1:8085${cleanPath}`,
+    `http://172.18.0.1:8085${cleanPath}`,
+    `http://172.19.0.1:8085${cleanPath}`,
+    `http://172.20.0.1:8085${cleanPath}`,
+    `http://172.21.0.1:8085${cleanPath}`,
+    `http://172.22.0.1:8085${cleanPath}`,
+    `http://172.23.0.1:8085${cleanPath}`,
+    `http://172.24.0.1:8085${cleanPath}`,
+    `http://172.25.0.1:8085${cleanPath}`,
+    `http://172.26.0.1:8085${cleanPath}`,
+    `http://172.27.0.1:8085${cleanPath}`,
+    `http://172.28.0.1:8085${cleanPath}`,
+    `http://172.29.0.1:8085${cleanPath}`,
+    `http://172.30.0.1:8085${cleanPath}`,
+    `http://172.31.0.1:8085${cleanPath}`,
+    `http://host.docker.internal:8085${cleanPath}`,
     `http://127.0.0.1:8085${cleanPath}`,
     `http://localhost:8085${cleanPath}`,
   ];
 
-  let lastError: any = null;
-  for (const url of urls) {
+  const fetchPromises = urls.map(async (url) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2000);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4000);
-      
       const res = await fetch(url, {
         ...init,
         signal: init?.signal ?? controller.signal,
       });
-      clearTimeout(timeout);
+      if (!res.ok) {
+        throw new Error(`Response not ok: ${res.status} from ${url}`);
+      }
       return res;
-    } catch (err) {
-      lastError = err;
+    } finally {
+      clearTimeout(timeout);
     }
-  }
+  });
 
-  throw lastError || new Error(`All fetch attempts failed for path: ${cleanPath}`);
+  try {
+    return await Promise.any(fetchPromises);
+  } catch (error) {
+    logger.warn(`[fetchLocalAPI] All parallel attempts failed for ${cleanPath}, falling back to direct URL:`, error);
+    return fetch(`${LOCAL_API_URL}${cleanPath}`, init);
+  }
 }
 
 export async function fetchLocalComicBySlug(slug: string) {
