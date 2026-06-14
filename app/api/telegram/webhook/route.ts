@@ -401,6 +401,14 @@ export async function POST(req: Request) {
           return NextResponse.json({ ok: true });
         }
 
+        if (!arg) {
+          const publicError = `⚠️ *@${message.from.username || message.from.first_name}*, te faltó colocar tu nombre de usuario de MangaStoon.\n\n` +
+            `Usa el comando de esta forma: \`/codigo TU_USUARIO\`\n\n` +
+            `_(Ejemplo: \`/codigo Juan123\` - encontrás tu usuario en tu perfil de la web)_`;
+          await sendTelegramMessage(token, chatId, publicError, undefined, undefined, 30000);
+          return NextResponse.json({ ok: true });
+        }
+
         // Intentar enviar el código por privado
         const codeToday = await getDailyTelegramCode(arg || "tu_usuario", 0, senderId);
         const privateText = `🔑 *MangaStoon Pase Premium Gratis (1 Mes)* 🔑\n\n` +
