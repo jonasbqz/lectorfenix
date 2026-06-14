@@ -207,8 +207,8 @@ const LOCAL_DATA_TTL_SECONDS = 60 * 10;
 
 type ReaderApiPayload = Record<string, unknown>;
 
-function readResponseCacheKey(id: string, lang: SupportedLanguage, chapterId: string | null) {
-  return stableCacheKey("read-api", [id, lang, chapterId ?? "default"]);
+function readResponseCacheKey(id: string, lang: SupportedLanguage, chapterId: string | null, excludeChapters?: boolean) {
+  return stableCacheKey("read-api-v2", [id, lang, chapterId ?? "default", excludeChapters ? "exclude" : "full"]);
 }
 
 function readCacheHeaders(cacheStatus: "HIT" | "MISS" | "BYPASS" = "MISS", ttl = READ_RESPONSE_TTL_SECONDS) {
@@ -982,7 +982,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const limit = Math.max(0, Number(request.nextUrl.searchParams.get('limit')) || 20);
   const offset = Math.max(0, Number(request.nextUrl.searchParams.get('offset')) || 0);
   const excludeChapters = request.nextUrl.searchParams.get("excludeChapters") === "true";
-  const responseCacheKey = readResponseCacheKey(id, lang, chapterId);
+  const responseCacheKey = readResponseCacheKey(id, lang, chapterId, excludeChapters);
   const cachedPayload = await getCached<ReaderApiPayload>(responseCacheKey);
 
   if (cachedPayload) {
