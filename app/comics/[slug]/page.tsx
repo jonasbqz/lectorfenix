@@ -37,6 +37,7 @@ import {
   fetchMangaDetails,
   fetchMangaChapters as fetchMangaChaptersExternal,
   fetchLocalComicBySlug,
+  fetchLocalAPI,
 } from "../../utils/mangadex";
 import { SITE_IMAGE, SITE_NAME, absoluteUrl } from "../../utils/seo";
 import { buildChapterPath, buildComicPath, extractComicIdFromSlugId } from "../../utils/slugify";
@@ -1105,7 +1106,7 @@ async function fetchSuggestedLocalMangas(currentMangaId: string) {
     const timeout = setTimeout(() => controller.abort(), 4000);
     let response: Response;
     try {
-      response = await fetch(`${LOCAL_API_URL}/api/comics?limit=15`, {
+      response = await fetchLocalAPI("/api/comics?limit=15", {
         next: { revalidate: 300 },
         signal: controller.signal,
       });

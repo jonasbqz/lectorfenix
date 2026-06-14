@@ -13,6 +13,7 @@ import { translateTagName } from "./tagTranslations";
 import { buildComicPath, slugify } from "./slugify";
 import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
 import { getCached, setCached, getOrSetCached, stableCacheKey } from "./server-cache";
+import { fetchLocalAPI } from "./monline";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -650,7 +651,7 @@ export async function fetchLocalChapterPreviews(
   }
 
   try {
-    const response = await fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/comics/${comicId}`, {
+    const response = await fetchLocalAPI(`/api/comics/${comicId}`, {
       next: { revalidate: 120 },
       signal,
     });
@@ -760,7 +761,7 @@ export async function fetchLocalTop(limit = 10, language: SupportedLanguage = "e
     params.set("order", "views");
     params.set("v", "2");
 
-    const response = await fetch(`${apiBaseUrl}/api/comics?${params.toString()}`, {
+    const response = await fetchLocalAPI(`/api/comics?${params.toString()}`, {
       next: { revalidate: 300 },
     });
 
@@ -984,68 +985,7 @@ function cleanMangaSlug(slug: string): string {
   return cleaned;
 }
 
-async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
-  const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  const urls = [
-    `${LOCAL_API_URL}${cleanPath}`,
-    `http://172.17.0.1:8085${cleanPath}`,
-    `http://host.docker.internal:8085${cleanPath}`,
-    `http://127.0.0.1:8085${cleanPath}`,
-    `http://localhost:8085${cleanPath}`,
-  ];
 
-  // Detect and guess gateway IPs dynamically based on container subnets (e.g. 10.0.1.x)
-  try {
-    const os = require("os");
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-      const netInfos = interfaces[name] || [];
-      for (const info of netInfos) {
-        if (info.family === "IPv4" && !info.internal) {
-          const ip = info.address;
-          const parts = ip.split(".");
-          if (parts.length === 4) {
-            urls.push(`http://${parts[0]}.${parts[1]}.${parts[2]}.1:8085${cleanPath}`);
-            urls.push(`http://${parts[0]}.${parts[1]}.0.1:8085${cleanPath}`);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    logger.error("[fetchLocalAPI] Error detecting dynamic gateways:", err);
-  }
-
-  // Prepend other common 172.x subnets just in case
-  for (let i = 18; i <= 31; i++) {
-    urls.push(`http://172.${i}.0.1:8085${cleanPath}`);
-  }
-
-  const uniqueUrls = Array.from(new Set(urls));
-
-  const fetchPromises = uniqueUrls.map(async (url) => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-    try {
-      const res = await fetch(url, {
-        ...init,
-        signal: init?.signal ?? controller.signal,
-      });
-      if (!res.ok) {
-        throw new Error(`Response not ok: ${res.status} from ${url}`);
-      }
-      return res;
-    } finally {
-      clearTimeout(timeout);
-    }
-  });
-
-  try {
-    return await Promise.any(fetchPromises);
-  } catch (error) {
-    logger.warn(`[fetchLocalAPI] All parallel attempts failed for ${cleanPath}, falling back to direct URL:`, error);
-    return fetch(`${LOCAL_API_URL}${cleanPath}`, init);
-  }
-}
 
 export async function fetchLocalComicBySlug(slug: string) {
   const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;

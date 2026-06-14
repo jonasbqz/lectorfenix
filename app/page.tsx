@@ -31,6 +31,7 @@ import {
   extractLocalApiComics,
   mapLocalApiComicsToShowcaseItems,
   mapToShowcaseItems,
+  fetchLocalAPI,
   type LocalApiComicsResponse,
   type MangaDexManga,
 } from "./utils/mangadex";
@@ -520,7 +521,7 @@ async function fetchMonlineComics(path: string, language: SupportedLanguage, enr
   const isTopRow = path.includes("order=views");
 
   try {
-    const response = await fetch(`${MONLINE_API_URL}${path}`, {
+    const response = await fetchLocalAPI(path, {
       next: { revalidate: isTopRow ? 300 : 60 },
       signal: controller.signal,
     });

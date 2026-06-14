@@ -66,9 +66,11 @@ function normalizeLocalImageUrl(value: string) {
   return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
 }
 
+import { fetchLocalAPI } from "../../../../utils/mangadex";
+
 async function fetchLocalChapterPages(chapterId: string) {
   try {
-    const response = await fetch(`${LOCAL_API_URL}/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
+    const response = await fetchLocalAPI(`/api/chapters/${encodeURIComponent(chapterId)}/pages`, {
       cache: "no-store",
     });
 
