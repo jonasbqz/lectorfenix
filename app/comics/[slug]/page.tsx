@@ -1147,6 +1147,7 @@ export default async function MangaDetailsPage({
   const mangaPromise = cachedFetchMangaDetails(id, cookieLang, slug);
   const ratingSummaryPromise = cachedFetchMangaRatingSummary(id);
   const suggestedLocalPromise = cachedFetchSuggestedLocalMangas(id);
+  let chaptersPromise = cachedFetchMangaChapters(id, cookieLang, slug);
   const supabasePromise = createClient().then(async (supabase) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1225,7 +1226,9 @@ export default async function MangaDetailsPage({
   const copy = UI_COPY[currentLanguage];
 
   // 3. Lanzar fetches secundarios en paralelo
-  const chaptersPromise = cachedFetchMangaChapters(id, currentLanguage, slug);
+  if (currentLanguage !== cookieLang) {
+    chaptersPromise = cachedFetchMangaChapters(id, currentLanguage, slug);
+  }
 
   const tags = (manga.attributes?.tags ?? [])
     .filter((tag) => tag.attributes?.group === "genre")

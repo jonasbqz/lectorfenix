@@ -1416,86 +1416,86 @@ function extractTitleFromSlug(slug: string): string {
 }
 
 export async function resolveBestSource(idOrSlug: string, slug?: string | null): Promise<ResolvedSource> {
-  const cacheKey = `source-resolution:v2:${idOrSlug}`;
-  const cached = await getCached<ResolvedSource>(cacheKey);
-  if (cached) return cached;
+  const cacheKey = `source-resolution:v3:${idOrSlug}`;
+  return getOrSetCached(
+    cacheKey,
+    1800, // 30 minutos
+    async () => {
+      let source: "mangadex" | "leercapitulo" = "mangadex";
+      let mangadexId: string | undefined;
+      let leercapituloSlug: string | undefined;
+      let leercapituloDetails: MangaVfDetails | null = null;
 
-  let source: "mangadex" | "leercapitulo" = "mangadex";
-  let mangadexId: string | undefined;
-  let leercapituloSlug: string | undefined;
-  let leercapituloDetails: MangaVfDetails | null = null;
+      if (isMangaDexUuid(idOrSlug)) {
+        mangadexId = idOrSlug;
+        try {
+          const response = await fetchMangaDex(
+            `https://api.mangadex.org/manga/${idOrSlug}`
+          );
+          if (response.ok) {
+            const payload = await response.json();
+            const titleMap = payload.data?.attributes?.title ?? {};
+            const title = titleMap.es || titleMap.en || Object.values(titleMap)[0] as string || "";
+            if (title) {
+              leercapituloSlug = (await searchLeerCapituloByTitle(title)) ?? undefined;
+            }
+          } else {
+            logger.warn(`[resolveBestSource] MangaDex fetch returned non-ok status: ${response.status}`);
+          }
+        } catch (err) {
+          logger.error(`[resolveBestSource] Error fetching from MangaDex:`, err);
+        }
 
-  if (isMangaDexUuid(idOrSlug)) {
-    mangadexId = idOrSlug;
-    try {
-      const response = await fetchMangaDex(
-        `https://api.mangadex.org/manga/${idOrSlug}`
-      );
-      if (response.ok) {
-        const payload = await response.json();
-        const titleMap = payload.data?.attributes?.title ?? {};
-        const title = titleMap.es || titleMap.en || Object.values(titleMap)[0] as string || "";
-        if (title) {
-          leercapituloSlug = (await searchLeerCapituloByTitle(title)) ?? undefined;
+        if (!leercapituloSlug && slug) {
+          const extractedTitle = extractTitleFromSlug(slug);
+          logger.info(`[resolveBestSource] MangaDex failed, extracted title fallback: "${extractedTitle}"`);
+          if (extractedTitle && extractedTitle !== "mangastoon" && extractedTitle !== "comic") {
+            leercapituloSlug = (await searchLeerCapituloByTitle(extractedTitle)) ?? undefined;
+          }
         }
       } else {
-        logger.warn(`[resolveBestSource] MangaDex fetch returned non-ok status: ${response.status}`);
+        leercapituloSlug = idOrSlug;
+        leercapituloDetails = await fetchMangaVfDetailsBySlug(idOrSlug);
+        let title = leercapituloDetails?.manga_title || leercapituloDetails?.title;
+        if (!title) {
+          const cleanSlug = idOrSlug.startsWith("lc-") ? idOrSlug.substring(3) : idOrSlug;
+          const query = cleanSlug.replace(/^manga[-_]?vf[-_]?/i, "").replace(/-/g, " ");
+          mangadexId = await searchMangaDexByTitle(query) ?? undefined;
+        } else {
+          mangadexId = await searchMangaDexByTitle(title) ?? undefined;
+        }
       }
-    } catch (err) {
-      logger.error(`[resolveBestSource] Error fetching from MangaDex:`, err);
-    }
 
-    if (!leercapituloSlug && slug) {
-      const extractedTitle = extractTitleFromSlug(slug);
-      logger.info(`[resolveBestSource] MangaDex failed, extracted title fallback: "${extractedTitle}"`);
-      if (extractedTitle && extractedTitle !== "mangastoon" && extractedTitle !== "comic") {
-        leercapituloSlug = (await searchLeerCapituloByTitle(extractedTitle)) ?? undefined;
+      let mdChaptersCount = 0;
+      let lcChaptersCount = 0;
+
+      if (mangadexId) {
+        mdChaptersCount = await getMangaDexSpanishChapterCount(mangadexId);
       }
+
+      if (leercapituloSlug) {
+        if (!leercapituloDetails) {
+          leercapituloDetails = await fetchMangaVfDetailsBySlug(leercapituloSlug);
+        }
+        lcChaptersCount = leercapituloDetails?.chapters?.length ?? 0;
+      }
+
+      if (leercapituloSlug && lcChaptersCount > mdChaptersCount) {
+        source = "leercapitulo";
+      } else if (mangadexId) {
+        source = "mangadex";
+      } else if (leercapituloSlug) {
+        source = "leercapitulo";
+      }
+
+      return {
+        source,
+        mangadexId,
+        leercapituloSlug,
+        leercapituloDetails,
+      };
     }
-  } else {
-    leercapituloSlug = idOrSlug;
-    leercapituloDetails = await fetchMangaVfDetailsBySlug(idOrSlug);
-    let title = leercapituloDetails?.manga_title || leercapituloDetails?.title;
-    if (!title) {
-      const cleanSlug = idOrSlug.startsWith("lc-") ? idOrSlug.substring(3) : idOrSlug;
-      const query = cleanSlug.replace(/^manga[-_]?vf[-_]?/i, "").replace(/-/g, " ");
-      mangadexId = await searchMangaDexByTitle(query) ?? undefined;
-    } else {
-      mangadexId = await searchMangaDexByTitle(title) ?? undefined;
-    }
-  }
-
-  let mdChaptersCount = 0;
-  let lcChaptersCount = 0;
-
-  if (mangadexId) {
-    mdChaptersCount = await getMangaDexSpanishChapterCount(mangadexId);
-  }
-
-  if (leercapituloSlug) {
-    if (!leercapituloDetails) {
-      leercapituloDetails = await fetchMangaVfDetailsBySlug(leercapituloSlug);
-    }
-    lcChaptersCount = leercapituloDetails?.chapters?.length ?? 0;
-  }
-
-  if (leercapituloSlug && lcChaptersCount > mdChaptersCount) {
-    source = "leercapitulo";
-  } else if (mangadexId) {
-    source = "mangadex";
-  } else if (leercapituloSlug) {
-    source = "leercapitulo";
-  }
-
-  const result: ResolvedSource = {
-    source,
-    mangadexId,
-    leercapituloSlug,
-    leercapituloDetails,
-  };
-
-  await setCached(cacheKey, result, 1800); // 30 minutos (antes eran 2 horas)
-  return result;
+  );
 }
 
 export type ChapterFeedItem = {
