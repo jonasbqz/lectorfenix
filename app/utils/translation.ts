@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 const FALLBACK_TRANSLATIONS: Record<"es" | "pt" | "en", Array<[RegExp, string]>> = {
   es: [
     [/\bSeason\b/gi, "Temporada"],
@@ -112,6 +114,76 @@ export function applyFallbackDictionary(text: string, targetLang: "es" | "pt" | 
   );
 }
 
+async function translateWithGemini(
+  text: string,
+  targetLang: string,
+  sourceLang = "auto"
+): Promise<string | null> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const languageNames: Record<string, string> = {
+    es: "Spanish (Latin America, natural localized translation, not literal)",
+    pt: "Portuguese (Brazil, natural localized translation, not literal)",
+    en: "English (natural localized translation, not literal)",
+    fr: "French",
+    de: "German",
+  };
+
+  const targetLangName = languageNames[targetLang] ?? targetLang;
+  const sourceLangText = sourceLang && sourceLang !== "auto" ? `from ${sourceLang}` : "";
+
+  const systemInstruction = `You are a professional translator specializing in manga, manhua, manhwa, and light novels.
+Translate the user's text ${sourceLangText} to ${targetLangName} naturally and contextually.
+Crucial Rules:
+- Avoid word-for-word or robotic/literal translations.
+- Correctly adapt scanlation terms or web novel idioms (e.g. translate "green tea bitch" or "green tea" to "interesada" or "manipuladora" in Spanish/Portuguese; "court death" to "buscar problemas" or "querer morir"; "face slapping" to "poner en su lugar" or "humillar").
+- Do not add any conversational text, notes, intro, or explanations.
+- Output ONLY the translated text.`;
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text }],
+          },
+        ],
+        systemInstruction: {
+          parts: [{ text: systemInstruction }],
+        },
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 2048,
+        },
+      }),
+      next: { revalidate: 86400 },
+    });
+
+    if (!response.ok) {
+      logger.warn(`[Gemini Translation] API response not ok: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof resultText === "string") {
+      return resultText.trim();
+    }
+    return null;
+  } catch (err) {
+    logger.error("[Gemini Translation] Error translating with Gemini:", err);
+    return null;
+  }
+}
+
 export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en" | "fr" | "de", sourceLang = "auto") {
   const cleanText = sanitizeText(text);
 
@@ -125,6 +197,18 @@ export async function forceTranslate(text: string, targetLang: "es" | "pt" | "en
   const isEsOrPt = targetLang === "es" || targetLang === "pt";
   const dictionaryFallback = isEsOrPt ? applyFallbackDictionary(cleanText, targetLang) : cleanText;
 
+  // 1. Intentar con Gemini si la API key está disponible
+  if (process.env.GEMINI_API_KEY) {
+    const geminiResult = await translateWithGemini(cleanText, targetLang, sourceLang);
+    if (geminiResult) {
+      const processedResult = isEsOrPt ? applyFallbackDictionary(geminiResult, targetLang) : geminiResult;
+      const sanitizedResult = sanitizeText(processedResult);
+      translationCache.set(cacheKey, sanitizedResult);
+      return sanitizedResult;
+    }
+  }
+
+  // 2. Fallback a Google Translate
   try {
     const response = await fetch(
       `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sourceLang}&tl=${targetLang}&dt=t&q=${encodeURIComponent(cleanText)}`,
