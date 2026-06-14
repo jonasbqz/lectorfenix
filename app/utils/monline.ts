@@ -247,6 +247,6 @@ export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<R
 }
 
 export async function fetchMangaVfAPI(path: string, init?: RequestInit): Promise<Response> {
-  return fetchHostAPI(3001, path, init);
+  return fetchHostAPI(3005, path, init);
 }
 
