@@ -219,7 +219,7 @@ export async function fetchHostAPI(port: number, path: string, init?: RequestIni
 
   const fetchPromises = uniqueUrls.map(async (url) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       const res = await fetch(url, {
         ...init,
@@ -249,7 +249,7 @@ export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<R
 let scraperFailureCount = 0;
 let scraperOfflineUntil = 0;
 const CIRCUIT_BREAKER_COOLDOWN_MS = 1000 * 60 * 3; // 3 minutos
-const FAILURE_THRESHOLD = 2;
+const FAILURE_THRESHOLD = 5;
 
 function recordScraperFailure() {
   scraperFailureCount++;
