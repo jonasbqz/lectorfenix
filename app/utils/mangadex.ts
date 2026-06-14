@@ -990,92 +990,97 @@ function cleanMangaSlug(slug: string): string {
 export async function fetchLocalComicBySlug(slug: string) {
   const normalizedSlug = slug.startsWith("lc-") ? slug.substring(3) : slug;
   const cleanSlug = cleanMangaSlug(normalizedSlug);
-  const cacheKey = `local-comic-slug:${cleanSlug}`;
-  return getOrSetCached(cacheKey, 7200, async () => {
-    try {
-      const cleanTitle = cleanSlug.replace(/-/g, " ");
-      const searchParams = new URLSearchParams();
-      searchParams.set("title", cleanTitle);
-      searchParams.set("limit", "15");
-
-      const controller1 = new AbortController();
-      const timeout1 = setTimeout(() => controller1.abort(), 8000);
-      let listResponse: Response;
+  const cacheKey = `local-comic-slug:v2:${cleanSlug}`;
+  return getOrSetCached(
+    cacheKey,
+    7200,
+    async () => {
       try {
-        listResponse = await fetchLocalAPI(
-          `/api/comics?${searchParams.toString()}`,
-          { next: { revalidate: 3600 }, signal: controller1.signal }
-        );
-      } finally {
-        clearTimeout(timeout1);
-      }
+        const cleanTitle = cleanSlug.replace(/-/g, " ");
+        const searchParams = new URLSearchParams();
+        searchParams.set("title", cleanTitle);
+        searchParams.set("limit", "15");
 
-      let comics: any[] = [];
-      if (listResponse && listResponse.ok) {
-        comics = extractLocalApiComics(await listResponse.json());
-      }
-
-      let summary = comics.find((comic) => {
-        const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
-        const cleanComicSlug = cleanMangaSlug(comicSlug);
-        return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
-      });
-
-      if (!summary) {
-        const controller2 = new AbortController();
-        const timeout2 = setTimeout(() => controller2.abort(), 8000);
-        let fallbackResponse: Response;
+        const controller1 = new AbortController();
+        const timeout1 = setTimeout(() => controller1.abort(), 8000);
+        let listResponse: Response;
         try {
-          fallbackResponse = await fetchLocalAPI(
-            "/api/comics?limit=300",
-            { next: { revalidate: 3600 }, signal: controller2.signal }
+          listResponse = await fetchLocalAPI(
+            `/api/comics?${searchParams.toString()}`,
+            { next: { revalidate: 3600 }, signal: controller1.signal }
           );
         } finally {
-          clearTimeout(timeout2);
+          clearTimeout(timeout1);
         }
 
-        if (fallbackResponse && fallbackResponse.ok) {
-          const allComics = extractLocalApiComics(await fallbackResponse.json());
-          summary = allComics.find((comic) => {
-            const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
-            const cleanComicSlug = cleanMangaSlug(comicSlug);
-            return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
-          });
+        let comics: any[] = [];
+        if (listResponse && listResponse.ok) {
+          comics = extractLocalApiComics(await listResponse.json());
         }
+
+        let summary = comics.find((comic) => {
+          const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
+          const cleanComicSlug = cleanMangaSlug(comicSlug);
+          return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
+        });
+
+        if (!summary) {
+          const controller2 = new AbortController();
+          const timeout2 = setTimeout(() => controller2.abort(), 8000);
+          let fallbackResponse: Response;
+          try {
+            fallbackResponse = await fetchLocalAPI(
+              "/api/comics?limit=300",
+              { next: { revalidate: 3600 }, signal: controller2.signal }
+            );
+          } finally {
+            clearTimeout(timeout2);
+          }
+
+          if (fallbackResponse && fallbackResponse.ok) {
+            const allComics = extractLocalApiComics(await fallbackResponse.json());
+            summary = allComics.find((comic) => {
+              const comicSlug = getLocalStringValue(comic, ["slug", "manga_slug", "comic_slug"]);
+              const cleanComicSlug = cleanMangaSlug(comicSlug);
+              return cleanComicSlug === cleanSlug || cleanSlug.endsWith(`-${cleanComicSlug}`);
+            });
+          }
+        }
+
+        const numericId = getLocalStringValue(summary ?? {}, ["id"]);
+
+        if (!summary || !numericId) return null;
+
+        const controller3 = new AbortController();
+        const timeout3 = setTimeout(() => controller3.abort(), 8000);
+        let detailResponse: Response;
+        try {
+          detailResponse = await fetchLocalAPI(
+            `/api/comics/${encodeURIComponent(numericId)}`,
+            { next: { revalidate: 3600 }, signal: controller3.signal }
+          );
+        } finally {
+          clearTimeout(timeout3);
+        }
+
+        if (!detailResponse || !detailResponse.ok) return summary;
+
+        const details = extractLocalApiComics(await detailResponse.json())[0];
+        if (details) {
+          return {
+            ...summary,
+            ...details,
+            recent_chapters: details.recent_chapters || summary.recent_chapters || (summary as any).recent_chapters
+          };
+        }
+        return summary;
+      } catch (error) {
+        logger.error(`[fetchLocalComicBySlug] Error fetching comic by slug ${slug}:`, error);
+        return null;
       }
-
-      const numericId = getLocalStringValue(summary ?? {}, ["id"]);
-
-      if (!summary || !numericId) return null;
-
-      const controller3 = new AbortController();
-      const timeout3 = setTimeout(() => controller3.abort(), 8000);
-      let detailResponse: Response;
-      try {
-        detailResponse = await fetchLocalAPI(
-          `/api/comics/${encodeURIComponent(numericId)}`,
-          { next: { revalidate: 3600 }, signal: controller3.signal }
-        );
-      } finally {
-        clearTimeout(timeout3);
-      }
-
-      if (!detailResponse || !detailResponse.ok) return summary;
-
-      const details = extractLocalApiComics(await detailResponse.json())[0];
-      if (details) {
-        return {
-          ...summary,
-          ...details,
-          recent_chapters: details.recent_chapters || summary.recent_chapters || (summary as any).recent_chapters
-        };
-      }
-      return summary;
-    } catch (error) {
-      logger.error(`[fetchLocalComicBySlug] Error fetching comic by slug ${slug}:`, error);
-      return null;
-    }
-  });
+    },
+    { shouldCache: (comic) => comic !== null }
+  );
 }
 
 function getLocalTextMap(source: LocalApiComic, baseKeys: string[], prefix: string) {
@@ -1134,7 +1139,7 @@ function mapLocalComicToMangaDetails(comic: LocalApiComic): MangaDetails | null 
 }
 
 export async function fetchMangaVfSourceBySlug(id: string) {
-  const cacheKey = stableCacheKey("leercapitulo-source-by-slug", [id]);
+  const cacheKey = stableCacheKey("leercapitulo-source-by-slug-v2", [id]);
   return getOrSetCached(
     cacheKey,
     2592000, // 30 días (el URL de un manga en LeerCapitulo es estático)
@@ -1172,7 +1177,7 @@ export async function fetchMangaVfSourceBySlug(id: string) {
 }
 
 export async function fetchMangaVfDetailsBySlug(id: string) {
-  const cacheKey = `leercapitulo-details:${id}`;
+  const cacheKey = `leercapitulo-details:v2:${id}`;
   return getOrSetCached(
     cacheKey,
     7200, // 2 horas (los detalles cambian poco)
@@ -1232,69 +1237,73 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
 }
 
 export async function fetchMangaDetails(id: string, language?: string, slug?: string | null): Promise<MangaDetails | null> {
-  const cacheKey = `manga-details:${id}:${language || "all"}`;
-  return getOrSetCached(cacheKey, 7200, async () => {
-    let localManga: MangaDetails | null = null;
-    if (!isMangaDexUuid(id)) {
-      const localComic = await fetchLocalComicBySlug(id);
-      localManga = localComic ? mapLocalComicToMangaDetails(localComic) : null;
-    }
-
-    if (localManga) {
-      return localManga;
-    }
-
-    // If the language is NOT Spanish and this is NOT a LeerCapitulo manga, we bypass LeerCapitulo entirely
-    if (language && language !== "es" && !id.startsWith("lc-")) {
-      if (!isMangaDexUuid(id)) return null;
-      try {
-        const response = await fetchMangaDex(
-          `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`
-        );
-        if (!response.ok) return null;
-        const payload = (await response.json()) as MangaDetailsResponse;
-        return payload.data ?? null;
-      } catch {
-        return null;
+  const cacheKey = `manga-details:v2:${id}:${language || "all"}`;
+  return getOrSetCached(
+    cacheKey,
+    7200,
+    async () => {
+      let localManga: MangaDetails | null = null;
+      if (!isMangaDexUuid(id)) {
+        const localComic = await fetchLocalComicBySlug(id);
+        localManga = localComic ? mapLocalComicToMangaDetails(localComic) : null;
       }
-    }
 
-    const resolution = await resolveBestSource(id, slug);
-    if (resolution.source === "leercapitulo" && resolution.leercapituloSlug && resolution.leercapituloDetails) {
-      return mapMangaVfToMangaDetails(id, resolution.leercapituloDetails);
-    }
+      if (localManga) {
+        return localManga;
+      }
 
-    if (resolution.mangadexId) {
-      try {
-        const response = await fetchMangaDex(
-          `https://api.mangadex.org/manga/${resolution.mangadexId}?includes[]=cover_art&includes[]=author`
-        );
-
-        if (!response.ok) {
+      // If the language is NOT Spanish and this is NOT a LeerCapitulo manga, we bypass LeerCapitulo entirely
+      if (language && language !== "es" && isMangaDexUuid(id)) {
+        try {
+          const response = await fetchMangaDex(
+            `https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`
+          );
+          if (!response.ok) return null;
+          const payload = (await response.json()) as MangaDetailsResponse;
+          return payload.data ?? null;
+        } catch {
           return null;
         }
-
-        const payload = (await response.json()) as MangaDetailsResponse;
-        if (!payload.data) {
-          logger.warn(`[MangaStoon] MangaDex devolvio detalles vacios para manga ${resolution.mangadexId}`);
-        }
-
-        const mangaDetails = payload.data ?? null;
-        if (mangaDetails) {
-          mangaDetails.id = id;
-        }
-        return mangaDetails;
-      } catch {
-        return null;
       }
-    }
 
-    return null;
-  });
+      const resolution = await resolveBestSource(id, slug);
+      if (resolution.source === "leercapitulo" && resolution.leercapituloSlug && resolution.leercapituloDetails) {
+        return mapMangaVfToMangaDetails(id, resolution.leercapituloDetails);
+      }
+
+      if (resolution.mangadexId) {
+        try {
+          const response = await fetchMangaDex(
+            `https://api.mangadex.org/manga/${resolution.mangadexId}?includes[]=cover_art&includes[]=author`
+          );
+
+          if (!response.ok) {
+            return null;
+          }
+
+          const payload = (await response.json()) as MangaDetailsResponse;
+          if (!payload.data) {
+            logger.warn(`[MangaStoon] MangaDex devolvio detalles vacios para manga ${resolution.mangadexId}`);
+          }
+
+          const mangaDetails = payload.data ?? null;
+          if (mangaDetails) {
+            mangaDetails.id = id;
+          }
+          return mangaDetails;
+        } catch {
+          return null;
+        }
+      }
+
+      return null;
+    },
+    { shouldCache: (manga) => manga !== null }
+  );
 }
 
 async function searchMangaDexByTitle(title: string): Promise<string | null> {
-  const cacheKey = stableCacheKey("mangadex-search-by-title", [title]);
+  const cacheKey = stableCacheKey("mangadex-search-by-title-v2", [title]);
   return getOrSetCached(
     cacheKey,
     2592000, // 30 días
@@ -1330,7 +1339,7 @@ async function searchMangaDexByTitle(title: string): Promise<string | null> {
 }
 
 async function searchLeerCapituloByTitle(title: string): Promise<string | null> {
-  const cacheKey = stableCacheKey("leercapitulo-slug-by-title", [title]);
+  const cacheKey = stableCacheKey("leercapitulo-slug-by-title-v2", [title]);
   return getOrSetCached(
     cacheKey,
     2592000, // 30 días
@@ -1369,7 +1378,7 @@ async function searchLeerCapituloByTitle(title: string): Promise<string | null> 
 }
 
 async function getMangaDexSpanishChapterCount(mangaId: string): Promise<number> {
-  const cacheKey = stableCacheKey("mangadex-es-chapters-count", [mangaId]);
+  const cacheKey = stableCacheKey("mangadex-es-chapters-count-v2", [mangaId]);
   return getOrSetCached(
     cacheKey,
     7200, // 2 horas
@@ -1407,7 +1416,7 @@ function extractTitleFromSlug(slug: string): string {
 }
 
 export async function resolveBestSource(idOrSlug: string, slug?: string | null): Promise<ResolvedSource> {
-  const cacheKey = `source-resolution:${idOrSlug}`;
+  const cacheKey = `source-resolution:v2:${idOrSlug}`;
   const cached = await getCached<ResolvedSource>(cacheKey);
   if (cached) return cached;
 
@@ -1639,68 +1648,73 @@ function getLocalChaptersFromComic(comic: any): ChapterFeedItem[] {
 }
 
 export async function fetchMangaChapters(id: string, language: string, slug?: string | null): Promise<ChapterFeedItem[]> {
-  const cacheKey = `manga-chapters:${id}:${language}`;
-  return getOrSetCached(cacheKey, 900, async () => {
-    // Si no es un UUID de MangaDex, verificar si es un comic local
-    if (!isMangaDexUuid(id)) {
-      const localComic = await fetchLocalComicBySlug(id);
-      if (localComic) {
-        return getLocalChaptersFromComic(localComic);
+  const cacheKey = `manga-chapters:v2:${id}:${language}`;
+  return getOrSetCached(
+    cacheKey,
+    900,
+    async () => {
+      // Si no es un UUID de MangaDex, verificar si es un comic local
+      if (!isMangaDexUuid(id)) {
+        const localComic = await fetchLocalComicBySlug(id);
+        if (localComic) {
+          return getLocalChaptersFromComic(localComic);
+        }
       }
-    }
 
-    const resolution = await resolveBestSource(id, slug);
+      const resolution = await resolveBestSource(id, slug);
 
-    // If the language is NOT Spanish and this is NOT a LeerCapitulo manga, we ONLY fetch from MangaDex (no merging)
-    if (language !== "es" && !id.startsWith("lc-")) {
-      const mangaId = resolution.mangadexId || id;
-      if (!isMangaDexUuid(mangaId)) return [];
-      return fetchMangaDexChaptersOnly(mangaId, language);
-    }
+      // If the language is NOT Spanish and this is NOT a LeerCapitulo manga, we ONLY fetch from MangaDex (no merging)
+      if (language !== "es" && isMangaDexUuid(id)) {
+        const mangaId = resolution.mangadexId || id;
+        if (!isMangaDexUuid(mangaId)) return [];
+        return fetchMangaDexChaptersOnly(mangaId, language);
+      }
 
-    // If Spanish, fetch both in parallel and merge them
-    const [mdChapters, lcChapters] = await Promise.all([
-      resolution.mangadexId ? fetchMangaDexChaptersOnly(resolution.mangadexId, language) : Promise.resolve([]),
-      resolution.leercapituloSlug ? fetchLeerCapituloChaptersOnly(resolution.leercapituloSlug) : Promise.resolve([])
-    ]);
+      // If Spanish, fetch both in parallel and merge them
+      const [mdChapters, lcChapters] = await Promise.all([
+        resolution.mangadexId ? fetchMangaDexChaptersOnly(resolution.mangadexId, language) : Promise.resolve([]),
+        resolution.leercapituloSlug ? fetchLeerCapituloChaptersOnly(resolution.leercapituloSlug) : Promise.resolve([])
+      ]);
 
-    let mainChapters: ChapterFeedItem[];
-    let secondaryChapters: ChapterFeedItem[];
+      let mainChapters: ChapterFeedItem[];
+      let secondaryChapters: ChapterFeedItem[];
 
-    if (lcChapters.length > mdChapters.length) {
-      mainChapters = lcChapters;
-      secondaryChapters = mdChapters;
-    } else {
-      mainChapters = mdChapters;
-      secondaryChapters = lcChapters;
-    }
+      if (lcChapters.length > mdChapters.length) {
+        mainChapters = lcChapters;
+        secondaryChapters = mdChapters;
+      } else {
+        mainChapters = mdChapters;
+        secondaryChapters = lcChapters;
+      }
 
-    const mainNumbers = new Set(
-      mainChapters
-        .map((ch) => ch.attributes?.chapter?.trim())
-        .filter(Boolean)
-    );
+      const mainNumbers = new Set(
+        mainChapters
+          .map((ch) => ch.attributes?.chapter?.trim())
+          .filter(Boolean)
+      );
 
-    const missingChapters = secondaryChapters.filter((ch) => {
-      const num = ch.attributes?.chapter?.trim();
-      return num && !mainNumbers.has(num);
-    });
+      const missingChapters = secondaryChapters.filter((ch) => {
+        const num = ch.attributes?.chapter?.trim();
+        return num && !mainNumbers.has(num);
+      });
 
-    const mergedChapters = [...mainChapters, ...missingChapters];
+      const mergedChapters = [...mainChapters, ...missingChapters];
 
-    // Sort descending by chapter number
-    mergedChapters.sort((a, b) => {
-      const aNum = parseFloat(a.attributes?.chapter || "0");
-      const bNum = parseFloat(b.attributes?.chapter || "0");
-      return bNum - aNum;
-    });
+      // Sort descending by chapter number
+      mergedChapters.sort((a, b) => {
+        const aNum = parseFloat(a.attributes?.chapter || "0");
+        const bNum = parseFloat(b.attributes?.chapter || "0");
+        return bNum - aNum;
+      });
 
-    return mergedChapters;
-  });
+      return mergedChapters;
+    },
+    { shouldCache: (chapters) => chapters.length > 0 }
+  );
 }
 
 export async function fetchMangaVfPages(details: MangaVfDetails, chapterId: string) {
-  const cacheKey = `leercapitulo-pages:${chapterId}`;
+  const cacheKey = `leercapitulo-pages:v2:${chapterId}`;
   return getOrSetCached(
     cacheKey,
     300, // 5 minutos (evita URLs de CDN rotadas/expiradas de LeerCapitulo)
