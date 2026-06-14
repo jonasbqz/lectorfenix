@@ -1215,6 +1215,27 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
 
   const canonicalId = id.startsWith("lc-") ? id : `lc-${id}`;
 
+  const adultKeywords = new Set([
+    "hentai",
+    "ecchi",
+    "erotica",
+    "nsfw",
+    "+18",
+    "18+",
+    "erotic",
+    "erotico",
+    "adult",
+    "porn",
+    "xxx",
+    "sexual violence",
+    "sexual-violence"
+  ]);
+
+  const isAdultContent = genres.some((genre) => {
+    const gl = genre.toLowerCase();
+    return adultKeywords.has(gl) || /\b(adult|nsfw|hentai|erotic|erotico|porn|xxx|\+18|18\+|ecchi|sexual violence)\b/i.test(gl);
+  }) || title.toLowerCase().includes("hentai") || title.toLowerCase().includes("ecchi");
+
   return {
     id: canonicalId,
     author: "M",
@@ -1223,7 +1244,7 @@ function mapMangaVfToMangaDetails(id: string, details: MangaVfDetails): MangaDet
       altTitles: [],
       description: { es: synopsis, en: synopsis, pt: synopsis },
       status: details.status?.trim() || undefined,
-      contentRating: "safe",
+      contentRating: isAdultContent ? "pornographic" : "safe",
       tags: genres.map((genre, index) => ({
         id: `vf-${index}-${genre.toLowerCase().replace(/\s+/g, "-")}`,
         attributes: { name: { es: genre, en: genre, pt: genre }, group: "genre" },
@@ -1838,9 +1859,9 @@ export function mapLeerCapituloLatestToShowcase(
   });
 }
 
-export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"): Promise<MangaDexShowcaseItem[]> {
+export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es", isAdult = false): Promise<MangaDexShowcaseItem[]> {
   return getOrSetCached(
-    stableCacheKey("leercapitulo-latest-showcase", [language]),
+    stableCacheKey("leercapitulo-latest-showcase-v3", [language, String(isAdult)]),
     600,
     async () => {
       const controller = new AbortController();
@@ -1853,7 +1874,38 @@ export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"
         if (!response.ok) return [];
         const payload = (await response.json()) as LeerCapituloLatestResponse;
         const recientes = payload.recientes ?? [];
-        return mapLeerCapituloLatestToShowcase(recientes, language);
+
+        let filteredRecientes = recientes;
+        if (!isAdult) {
+          const isAdultFlags = await Promise.all(
+            recientes.map(async (item) => {
+              const titleLower = item.title.toLowerCase();
+              const slugLower = item.slug.toLowerCase();
+              const adultRegex = /\b(adult|nsfw|hentai|erotic|erotico|porn|xxx|\+18|18\+|ecchi|sexual violence)\b/i;
+              if (adultRegex.test(titleLower) || adultRegex.test(slugLower)) {
+                return true;
+              }
+              if (slugLower.includes("el-alquimista-de-fuego-que-enamora")) {
+                return true;
+              }
+              const cached = await getCached<MangaVfDetails>(`leercapitulo-details:v2:${item.slug}`);
+              if (cached && Array.isArray(cached.genres)) {
+                const adultKeywords = new Set([
+                  "hentai", "ecchi", "erotica", "nsfw", "+18", "18+", "erotic", "erotico", "adult", "porn", "xxx", "sexual violence", "sexual-violence"
+                ]);
+                return cached.genres.some((genre) => {
+                  if (!genre) return false;
+                  const gl = genre.toLowerCase();
+                  return adultKeywords.has(gl) || adultRegex.test(gl);
+                });
+              }
+              return false;
+            })
+          );
+          filteredRecientes = recientes.filter((_, idx) => !isAdultFlags[idx]);
+        }
+
+        return mapLeerCapituloLatestToShowcase(filteredRecientes, language);
       } catch (error) {
         logger.error("Error fetching LeerCapitulo latest", error);
         return [];

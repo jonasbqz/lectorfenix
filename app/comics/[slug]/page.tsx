@@ -16,6 +16,7 @@ import ShareButton from "../../components/ShareButton";
 import { createClient } from "../../../utils/supabase/server";
 import { MangaCard, type MangaShowcaseItem } from "../../components/MangaCard";
 import SiteHeader, { type SupportedLanguage } from "../../components/site-header";
+import AdultContentBlocker from "../../components/AdultContentBlocker";
 import SeoSynopsis from "./synopsis";
 import ChapterList from "./chapter-list";
 import ComicCoverImage from "./cover-image";
@@ -37,6 +38,7 @@ import {
   fetchMangaDetails,
   fetchMangaChapters as fetchMangaChaptersExternal,
   fetchLocalComicBySlug,
+  hasSensitiveAdultTag as hasSensitiveAdultTagExternal,
 } from "../../utils/mangadex";
 import { SITE_IMAGE, SITE_NAME, absoluteUrl } from "../../utils/seo";
 import { buildChapterPath, buildComicPath, extractComicIdFromSlugId } from "../../utils/slugify";
@@ -1165,6 +1167,15 @@ export default async function MangaDetailsPage({
 
   if (!manga) {
     notFound();
+  }
+
+  if (!isAdult && hasSensitiveAdultTagExternal(manga)) {
+    return (
+      <main className="min-h-screen bg-[#0a0908] text-white">
+        <SiteHeader language={cookieLang} />
+        <AdultContentBlocker lang={cookieLang} />
+      </main>
+    );
   }
 
   // 2. Sincronizar el idioma real comparando el slug de la URL actual

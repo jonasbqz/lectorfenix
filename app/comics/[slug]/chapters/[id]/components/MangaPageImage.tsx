@@ -252,16 +252,7 @@ export default function MangaPageImage({
         />
       ) : null}
 
-      {loaded && !failed && (
-        <button
-          type="button"
-          onClick={cycleZoom}
-          className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-heading font-bold text-white border border-white/10 shadow-lg backdrop-blur-md transition-all hover:bg-black/90 active:scale-95 cursor-pointer select-none"
-        >
-          {zoomLevel === 1 ? <ZoomIn size={12} className="text-[#ff6b00]" /> : <ZoomOut size={12} className="text-amber-500" />}
-          <span>{zoomLevel}x</span>
-        </button>
-      )}
+
     </div>
   );
 }

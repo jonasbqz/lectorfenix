@@ -31,6 +31,7 @@ import {
   extractLocalApiComics,
   mapLocalApiComicsToShowcaseItems,
   mapToShowcaseItems,
+  isAdultShowcaseItem,
   type LocalApiComicsResponse,
   type MangaDexManga,
 } from "./utils/mangadex";
@@ -606,13 +607,19 @@ export default async function HomePage() {
   let leerCapituloLatest: MangaShowcaseItem[] = [];
 
   if (useLocalCatalog) {
-    [monlineWorldTop, monlineTopManhwas, monlineNewManhwas, monlineLatest, leerCapituloLatest] = await Promise.all([
-      fetchLocalTop(10, currentLanguage),
+    const [rawWorldTop, rawTopManhwas, rawNewManhwas, rawLatest, rawLC] = await Promise.all([
+      fetchLocalTop(10, currentLanguage, isAdult),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=views&v=2", currentLanguage),
       fetchMonlineComics("/api/comics?limit=10&type=manhua&order=created_at&v=2", currentLanguage),
       fetchMonlineComics("/api/comics?limit=15&order=updated_at&sort=desc&v=2", currentLanguage),
-      fetchLeerCapituloLatest(currentLanguage).catch(() => []),
+      fetchLeerCapituloLatest(currentLanguage, isAdult).catch(() => []),
     ]);
+
+    monlineWorldTop = rawWorldTop;
+    monlineTopManhwas = rawTopManhwas.filter((m) => isAdult || !isAdultShowcaseItem(m));
+    monlineNewManhwas = rawNewManhwas.filter((m) => isAdult || !isAdultShowcaseItem(m));
+    monlineLatest = rawLatest.filter((m) => isAdult || !isAdultShowcaseItem(m));
+    leerCapituloLatest = rawLC;
   }
 
   // Combine all updates and sort them strictly by arrival/publish date
