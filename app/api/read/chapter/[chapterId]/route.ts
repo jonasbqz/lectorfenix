@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../../../utils/mangadex-config";
-import { filterMonlineChapterPageUrls, fetchMonlinePagesFromRoute, toMonlineSegment, uniqueNonEmpty } from "../../../../utils/monline";
+import { filterMonlineChapterPageUrls, fetchMonlinePagesFromRoute, toMonlineSegment, uniqueNonEmpty, fetchLocalAPI } from "../../../../utils/monline";
 import { MONLINE_API_URL } from "../../../../utils/monline-config";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +66,6 @@ function normalizeLocalImageUrl(value: string) {
   return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
 }
 
-import { fetchLocalAPI } from "../../../../utils/mangadex";
 
 async function fetchLocalChapterPages(chapterId: string) {
   try {

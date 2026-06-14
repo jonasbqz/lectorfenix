@@ -31,10 +31,10 @@ import {
   extractLocalApiComics,
   mapLocalApiComicsToShowcaseItems,
   mapToShowcaseItems,
-  fetchLocalAPI,
   type LocalApiComicsResponse,
   type MangaDexManga,
 } from "./utils/mangadex";
+import { fetchLocalAPI } from "./utils/monline";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "./utils/mangadex-config";
 import { buildComicPath } from "./utils/slugify";
 

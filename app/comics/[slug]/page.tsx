@@ -28,7 +28,7 @@ import { getLocalizedTitle, getLocalizedTitleAsync } from "../../utils/get-local
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "../../utils/mangadex-config";
 import { translateTagName } from "../../utils/tagTranslations";
 import { forceTranslate, paraphraseSynopsis } from "../../utils/translation";
-import { filterMonlineChapterPageUrls } from "../../utils/monline";
+import { filterMonlineChapterPageUrls, fetchLocalAPI } from "../../utils/monline";
 import {
   appendStandardMangaDexFilters,
   fetchMangaDexCollection,
@@ -37,7 +37,6 @@ import {
   fetchMangaDetails,
   fetchMangaChapters as fetchMangaChaptersExternal,
   fetchLocalComicBySlug,
-  fetchLocalAPI,
 } from "../../utils/mangadex";
 import { SITE_IMAGE, SITE_NAME, absoluteUrl } from "../../utils/seo";
 import { buildChapterPath, buildComicPath, extractComicIdFromSlugId } from "../../utils/slugify";
