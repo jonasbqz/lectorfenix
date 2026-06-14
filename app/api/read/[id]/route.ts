@@ -23,6 +23,7 @@ import {
   toMonlineSegment,
   uniqueNonEmpty,
   fetchLocalAPI,
+  fetchMangaVfAPI,
 } from "../../../utils/monline";
 import { slugify } from "../../../utils/slugify";
 
@@ -436,7 +437,7 @@ async function resolveLatestLeerCapituloChapter(slug: string, chapterNumber: str
       const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
       try {
-        const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
+        const response = await fetchMangaVfAPI(`/api/v1/manga/latest`, {
           cache: "no-store",
           signal: controller.signal,
         });
@@ -474,8 +475,8 @@ async function fetchLeerCapituloPagesByUrl(chapterUrl: string) {
       const timeout = setTimeout(() => controller.abort(), 15000);
 
       try {
-        const response = await fetch(
-          `${MANGAVF_API_URL}/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
+        const response = await fetchMangaVfAPI(
+          `/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (!response.ok) return [];

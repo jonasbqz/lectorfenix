@@ -174,14 +174,19 @@ export async function fetchMonlinePagesFromRoute({
   return pages;
 }
 
-export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
+export async function fetchHostAPI(port: number, path: string, init?: RequestInit): Promise<Response> {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  const defaultBaseUrl =
+    port === 8085
+      ? MONLINE_API_URL
+      : (process.env.NEXT_PUBLIC_MANGAVF_API_URL || process.env.MANGAVF_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
   const urls = [
-    `${MONLINE_API_URL}${cleanPath}`,
-    `http://172.17.0.1:8085${cleanPath}`,
-    `http://host.docker.internal:8085${cleanPath}`,
-    `http://127.0.0.1:8085${cleanPath}`,
-    `http://localhost:8085${cleanPath}`,
+    `${defaultBaseUrl}${cleanPath}`,
+    `http://172.17.0.1:${port}${cleanPath}`,
+    `http://host.docker.internal:${port}${cleanPath}`,
+    `http://127.0.0.1:${port}${cleanPath}`,
+    `http://localhost:${port}${cleanPath}`,
   ];
 
   // Detect and guess gateway IPs dynamically based on container subnets (e.g. 10.0.1.x)
@@ -195,19 +200,19 @@ export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<R
           const ip = info.address;
           const parts = ip.split(".");
           if (parts.length === 4) {
-            urls.push(`http://${parts[0]}.${parts[1]}.${parts[2]}.1:8085${cleanPath}`);
-            urls.push(`http://${parts[0]}.${parts[1]}.0.1:8085${cleanPath}`);
+            urls.push(`http://${parts[0]}.${parts[1]}.${parts[2]}.1:${port}${cleanPath}`);
+            urls.push(`http://${parts[0]}.${parts[1]}.0.1:${port}${cleanPath}`);
           }
         }
       }
     }
   } catch (err) {
-    logger.error("[fetchLocalAPI] Error detecting dynamic gateways:", err);
+    logger.error(`[fetchHostAPI] Error detecting gateways for port ${port}:`, err);
   }
 
   // Prepend other common 172.x subnets just in case
   for (let i = 18; i <= 31; i++) {
-    urls.push(`http://172.${i}.0.1:8085${cleanPath}`);
+    urls.push(`http://172.${i}.0.1:${port}${cleanPath}`);
   }
 
   const uniqueUrls = Array.from(new Set(urls));
@@ -232,8 +237,16 @@ export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<R
   try {
     return await Promise.any(fetchPromises);
   } catch (error) {
-    logger.warn(`[fetchLocalAPI] All parallel attempts failed for ${cleanPath}, falling back to direct URL:`, error);
-    return fetch(`${MONLINE_API_URL}${cleanPath}`, init);
+    logger.warn(`[fetchHostAPI] All parallel attempts failed for port ${port} ${cleanPath}, falling back to default URL:`, error);
+    return fetch(`${defaultBaseUrl}${cleanPath}`, init);
   }
+}
+
+export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
+  return fetchHostAPI(8085, path, init);
+}
+
+export async function fetchMangaVfAPI(path: string, init?: RequestInit): Promise<Response> {
+  return fetchHostAPI(3001, path, init);
 }
 

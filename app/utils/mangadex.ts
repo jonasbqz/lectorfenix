@@ -13,7 +13,7 @@ import { translateTagName } from "./tagTranslations";
 import { buildComicPath, slugify } from "./slugify";
 import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
 import { getCached, setCached, getOrSetCached, stableCacheKey } from "./server-cache";
-import { fetchLocalAPI } from "./monline";
+import { fetchLocalAPI, fetchMangaVfAPI } from "./monline";
 
 export type MangaDexLocalizedText = Record<string, string>;
 
@@ -1146,8 +1146,8 @@ export async function fetchMangaVfSourceBySlug(id: string) {
       const timeout = setTimeout(() => controller.abort(), 3000);
 
       try {
-        const response = await fetch(
-          `${MANGAVF_API_URL}/api/v1/manga/search?q=${encodeURIComponent(query)}`,
+        const response = await fetchMangaVfAPI(
+          `/api/v1/manga/search?q=${encodeURIComponent(query)}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (!response.ok) return null;
@@ -1184,8 +1184,8 @@ export async function fetchMangaVfDetailsBySlug(id: string) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch(
-          `${MANGAVF_API_URL}/api/v1/manga/chapters?url=${encodeURIComponent(sourceUrl)}`,
+        const response = await fetchMangaVfAPI(
+          `/api/v1/manga/chapters?url=${encodeURIComponent(sourceUrl)}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (!response.ok) return null;
@@ -1338,8 +1338,8 @@ async function searchLeerCapituloByTitle(title: string): Promise<string | null> 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch(
-          `${MANGAVF_API_URL}/api/v1/manga/search?q=${encodeURIComponent(title)}`,
+        const response = await fetchMangaVfAPI(
+          `/api/v1/manga/search?q=${encodeURIComponent(title)}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (!response.ok) return null;
@@ -1711,8 +1711,8 @@ export async function fetchMangaVfPages(details: MangaVfDetails, chapterId: stri
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch(
-          `${MANGAVF_API_URL}/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
+        const response = await fetchMangaVfAPI(
+          `/api/v1/manga/extract?url=${encodeURIComponent(chapterUrl)}`,
           { cache: "no-store", signal: controller.signal }
         );
         if (!response.ok) return [];
@@ -1832,7 +1832,7 @@ export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
       try {
-        const response = await fetch(`${MANGAVF_API_URL}/api/v1/manga/latest`, {
+        const response = await fetchMangaVfAPI(`/api/v1/manga/latest`, {
           cache: "no-store",
           signal: controller.signal,
         });
