@@ -246,7 +246,37 @@ export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<R
   return fetchHostAPI(8085, path, init);
 }
 
+let scraperFailureCount = 0;
+let scraperOfflineUntil = 0;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 1000 * 60 * 3; // 3 minutos
+const FAILURE_THRESHOLD = 2;
+
+function recordScraperFailure() {
+  scraperFailureCount++;
+  if (scraperFailureCount >= FAILURE_THRESHOLD) {
+    scraperOfflineUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
+    logger.error(`[fetchMangaVfAPI] Scraper failed ${scraperFailureCount} times. Opening circuit breaker for 3 minutes.`);
+  }
+}
+
 export async function fetchMangaVfAPI(path: string, init?: RequestInit): Promise<Response> {
-  return fetchHostAPI(3005, path, init);
+  const now = Date.now();
+  if (now < scraperOfflineUntil) {
+    logger.warn(`[fetchMangaVfAPI] Circuit breaker is OPEN. Scraper is offline. Skipping request to ${path}`);
+    throw new Error("Scraper is offline (circuit breaker open)");
+  }
+
+  try {
+    const res = await fetchHostAPI(3005, path, init);
+    if (res.ok) {
+      scraperFailureCount = 0;
+    } else if (res.status >= 500) {
+      recordScraperFailure();
+    }
+    return res;
+  } catch (error) {
+    recordScraperFailure();
+    throw error;
+  }
 }
 
