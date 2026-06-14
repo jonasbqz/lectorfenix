@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "../../../utils/supabase/client";
+import { isDmcaBlocked } from "../../utils/dmca";
 import {
   Users,
   AlertTriangle,
@@ -464,6 +465,28 @@ export default function AdminClient() {
       setScraperStatusMsg("Por favor, completá todos los campos.");
       return;
     }
+
+    // Validar formato de URL
+    try {
+      new URL(scraperSourceUrl.trim());
+    } catch {
+      setScraperStatusMsg("La URL de origen no es válida.");
+      return;
+    }
+
+    // Validar contra lista de bloqueos DMCA
+    const uuidMatch = scraperSourceUrl.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+    const uuid = uuidMatch ? uuidMatch[0] : null;
+    const titleLower = scraperMangaTitle.toLowerCase().trim();
+    const urlLower = scraperSourceUrl.toLowerCase().trim();
+    const blockedKeywords = ["ruridragon", "ruriragon", "ultimo-saiyuki", "ultimo saiyuki", "saiyuki", "pokemon-adventures", "pokemon adventures", "steel-ball-run", "steel ball run", "jojo"];
+    const isBlocked = blockedKeywords.some(kw => titleLower.includes(kw) || urlLower.includes(kw));
+
+    if (isBlocked || (uuid && isDmcaBlocked(uuid))) {
+      setScraperStatusMsg("Este manga está bloqueado por reclamos de copyright (DMCA).");
+      return;
+    }
+
     setScraperLoading(true);
     setScraperStatusMsg(null);
     

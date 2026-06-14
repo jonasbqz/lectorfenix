@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDailyTelegramCode } from "../../../actions/profile";
 import { createClient } from "../../../../utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { isDmcaBlocked } from "../../../utils/dmca";
 
 const GROUP_CHAT_ID = "-1003763338725";
 const telegramRequestLimitMap = new Map<number, { count: number; date: string }>();
@@ -298,6 +299,17 @@ export async function POST(req: Request) {
 
         if (!arg.startsWith("http://") && !arg.startsWith("https://")) {
           await sendTelegramMessage(token, chatId, "⚠️ La URL provista no es válida. Debe comenzar con http:// o https://", message.message_id);
+          return NextResponse.json({ ok: true });
+        }
+
+        const uuidMatch = arg.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        const uuid = uuidMatch ? uuidMatch[0] : null;
+        const urlLower = arg.toLowerCase();
+        const blockedKeywords = ["ruridragon", "ruriragon", "ultimo-saiyuki", "saiyuki", "pokemon-adventures", "steel-ball-run", "jojo"];
+        const isUrlBlocked = blockedKeywords.some(kw => urlLower.includes(kw));
+
+        if (isUrlBlocked || (uuid && isDmcaBlocked(uuid))) {
+          await sendTelegramMessage(token, chatId, "⚠️ Este manga está bloqueado por reclamos de copyright (DMCA) y no se puede raspar.", message.message_id);
           return NextResponse.json({ ok: true });
         }
 
