@@ -1570,7 +1570,7 @@ export function mapMangaVfChapters(details: MangaVfDetails): ChapterFeedItem[] {
 }
 
 function getChapterLanguageVariants(language: string): string[] {
-  if (language === "es") return ["es", "es-la", "es-419"];
+  if (language === "es") return ["es", "es-la"];
   if (language === "pt") return ["pt", "pt-br"];
   return [language];
 }
@@ -1916,5 +1916,60 @@ export async function fetchLeerCapituloLatest(language: SupportedLanguage = "es"
     },
     { shouldCache: (items) => items.length > 0 }
   );
+}
+
+export function deduplicateShowcaseItems(mangas: MangaShowcaseItem[]): MangaShowcaseItem[] {
+  const seen = new Map<string, MangaShowcaseItem>();
+
+  for (const manga of mangas) {
+    const key = manga.title.toLowerCase().trim();
+    if (!seen.has(key)) {
+      seen.set(key, manga);
+      continue;
+    }
+
+    const existing = seen.get(key)!;
+
+    // Prefer local results over external ones
+    if (manga.isLocal && !existing.isLocal) {
+      seen.set(key, manga);
+      continue;
+    }
+    if (!manga.isLocal && existing.isLocal) {
+      continue;
+    }
+
+    // Helper to check if a manga is a Book Version
+    const isBookVersion = (item: MangaShowcaseItem) => {
+      const titleValues = [
+        ...Object.values(item.titleMap ?? {}),
+        ...(item.altTitles ?? []).flatMap(alt => Object.values(alt))
+      ].map(t => String(t).toLowerCase());
+      return titleValues.some(t => t.includes("book version") || t.includes("tankobon"));
+    };
+
+    const newIsBook = isBookVersion(manga);
+    const existingIsBook = isBookVersion(existing);
+
+    let preferNew = false;
+    if (newIsBook && !existingIsBook) {
+      preferNew = true;
+    } else if (!newIsBook && existingIsBook) {
+      preferNew = false;
+    } else {
+      // If neither or both are Book Versions, compare scores (ratings)
+      const newScore = manga.score ?? 0;
+      const existingScore = existing.score ?? 0;
+      if (newScore > existingScore) {
+        preferNew = true;
+      }
+    }
+
+    if (preferNew) {
+      seen.set(key, manga);
+    }
+  }
+
+  return Array.from(seen.values());
 }
 

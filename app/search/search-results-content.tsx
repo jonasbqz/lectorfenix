@@ -12,6 +12,7 @@ import {
   mapToShowcaseItems,
   type MangaDexCollectionResponse,
   type MangaDexManga,
+  deduplicateShowcaseItems,
 } from "../utils/mangadex";
 import { buildComicPath, slugify } from "../utils/slugify";
 
@@ -347,19 +348,13 @@ async function fetchSearchResults(query: string, language: "es" | "en" | "pt", i
 
   const mangaVfResults = await mangaVfResultsPromise;
 
-  const seen = new Set<string>();
-  const combined = [...localResults, ...mangaDexResults, ...mangaVfResults]
-    .filter((manga) => {
-      const key = (manga.mangaDexId ?? manga.url ?? manga.title).toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
+  const combined = [...localResults, ...mangaDexResults, ...mangaVfResults];
+  const deduplicated = deduplicateShowcaseItems(combined)
     .filter((manga) => isAdult || !isAdultShowcaseItem(manga))
     .slice(0, 24);
 
   return Promise.all(
-    combined.map(async (manga) => {
+    deduplicated.map(async (manga) => {
       const translatedTitle = await getLocalizedTitleAsync(
         {
           id: manga.mangaDexId || undefined,

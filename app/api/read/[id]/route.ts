@@ -248,7 +248,7 @@ function wait(ms: number) {
 }
 
 function getLanguageVariants(lang: SupportedLanguage) {
-  if (lang === "es") return ["es-la", "es", "es-419"];
+  if (lang === "es") return ["es-la", "es"];
   if (lang === "pt") return ["pt-br", "pt"];
   return ["en"];
 }

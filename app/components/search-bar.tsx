@@ -16,6 +16,7 @@ import {
   mapToShowcaseItems,
   type MangaDexCollectionResponse,
   type MangaDexManga,
+  deduplicateShowcaseItems,
 } from "../utils/mangadex";
 import { buildComicPath, slugify } from "../utils/slugify";
 import { getOptimizedImageUrl } from "../utils/image";
@@ -310,14 +311,7 @@ async function fetchMonlineSearch(query: string, language: "es" | "en" | "pt", i
     results = localResults;
   }
 
-  const seen = new Set<string>();
-  const filteredResults = results
-    .filter((manga) => {
-      const key = (manga.mangaDexId ?? manga.url ?? manga.title).toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
+  const filteredResults = deduplicateShowcaseItems(results)
     .filter((manga) => isAdult || !isAdultShowcaseItem(manga))
     .slice(0, 5);
 
