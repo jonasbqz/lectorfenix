@@ -19,6 +19,7 @@ import {
 } from "../../utils/seo";
 import { getLocalizedTitle } from "../../utils/get-localized-title";
 import { buildComicPath } from "../../utils/slugify";
+import { isDmcaBlocked } from "../../utils/dmca";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -101,6 +102,8 @@ async function getMangaDexUrls(sitemapId: number) {
   }>(`${MANGADEX_API_URL}/manga?${searchParams.toString()}`);
 
   return (payload.data ?? []).flatMap((manga) => {
+    if (isDmcaBlocked(manga.id)) return [];
+
     const lastmod = manga.attributes?.updatedAt
       ? new Date(manga.attributes.updatedAt).toISOString()
       : new Date().toISOString();
@@ -144,6 +147,8 @@ async function getMonlineUrls(localSitemapId: number) {
     if (!slug) return [];
 
     const prefixedSlug = slug.startsWith("lc-") ? slug : `lc-${slug}`;
+    if (isDmcaBlocked(slug) || isDmcaBlocked(prefixedSlug)) return [];
+
     const url = absoluteUrl(buildComicPath(title, prefixedSlug));
 
     return sitemapMultilingualUrl(url, url, url, getMonlineLastmod(record), "0.85");

@@ -128,7 +128,7 @@ export async function generateMetadata({
 
   const data = await cachedFetchReaderData({ id: mangaId, chapter: chapterId, lang, slug });
 
-  if (!data || !data.currentChapter || data.code === "LOCAL_PAGES_UNAVAILABLE") {
+  if (!data || !data.currentChapter || data.code === "LOCAL_PAGES_UNAVAILABLE" || !data.pages || data.pages.length === 0) {
     return {
       title: "Capítulo no disponible - MangaStoon",
       description: "Este capítulo no está disponible o no existe.",
