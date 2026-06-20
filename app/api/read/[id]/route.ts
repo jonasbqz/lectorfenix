@@ -1110,12 +1110,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               ? currentChapter.localPages
               : await fetchLocalChapterPages(currentChapter.id);
 
+          const hasBrokenOlympus = pages.some(
+            (page) => page.includes("olympusxyz.com") || page.includes("olympusbiblioteca.com")
+          );
+
           // Fallback robusto: si las páginas locales están vacías (p. ej. fueron filtradas porque eran portadas
-          // o hubo error en base de datos), intentamos traerlas de fuentes externas (LeerCapitulo / MangaDex)
-          if (pages.length === 0 && currentChapter.attributes?.chapter) {
-            logger.info(`[Fallback] Capítulo local ${currentChapter.id} (número ${currentChapter.attributes.chapter}) no tiene páginas válidas. Buscando en fuentes externas...`);
+          // o hubo error en base de datos) o contienen URLs rotas de Olympus, intentamos traerlas de fuentes externas (LeerCapitulo / MangaDex)
+          if ((pages.length === 0 || hasBrokenOlympus) && currentChapter.attributes?.chapter) {
+            logger.info(`[Fallback] Capítulo local ${currentChapter.id} (número ${currentChapter.attributes.chapter}) ${hasBrokenOlympus ? "contiene URLs rotas de Olympus" : "no tiene páginas válidas"}. Buscando en fuentes externas...`);
             try {
               const resolution = await resolveBestSource(id, slug);
+              let fallbackPages: string[] = [];
 
               // 1. Intentar con LeerCapitulo
               if (resolution.leercapituloSlug) {
@@ -1126,8 +1131,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     (ch) => ch.attributes?.chapter === currentChapter.attributes?.chapter
                   );
                   if (matchingExtChapter) {
-                    pages = await fetchMangaVfPages(extDetails, matchingExtChapter.id);
-                    if (pages.length > 0) {
+                    fallbackPages = await fetchMangaVfPages(extDetails, matchingExtChapter.id);
+                    if (fallbackPages.length > 0) {
                       logger.info(`[Fallback] Páginas recuperadas exitosamente desde LeerCapitulo para el capítulo ${currentChapter.attributes.chapter}`);
                     }
                   }
@@ -1135,21 +1140,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               }
 
               // 2. Intentar con MangaDex si LeerCapitulo falló o no estaba disponible
-              if (pages.length === 0 && resolution.mangadexId) {
+              if (fallbackPages.length === 0 && resolution.mangadexId) {
                 const matchingExtChapter = await findChapterByNumber(
                   resolution.mangadexId,
                   lang,
                   currentChapter.attributes.chapter
                 );
                 if (matchingExtChapter) {
-                  pages = await fetchChapterPages(matchingExtChapter.id, {
+                  fallbackPages = await fetchChapterPages(matchingExtChapter.id, {
                     mangaSegments: localManga.segments || [localManga.slug],
                     chapter: matchingExtChapter,
                   });
-                  if (pages.length > 0) {
+                  if (fallbackPages.length > 0) {
                     logger.info(`[Fallback] Páginas recuperadas exitosamente desde MangaDex para el capítulo ${currentChapter.attributes.chapter}`);
                   }
                 }
+              }
+
+              if (fallbackPages.length > 0) {
+                pages = fallbackPages;
               }
             } catch (fallbackErr) {
               logger.error(`[Fallback] Error al intentar resolver páginas externas para el capítulo local ${currentChapter.id}:`, fallbackErr);

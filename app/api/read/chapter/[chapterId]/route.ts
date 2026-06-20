@@ -153,16 +153,105 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   if (!isMangaDexUuid) {
     try {
-      const localPages = await fetchLocalChapterPages(chapterId);
-      if (localPages.length > 0) {
-        return NextResponse.json({ pages: localPages }, { headers: { "Cache-Control": "no-store" } });
+      let pages = await fetchLocalChapterPages(chapterId);
+      const hasBrokenOlympus = pages.some(
+        (page) => page.includes("olympusxyz.com") || page.includes("olympusbiblioteca.com")
+      );
+
+      if (hasBrokenOlympus) {
+        console.warn(`[Fallback] Local pages for chapter ${chapterId} contain broken Olympus domain. Trying dynamic fallback...`);
+        const mangaTitle = request.nextUrl.searchParams.get("mangaTitle");
+        const chapterNumber = request.nextUrl.searchParams.get("chapterNumber");
+        const referer = request.headers.get("referer");
+        let extractedMangaSlug = "";
+        if (referer) {
+          try {
+            const refererUrl = new URL(referer);
+            const match = refererUrl.pathname.match(/^\/comics\/([^/]+)\/chapters\//);
+            if (match) {
+              extractedMangaSlug = match[1];
+            }
+          } catch {}
+        }
+
+        const queryTitle = mangaTitle || extractedMangaSlug;
+        if (queryTitle && chapterNumber) {
+          try {
+            const resolution = await resolveBestSource(queryTitle, queryTitle);
+            let fallbackPages: string[] = [];
+
+            // 1. Intentar con LeerCapitulo
+            if (resolution.leercapituloSlug) {
+              const details = resolution.leercapituloDetails || await fetchMangaVfDetailsBySlug(resolution.leercapituloSlug);
+              if (details) {
+                const chapters = mapMangaVfChapters(details);
+                const matchingExtChapter = chapters.find(
+                  (ch) => ch.attributes?.chapter === chapterNumber
+                );
+                if (matchingExtChapter) {
+                  const extPages = await fetchMangaVfPages(details, matchingExtChapter.id);
+                  if (extPages.length > 0) {
+                    fallbackPages = extPages.map(normalizeLocalImageUrl);
+                    console.info(`[Fallback] Successfully retrieved pages from LeerCapitulo for chapter ${chapterNumber}`);
+                  }
+                }
+              }
+            }
+
+            // 2. Intentar con MangaDex
+            if (fallbackPages.length === 0 && resolution.mangadexId) {
+              const lang = request.nextUrl.searchParams.get("lang") || "es";
+              const search = new URLSearchParams();
+              const langVariants = lang === "en" ? ["en"] : lang === "pt" ? ["pt", "pt-br"] : ["es", "es-la"];
+              langVariants.forEach((variant) => {
+                search.append("translatedLanguage[]", variant);
+              });
+              search.set("chapter", chapterNumber);
+              search.set("limit", "1");
+              search.append("contentRating[]", "safe");
+              search.append("contentRating[]", "suggestive");
+              search.append("contentRating[]", "erotica");
+
+              const mdResponse = await fetchMangaDex(`https://api.mangadex.org/manga/${resolution.mangadexId}/feed?${search.toString()}`);
+              if (mdResponse.ok) {
+                const mdPayload = await mdResponse.json();
+                const mdChapter = mdPayload?.data?.[0];
+                if (mdChapter?.id) {
+                  const pagesResponse = await fetchMangaDex(`https://api.mangadex.org/at-home/server/${mdChapter.id}`);
+                  if (pagesResponse.ok) {
+                    const atHome = await pagesResponse.json();
+                    const hash = atHome.chapter?.hash;
+                    const files = atHome.chapter?.data?.length
+                      ? atHome.chapter.data
+                      : atHome.chapter?.dataSaver ?? [];
+                    const mode = atHome.chapter?.data?.length ? "data" : "data-saver";
+                    if (hash && files.length > 0) {
+                      fallbackPages = files.map((filename: string) => `https://uploads.mangadex.org/${mode}/${hash}/${filename}`);
+                      console.info(`[Fallback] Successfully retrieved pages from MangaDex for chapter ${chapterNumber}`);
+                    }
+                  }
+                }
+              }
+            }
+
+            if (fallbackPages.length > 0) {
+              pages = fallbackPages;
+            }
+          } catch (err) {
+            console.error("[Fallback] Error during dynamic fallback lookup:", err);
+          }
+        }
+      }
+
+      if (pages.length > 0) {
+        return NextResponse.json({ pages }, { headers: { "Cache-Control": "no-store" } });
       }
 
       const res = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/read?chapterId=${chapterId}`);
       if (!res.ok) throw new Error();
       const data = (await res.json()) as Array<{ img?: string }> | null;
-      const pages = data?.map((p) => p.img).filter((img): img is string => typeof img === "string") || [];
-      return NextResponse.json({ pages }, { headers: { "Cache-Control": "no-store" } });
+      const pagesFromConsumet = data?.map((p) => p.img).filter((img): img is string => typeof img === "string") || [];
+      return NextResponse.json({ pages: pagesFromConsumet }, { headers: { "Cache-Control": "no-store" } });
     } catch {
       return NextResponse.json({ pages: [], error: "No se pudieron cargar las páginas", code: "CONSUMET_FAILED" }, { status: 503 });
     }
