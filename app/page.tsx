@@ -38,6 +38,7 @@ import {
 import { fetchLocalAPI } from "./utils/monline";
 import { getMangaDexRequestHeaders, toMangaDexApiUrl } from "./utils/mangadex-config";
 import { buildComicPath } from "./utils/slugify";
+import { getOrSetCached, stableCacheKey } from "./utils/server-cache";
 
 const MONLINE_API_URL = (
   process.env.MONLINE_API_URL ??
@@ -517,42 +518,50 @@ async function enrichLatestChapters(items: MangaShowcaseItem[], language: Suppor
 }
 
 async function fetchMonlineComics(path: string, language: SupportedLanguage, enrichChapters = false) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), MONLINE_HOME_TIMEOUT_MS);
   const isTopRow = path.includes("order=views");
+  const ttl = isTopRow ? 300 : 60;
 
-  try {
-    const response = await fetchLocalAPI(path, {
-      next: { revalidate: isTopRow ? 300 : 60 },
-      signal: controller.signal,
-    });
-    if (!response.ok) return [];
-    const payload = (await response.json()) as MonlineComicsResponse;
-    logger.debug("Respuesta Monline", payload);
+  return getOrSetCached(
+    stableCacheKey("monline-comics-v2", [path, language, String(enrichChapters)]),
+    ttl,
+    async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), MONLINE_HOME_TIMEOUT_MS);
 
-    const comics = extractMonlineComics(payload);
-    const items = mapMonlineComicsToShowcase(comics, language);
+      try {
+        const response = await fetchLocalAPI(path, {
+          signal: controller.signal,
+        });
+        if (!response.ok) return [];
+        const payload = (await response.json()) as MonlineComicsResponse;
+        logger.debug("Respuesta Monline", payload);
 
-    if (!enrichChapters) {
-      return items;
-    }
+        const comics = extractMonlineComics(payload);
+        const items = mapMonlineComicsToShowcase(comics, language);
 
-    const latestChapters = await Promise.all(
-      comics.map((comic) => fetchLocalChapterPreviews(comic as any, MONLINE_API_URL, controller.signal).catch(() => []))
-    );
+        if (!enrichChapters) {
+          return items;
+        }
 
-    return items
-      .map((item, index) =>
-        latestChapters[index]?.length ? { ...item, latestChapters: latestChapters[index] } : item
-      )
-      .sort((a, b) => getLatestChapterPreviewTimestamp(b) - getLatestChapterPreviewTimestamp(a))
-      .map((item, index) => ({ ...item, featuredTag: `#${index + 1}` }));
-  } catch (error) {
-    logger.error("Error al conectar con Monline", error);
-    return [];
-  } finally {
-    clearTimeout(timeout);
-  }
+        const latestChapters = await Promise.all(
+          comics.map((comic) => fetchLocalChapterPreviews(comic as any, MONLINE_API_URL, controller.signal).catch(() => []))
+        );
+
+        return items
+          .map((item, index) =>
+            latestChapters[index]?.length ? { ...item, latestChapters: latestChapters[index] } : item
+          )
+          .sort((a, b) => getLatestChapterPreviewTimestamp(b) - getLatestChapterPreviewTimestamp(a))
+          .map((item, index) => ({ ...item, featuredTag: `#${index + 1}` }));
+      } catch (error) {
+        logger.error("Error al conectar con Monline", error);
+        return [];
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+    { shouldCache: (items) => items.length > 0 }
+  );
 }
 
 async function fetchMangaDexFallbackRows(isAdult: boolean, language: SupportedLanguage) {

@@ -174,12 +174,35 @@ export async function fetchMonlinePagesFromRoute({
   return pages;
 }
 
+const lastSuccessfulBaseUrl: Record<number, string> = {};
+
 export async function fetchHostAPI(port: number, path: string, init?: RequestInit): Promise<Response> {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   const defaultBaseUrl =
     port === 8085
       ? MONLINE_API_URL
       : (process.env.NEXT_PUBLIC_MANGAVF_API_URL || process.env.MANGAVF_API_URL || "http://localhost:3001").replace(/\/$/, "");
+
+  // Si tenemos una URL exitosa guardada para este puerto, intentamos esa primero directamente
+  const cachedBase = lastSuccessfulBaseUrl[port];
+  if (cachedBase) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const url = `${cachedBase}${cleanPath}`;
+      const res = await fetch(url, {
+        ...init,
+        signal: init?.signal ?? controller.signal,
+      });
+      clearTimeout(timeout);
+      if (res.ok) {
+        return res;
+      }
+    } catch (e) {
+      logger.warn(`[fetchHostAPI] Cached base URL ${cachedBase} failed for port ${port}, re-probing...`, e);
+      delete lastSuccessfulBaseUrl[port];
+    }
+  }
 
   const urls = [
     `${defaultBaseUrl}${cleanPath}`,
@@ -228,14 +251,23 @@ export async function fetchHostAPI(port: number, path: string, init?: RequestIni
       if (!res.ok) {
         throw new Error(`Response not ok: ${res.status} from ${url}`);
       }
-      return res;
+      return { response: res, url };
     } finally {
       clearTimeout(timeout);
     }
   });
 
   try {
-    return await Promise.any(fetchPromises);
+    const { response, url } = await Promise.any(fetchPromises);
+    try {
+      const parsedUrl = new URL(url);
+      const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
+      lastSuccessfulBaseUrl[port] = baseUrl;
+      logger.info(`[fetchHostAPI] Probing succeeded. Cached successful base URL for port ${port}: ${baseUrl}`);
+    } catch (e) {
+      logger.warn(`[fetchHostAPI] Failed to parse successful URL: ${url}`, e);
+    }
+    return response;
   } catch (error) {
     logger.warn(`[fetchHostAPI] All parallel attempts failed for port ${port} ${cleanPath}, falling back to default URL:`, error);
     return fetch(`${defaultBaseUrl}${cleanPath}`, init);

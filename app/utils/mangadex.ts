@@ -756,29 +756,34 @@ export function mapLocalApiComicsToShowcaseItems(
 }
 
 export async function fetchLocalTop(limit = 10, language: SupportedLanguage = "es", isAdult = false) {
-  const apiBaseUrl = MONLINE_CONFIG_API_URL;
+  return getOrSetCached(
+    stableCacheKey("local-top-v2", [String(limit), language, String(isAdult)]),
+    300,
+    async () => {
+      const apiBaseUrl = MONLINE_CONFIG_API_URL;
 
-  try {
-    const params = new URLSearchParams();
-    params.set("limit", String(limit));
-    params.set("order", "views");
-    params.set("v", "2");
+      try {
+        const params = new URLSearchParams();
+        params.set("limit", String(limit));
+        params.set("order", "views");
+        params.set("v", "2");
 
-    const response = await fetchLocalAPI(`/api/comics?${params.toString()}`, {
-      next: { revalidate: 300 },
-    });
+        const response = await fetchLocalAPI(`/api/comics?${params.toString()}`);
 
-    if (!response.ok) {
-      return [];
-    }
+        if (!response.ok) {
+          return [];
+        }
 
-    const payload = (await response.json()) as LocalApiComicsResponse;
-    return mapLocalApiComicsToShowcaseItems(extractLocalApiComics(payload), language, apiBaseUrl)
-      .filter((comic) => isAdult || !isAdultShowcaseItem(comic));
-  } catch (error) {
-    logger.error("Error al conectar con la API local", error);
-    return [];
-  }
+        const payload = (await response.json()) as LocalApiComicsResponse;
+        return mapLocalApiComicsToShowcaseItems(extractLocalApiComics(payload), language, apiBaseUrl)
+          .filter((comic) => isAdult || !isAdultShowcaseItem(comic));
+      } catch (error) {
+        logger.error("Error al conectar con la API local", error);
+        return [];
+      }
+    },
+    { shouldCache: (items) => items.length > 0 }
+  );
 }
 
 export function appendStandardMangaDexFilters(

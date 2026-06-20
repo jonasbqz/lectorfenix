@@ -2,6 +2,7 @@
 
 import { createClient } from "../../utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { getOrSetCached, stableCacheKey } from "../utils/server-cache";
 
 export interface MangaList {
   id: string;
@@ -203,48 +204,54 @@ export async function removeMangaFromListAction(listId: string, mangaId: string)
 
 // 6. Obtener listas públicas para la comunidad (sección listas públicas)
 export async function getPublicMangaLists() {
-  const supabase = await createClient();
+  return getOrSetCached(
+    stableCacheKey("public-manga-lists-v2", []),
+    120, // 2 minutes cache
+    async () => {
+      const supabase = await createClient();
 
-  const { data: lists, error } = await supabase
-    .from("manga_lists")
-    .select(`
-      *,
-      items:manga_list_items(manga_id, cover_image)
-    `)
-    .eq("is_public", true)
-    .order("created_at", { ascending: false });
+      const { data: lists, error } = await supabase
+        .from("manga_lists")
+        .select(`
+          *,
+          items:manga_list_items(manga_id, cover_image)
+        `)
+        .eq("is_public", true)
+        .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("[getPublicMangaLists] DB error:", error.code, error.message);
-    if (error.code === "P0001" || error.message?.includes("relation") || error.message?.includes("does not exist")) {
-      return { error: "table_not_exists", lists: [] };
+      if (error) {
+        console.error("[getPublicMangaLists] DB error:", error.code, error.message);
+        if (error.code === "P0001" || error.message?.includes("relation") || error.message?.includes("does not exist")) {
+          return { error: "table_not_exists", lists: [] };
+        }
+        return { error: "db_error", message: error.message, lists: [] };
+      }
+
+      if (!lists || lists.length === 0) {
+        return { lists: [] };
+      }
+
+      // Cargar perfiles por separado
+      const userIds = Array.from(new Set(lists.map(l => l.user_id)));
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url, is_premium")
+        .in("id", userIds);
+
+      if (profilesError) {
+        console.error("[getPublicMangaLists] Profiles error:", profilesError.message);
+      }
+
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+
+      const enrichedLists = lists.map(list => ({
+        ...list,
+        profiles: profileMap.get(list.user_id) || null
+      }));
+
+      return { lists: enrichedLists };
     }
-    return { error: "db_error", message: error.message, lists: [] };
-  }
-
-  if (!lists || lists.length === 0) {
-    return { lists: [] };
-  }
-
-  // Cargar perfiles por separado
-  const userIds = Array.from(new Set(lists.map(l => l.user_id)));
-  const { data: profiles, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, username, avatar_url, is_premium")
-    .in("id", userIds);
-
-  if (profilesError) {
-    console.error("[getPublicMangaLists] Profiles error:", profilesError.message);
-  }
-
-  const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-
-  const enrichedLists = lists.map(list => ({
-    ...list,
-    profiles: profileMap.get(list.user_id) || null
-  }));
-
-  return { lists: enrichedLists };
+  );
 }
 
 // 7. Obtener detalles de una lista y sus ítems (página pública o de edición)
