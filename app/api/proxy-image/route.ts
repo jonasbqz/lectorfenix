@@ -16,6 +16,8 @@ const ALLOWED_SUFFIXES = [
   ".yoveo.xyz",
   ".leercapitulo.co",
   ".t34798ndc.com",
+  ".imagesolymp.xyz",
+  ".sdownloader.com",
 ];
 
 const ALLOWED_EXACT_HOSTS = new Set([
@@ -36,6 +38,9 @@ const ALLOWED_EXACT_HOSTS = new Set([
   "46.224.213.127",
   "www.leercapitulo.co",
   "leercapitulo.co",
+  "img.imagesolymp.xyz",
+  "media.imagesolymp.xyz",
+  "api-scraper.sdownloader.com",
 ]);
 
 function isAllowedUrl(urlStr: string): boolean {

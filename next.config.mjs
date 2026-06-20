@@ -9,6 +9,21 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "img.imagesolymp.xyz",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "media.imagesolymp.xyz",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "api-scraper.sdownloader.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "uploads.mangadex.org",
         pathname: "/**",
       },
