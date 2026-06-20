@@ -24,6 +24,7 @@ export function getOptimizedImageUrl(url: string): string {
     const isHotlinkingBlockedHost =
       hostname.endsWith("olympusbiblioteca.com") ||
       hostname.endsWith("olympusxyz.com") ||
+      hostname.endsWith("imagesolymp.xyz") ||
       hostname.endsWith("yoveo.xyz");
 
     if (isHotlinkingBlockedHost) {

@@ -119,6 +119,11 @@ export async function GET(req: Request) {
 
     if (!imageUrl) return fallbackImage("NO_URL");
 
+    // Reescritura dinámica de dominios caídos de Olympus
+    if (imageUrl.includes("olympusbiblioteca.com")) {
+      imageUrl = imageUrl.replace(/olympusbiblioteca\.com/g, "olympusxyz.com");
+    }
+
     if (!isAllowedUrl(imageUrl)) {
       return fallbackImage("URL_BLOCKED");
     }

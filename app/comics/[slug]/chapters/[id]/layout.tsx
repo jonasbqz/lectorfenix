@@ -87,7 +87,11 @@ function normalizeLocalImageUrl(value: string) {
     ? value
     : `${MONLINE_API_URL}/${value.replace(/^\/+/, "")}`;
 
-  if (imageUrl.includes("dashboard.olympusbiblioteca.com")) {
+  if (
+    imageUrl.includes("olympus") ||
+    imageUrl.includes("imagesolymp") ||
+    imageUrl.includes("yoveo")
+  ) {
     return `/api/proxy-image?url=${encodeURIComponent(imageUrl)}`;
   }
 
