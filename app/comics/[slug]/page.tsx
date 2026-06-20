@@ -1401,8 +1401,6 @@ export default async function MangaDetailsPage({
   }
 
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
-  const fallbackCoverPages = chapters.flatMap((chapter) => chapter.localPages ?? []);
-  const fallbackCoverUrl = fallbackCoverPages[1] ?? fallbackCoverPages[0] ?? "";
   const manualCoverUrl = getManualCoverOverride(manga.id, displayTitle);
 
   const databaseAuthor =
@@ -1651,17 +1649,14 @@ export default async function MangaDetailsPage({
           <aside className="md:col-span-4 lg:col-span-3">
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start md:flex-col md:gap-4 w-full">
               <div className="mx-auto sm:mx-0 max-h-[300px] max-w-[180px] overflow-hidden rounded-xl shadow-2xl shadow-black/50 sm:max-w-[220px] md:max-h-none md:max-w-none w-full shrink-0">
-                {primaryCoverUrl ? (
-                  <div className="relative aspect-[2/3] w-full">
-                    <ComicCoverImage
-                      src={primaryCoverUrl}
-                      fallbackSrc={fallbackCoverUrl}
-                      alt={`Portada del manga ${displayTitle}`}
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-[2/3] bg-white/5" />
-                )}
+                <div className="relative aspect-[2/3] w-full">
+                  <ComicCoverImage
+                    src={primaryCoverUrl || null}
+                    alt={`Portada del manga ${displayTitle}`}
+                    title={displayTitle}
+                    language={currentLanguage}
+                  />
+                </div>
               </div>
 
               <div className="w-full rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#1b1c22]/90 to-[#101115]/95 p-4 shadow-xl flex flex-col gap-4">
@@ -1730,7 +1725,7 @@ export default async function MangaDetailsPage({
                     <AddToListButton
                       mangaId={manga.id}
                       mangaTitle={displayTitle}
-                      coverImage={primaryCoverUrl || fallbackCoverUrl || null}
+                      coverImage={primaryCoverUrl || null}
                       language={currentLanguage}
                     />
                   </div>
