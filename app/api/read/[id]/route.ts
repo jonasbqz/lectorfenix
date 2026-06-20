@@ -1075,9 +1075,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const cachedPayload = await getCached<ReaderApiPayload>(responseCacheKey);
 
   if (cachedPayload) {
-    return NextResponse.json(cachedPayload, {
-      headers: readCacheHeaders("HIT"),
-    });
+    const pages = cachedPayload.pages;
+    const hasBrokenOlympus = Array.isArray(pages) && (pages as string[]).some(
+      (page) => page && (page.includes("olympusxyz.com") || page.includes("olympusbiblioteca.com"))
+    );
+    if (!hasBrokenOlympus) {
+      return NextResponse.json(cachedPayload, {
+        headers: readCacheHeaders("HIT"),
+      });
+    }
   }
 
   try {
