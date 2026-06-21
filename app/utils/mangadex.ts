@@ -1334,7 +1334,7 @@ export async function fetchMangaDetails(id: string, language?: string, slug?: st
   );
 }
 
-async function searchMangaDexByTitle(title: string): Promise<string | null> {
+export async function searchMangaDexByTitle(title: string): Promise<string | null> {
   const cacheKey = stableCacheKey("mangadex-search-by-title-v2", [title]);
   return getOrSetCached(
     cacheKey,
@@ -1486,15 +1486,26 @@ export async function resolveBestSource(idOrSlug: string, slug?: string | null):
           }
         }
       } else {
-        leercapituloSlug = idOrSlug;
-        leercapituloDetails = await fetchMangaVfDetailsBySlug(idOrSlug);
+        let details = await fetchMangaVfDetailsBySlug(idOrSlug);
+        if (details) {
+          leercapituloSlug = idOrSlug;
+          leercapituloDetails = details;
+        } else {
+          const searchTitle = idOrSlug.replace(/-/g, " ");
+          const foundSlug = await searchLeerCapituloByTitle(searchTitle);
+          if (foundSlug) {
+            leercapituloSlug = foundSlug;
+            leercapituloDetails = await fetchMangaVfDetailsBySlug(foundSlug);
+          }
+        }
+
         let title = leercapituloDetails?.manga_title || leercapituloDetails?.title;
         if (!title) {
           const cleanSlug = idOrSlug.startsWith("lc-") ? idOrSlug.substring(3) : idOrSlug;
           const query = cleanSlug.replace(/^manga[-_]?vf[-_]?/i, "").replace(/-/g, " ");
-          mangadexId = await searchMangaDexByTitle(query) ?? undefined;
+          mangadexId = (await searchMangaDexByTitle(query)) ?? undefined;
         } else {
-          mangadexId = await searchMangaDexByTitle(title) ?? undefined;
+          mangadexId = (await searchMangaDexByTitle(title)) ?? undefined;
         }
       }
 

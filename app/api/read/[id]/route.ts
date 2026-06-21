@@ -1125,7 +1125,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           if ((pages.length === 0 || hasBrokenOlympus) && currentChapter.attributes?.chapter) {
             logger.info(`[Fallback] Capítulo local ${currentChapter.id} (número ${currentChapter.attributes.chapter}) ${hasBrokenOlympus ? "contiene URLs rotas de Olympus" : "no tiene páginas válidas"}. Buscando en fuentes externas...`);
             try {
-              const resolution = await resolveBestSource(id, slug);
+              const queryTitle = localManga.title || slug || id;
+              const resolution = await resolveBestSource(queryTitle, queryTitle);
               let fallbackPages: string[] = [];
 
               // 1. Intentar con LeerCapitulo
