@@ -4,7 +4,7 @@ import { createClient } from "../../../utils/supabase/server";
 async function fetchAllPageviews(supabase: any, startDate: string) {
   let allData: any[] = [];
   let from = 0;
-  let to = 4999;
+  let to = 999;
   let hasMore = true;
   
   while (hasMore && allData.length < 30000) { // Capped at 30k for safety
@@ -19,11 +19,11 @@ async function fetchAllPageviews(supabase: any, startDate: string) {
       hasMore = false;
     } else {
       allData = allData.concat(data);
-      if (data.length < 5000) {
+      if (data.length < 1000) {
         hasMore = false;
       } else {
-        from += 5000;
-        to += 5000;
+        from += 1000;
+        to += 1000;
       }
     }
   }
@@ -33,7 +33,7 @@ async function fetchAllPageviews(supabase: any, startDate: string) {
 async function fetchAllSessions(supabase: any, startDate: string) {
   let allData: any[] = [];
   let from = 0;
-  let to = 4999;
+  let to = 999;
   let hasMore = true;
   
   while (hasMore && allData.length < 20000) { // Capped at 20k for safety
@@ -48,11 +48,11 @@ async function fetchAllSessions(supabase: any, startDate: string) {
       hasMore = false;
     } else {
       allData = allData.concat(data);
-      if (data.length < 5000) {
+      if (data.length < 1000) {
         hasMore = false;
       } else {
-        from += 5000;
-        to += 5000;
+        from += 1000;
+        to += 1000;
       }
     }
   }
