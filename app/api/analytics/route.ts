@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
     const mins = Math.floor(avgDurationSecs / 60);
     const secs = avgDurationSecs % 60;
     const averageSessionDuration = `${mins}m ${secs}s`;
+    const totalPlaytimeHours = parseFloat((totalDuration / 3600).toFixed(1));
 
     // --- PROCESAR GRÁFICO DIARIO DE VISITAS ---
     // Agrupar vistas de página por fecha DD/MM o HH:00 (si days === 1)
@@ -284,6 +285,7 @@ export async function GET(request: NextRequest) {
         screenPageViews: totalPageViews,
         averageSessionDuration,
         sessions: totalSessions,
+        totalPlaytimeHours
       },
       charts: {
         dailyViews,

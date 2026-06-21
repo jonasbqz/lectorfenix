@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "../../../utils/supabase/client";
 import { isDmcaBlocked } from "../../utils/dmca";
 import {
@@ -53,6 +53,44 @@ type BrokenChapter = {
 };
 
 type ActiveTab = "dashboard" | "broken-chapters" | "team" | "failed-searches" | "comment-moderation" | "scraper-queue" | "telegram" | "readers";
+
+function groupReportedComments(reportsData: any[]) {
+  const groupedMap: { [key: string]: any } = {};
+  
+  reportsData.forEach((item: any) => {
+    const comment = item.comments;
+    if (!comment) return;
+    
+    const commentId = comment.id;
+    if (!groupedMap[commentId]) {
+      groupedMap[commentId] = {
+        id: commentId,
+        content: comment.content,
+        mangaId: comment.manga_id,
+        chapterId: comment.chapter_id,
+        createdAt: comment.created_at,
+        username: comment.profiles?.username || "Usuario",
+        reportedWords: 0,
+        reportedSpoiler: 0,
+        reports: []
+      };
+    }
+    
+    groupedMap[commentId].reports.push({
+      id: item.id,
+      type: item.report_type,
+      createdAt: item.created_at
+    });
+    
+    if (item.report_type === "words") {
+      groupedMap[commentId].reportedWords++;
+    } else if (item.report_type === "spoiler") {
+      groupedMap[commentId].reportedSpoiler++;
+    }
+  });
+  
+  return Object.values(groupedMap);
+}
 
 export default function AdminClient() {
   const [session, setSession] = useState<any>(null);
@@ -119,6 +157,7 @@ export default function AdminClient() {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
   const [selectedDays, setSelectedDays] = useState(30);
   const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; val: number; date: string } | null>(null);
+  const latestAnalyticsRequestRef = useRef<number>(0);
 
   // Load localstorage values on mount
   useEffect(() => {
@@ -244,8 +283,89 @@ export default function AdminClient() {
     }
   };
 
+  // Fetch Google Analytics v4 Data
+  const fetchAnalytics = useCallback(async (days: number = 30) => {
+    const requestId = ++latestAnalyticsRequestRef.current;
+    setLoadingAnalytics(true);
+    try {
+      const response = await fetch(`/api/analytics?days=${days}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (requestId === latestAnalyticsRequestRef.current) {
+          setAnalyticsData(data);
+        }
+      } else {
+        console.error("Failed to fetch analytics: status", response.status);
+      }
+    } catch (err) {
+      console.error("Error fetching analytics:", err);
+    } finally {
+      if (requestId === latestAnalyticsRequestRef.current) {
+        setLoadingAnalytics(false);
+      }
+    }
+  }, []);
+
+  const fetchFailedSearches = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("failed_searches")
+        .select("*")
+        .order("count", { ascending: false });
+      if (!error && data) {
+        setFailedSearches(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const fetchReportedComments = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("comment_reports")
+        .select(`
+          id,
+          report_type,
+          created_at,
+          comment_id,
+          comments:comments!comment_id (
+            id,
+            content,
+            manga_id,
+            chapter_id,
+            created_at,
+            user_id,
+            profiles:profiles!user_id (
+              username
+            )
+          )
+        `);
+      if (!error && data) {
+        setReportedComments(groupReportedComments(data));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  const fetchScraperQueue = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("scraper_queue")
+        .select("*")
+        .order("priority", { ascending: false })
+        .order("requested_at", { ascending: false });
+      if (!error && data) {
+        setScraperQueue(data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
   // 2. Fetch data (dashboard, users, chapters, team)
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentUserProfile?.is_admin) return;
     setRefreshing(true);
     try {
@@ -309,103 +429,7 @@ export default function AdminClient() {
     } finally {
       setRefreshing(false);
     }
-  };
-
-  const groupReportedComments = (reportsData: any[]) => {
-    const groupedMap: { [key: string]: any } = {};
-    
-    reportsData.forEach((item: any) => {
-      const comment = item.comments;
-      if (!comment) return;
-      
-      const commentId = comment.id;
-      if (!groupedMap[commentId]) {
-        groupedMap[commentId] = {
-          id: commentId,
-          content: comment.content,
-          mangaId: comment.manga_id,
-          chapterId: comment.chapter_id,
-          createdAt: comment.created_at,
-          username: comment.profiles?.username || "Usuario",
-          reportedWords: 0,
-          reportedSpoiler: 0,
-          reports: []
-        };
-      }
-      
-      groupedMap[commentId].reports.push({
-        id: item.id,
-        type: item.report_type,
-        createdAt: item.created_at
-      });
-      
-      if (item.report_type === "words") {
-        groupedMap[commentId].reportedWords++;
-      } else if (item.report_type === "spoiler") {
-        groupedMap[commentId].reportedSpoiler++;
-      }
-    });
-    
-    return Object.values(groupedMap);
-  };
-
-  const fetchFailedSearches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("failed_searches")
-        .select("*")
-        .order("count", { ascending: false });
-      if (!error && data) {
-        setFailedSearches(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchReportedComments = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("comment_reports")
-        .select(`
-          id,
-          report_type,
-          created_at,
-          comment_id,
-          comments:comments!comment_id (
-            id,
-            content,
-            manga_id,
-            chapter_id,
-            created_at,
-            user_id,
-            profiles:profiles!user_id (
-              username
-            )
-          )
-        `);
-      if (!error && data) {
-        setReportedComments(groupReportedComments(data));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchScraperQueue = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("scraper_queue")
-        .select("*")
-        .order("priority", { ascending: false })
-        .order("requested_at", { ascending: false });
-      if (!error && data) {
-        setScraperQueue(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [currentUserProfile, activeTab, selectedDays, fetchAnalytics, fetchFailedSearches, fetchReportedComments, fetchScraperQueue]);
 
   // Actions
   const handleResolveSearch = async (searchId: string) => {
@@ -611,7 +635,7 @@ export default function AdminClient() {
       const interval = setInterval(fetchData, 10000); // Polling cada 10 segundos
       return () => clearInterval(interval);
     }
-  }, [currentUserProfile, activeTab, selectedDays]);
+  }, [currentUserProfile, fetchData]);
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
@@ -824,23 +848,7 @@ export default function AdminClient() {
     }
   };
 
-  // Fetch Google Analytics v4 Data
-  const fetchAnalytics = async (days: number = 30) => {
-    setLoadingAnalytics(true);
-    try {
-      const response = await fetch(`/api/analytics?days=${days}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalyticsData(data);
-      } else {
-        console.error("Failed to fetch analytics: status", response.status);
-      }
-    } catch (err) {
-      console.error("Error fetching analytics:", err);
-    } finally {
-      setLoadingAnalytics(false);
-    }
-  };
+
 
   // Search readers by username
   const handleSearchReaders = async (e?: React.FormEvent) => {
@@ -1257,6 +1265,14 @@ export default function AdminClient() {
                         <span className="stat-label">Duración Media</span>
                         <span className="stat-value" style={{ fontSize: "24px" }}>
                           {analyticsData.summary.averageSessionDuration}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="stat-card glass-panel" style={{ padding: "16px 20px" }}>
+                      <div className="stat-info">
+                        <span className="stat-label">Tiempo de Lectura (Total)</span>
+                        <span className="stat-value" style={{ fontSize: "24px" }}>
+                          {analyticsData.summary.totalPlaytimeHours !== undefined ? `${analyticsData.summary.totalPlaytimeHours.toLocaleString()} h` : "0 h"}
                         </span>
                       </div>
                     </div>
