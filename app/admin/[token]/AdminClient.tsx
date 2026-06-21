@@ -611,21 +611,7 @@ export default function AdminClient() {
       const interval = setInterval(fetchData, 10000); // Polling cada 10 segundos
       return () => clearInterval(interval);
     }
-  }, [currentUserProfile, activeTab]);
-
-  // Cargar datos al cambiar de pestaña
-  useEffect(() => {
-    if (!currentUserProfile?.is_admin) return;
-    if (activeTab === "dashboard") {
-      fetchAnalytics(selectedDays);
-    } else if (activeTab === "failed-searches") {
-      fetchFailedSearches();
-    } else if (activeTab === "comment-moderation") {
-      fetchReportedComments();
-    } else if (activeTab === "scraper-queue") {
-      fetchScraperQueue();
-    }
-  }, [activeTab, currentUserProfile, selectedDays]);
+  }, [currentUserProfile, activeTab, selectedDays]);
 
   // Handle Login
   const handleLogin = async (e: React.FormEvent) => {
