@@ -115,9 +115,10 @@ export default function ChapterList({
 
     const progress = progressMap[chapterId];
     if (progress && progress.total > 0) {
-      if (progress.page >= progress.total - 1) {
-        return true;
-      }
+      const percent = progress.total === 1 
+        ? 100 
+        : Math.min(100, Math.max(0, (progress.page / (progress.total - 1)) * 100));
+      return percent >= 70;
     }
 
     if (mangaHistory && mangaHistory.chapterId === chapterId) {
