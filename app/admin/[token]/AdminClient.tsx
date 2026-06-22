@@ -370,7 +370,9 @@ export default function AdminClient() {
     setRefreshing(true);
     try {
       // a. Active presence (last 3 minutes)
-      const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+      const now = new Date();
+      const threeMinutesAgo = new Date(now.getTime() - 3 * 60 * 1000).toISOString();
+      const futureLimit = new Date(now.getTime() + 60 * 1000).toISOString();
       
       const { data: presenceData, error: presenceError } = await supabase
         .from("user_presence")
@@ -379,6 +381,7 @@ export default function AdminClient() {
           profiles:user_id ( username )
         `)
         .gt("last_active", threeMinutesAgo)
+        .lt("last_active", futureLimit)
         .order("last_active", { ascending: false });
 
       if (!presenceError && presenceData) {
