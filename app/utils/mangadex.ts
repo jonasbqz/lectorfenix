@@ -1466,10 +1466,72 @@ export async function resolveBestSource(idOrSlug: string, slug?: string | null):
           );
           if (response.ok) {
             const payload = await response.json();
-            const titleMap = payload.data?.attributes?.title ?? {};
-            const title = titleMap.es || titleMap.en || Object.values(titleMap)[0] as string || "";
-            if (title) {
-              leercapituloSlug = (await searchLeerCapituloByTitle(title)) ?? undefined;
+            const attributes = payload.data?.attributes ?? {};
+            const titleMap = attributes.title ?? {};
+            const altTitles = attributes.altTitles ?? [];
+
+            // 1. Recopilar todos los títulos con su respectivo idioma
+            const candidates: { lang: string; title: string }[] = [];
+            for (const [lang, val] of Object.entries(titleMap)) {
+              if (typeof val === "string" && val.trim()) {
+                candidates.push({ lang, title: val.trim() });
+              }
+            }
+            for (const alt of altTitles) {
+              if (alt && typeof alt === "object") {
+                for (const [lang, val] of Object.entries(alt)) {
+                  if (typeof val === "string" && val.trim()) {
+                    candidates.push({ lang, title: val.trim() });
+                  }
+                }
+              }
+            }
+
+            // 2. Definir prioridad según el código de idioma
+            const getLangScore = (lang: string): number => {
+              const l = lang.toLowerCase();
+              if (l === "es" || l === "es-la") return 10;
+              if (l === "en") return 5;
+              if (l === "ja-ro") return 3;
+              return 1;
+            };
+
+            // 3. Deduplicar y ordenar candidatos por relevancia de idioma
+            const seenNormalized = new Set<string>();
+            const sortedCandidates: string[] = [];
+
+            // Asegurar que el título principal obtenido antes se evalúe primero
+            const mainTitle = titleMap.es || titleMap.en || Object.values(titleMap)[0] as string || "";
+            if (mainTitle && mainTitle.trim()) {
+              const norm = mainTitle.trim().toLowerCase();
+              seenNormalized.add(norm);
+              sortedCandidates.push(mainTitle.trim());
+            }
+
+            const otherCandidates = candidates
+              .map(c => ({ ...c, score: getLangScore(c.lang) }))
+              .sort((a, b) => b.score - a.score);
+
+            for (const c of otherCandidates) {
+              const norm = c.title.toLowerCase();
+              if (!seenNormalized.has(norm)) {
+                seenNormalized.add(norm);
+                sortedCandidates.push(c.title);
+              }
+            }
+
+            // Limitar a máximo 4 candidatos para evitar excesivas peticiones de red
+            const finalCandidates = sortedCandidates.slice(0, 4);
+            logger.info(`[resolveBestSource] MangaDex candidates for ${idOrSlug}: ${JSON.stringify(finalCandidates)}`);
+
+            // Intentar secuencialmente con cada candidato hasta encontrar un slug válido
+            for (const candidate of finalCandidates) {
+              const slugMatch = await searchLeerCapituloByTitle(candidate);
+              if (slugMatch) {
+                leercapituloSlug = slugMatch;
+                logger.info(`[resolveBestSource] Found LeerCapitulo match: "${leercapituloSlug}" for candidate title: "${candidate}"`);
+                break;
+              }
             }
           } else {
             logger.warn(`[resolveBestSource] MangaDex fetch returned non-ok status: ${response.status}`);

@@ -1045,11 +1045,12 @@ async function resolveChapterByNumber(
   getLanguageVariants(lang).forEach((variant) => {
     search.append("translatedLanguage[]", variant);
   });
+  search.set("manga", mangaId);
   search.set("chapter", chapterNumber);
   search.set("limit", "1");
   appendReadableContentRatings(search);
 
-  const response = await fetchMangaDex(`https://api.mangadex.org/manga/${mangaId}/feed?${search.toString()}`);
+  const response = await fetchMangaDex(`https://api.mangadex.org/chapter?${search.toString()}`);
 
   if (!response.ok) return null;
 
@@ -1463,14 +1464,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     let englishFallbackChapter: ChapterFeedItem | null = null;
     let fallbackReason: "english" | "unavailable" | null = null;
     if (!currentChapter && chapterId && (requestedChapter || requestedChapterNumber)) {
-      englishFallbackChapter = null;
-      fallbackReason = "unavailable";
+      if (servedLanguage !== "en") {
+        const fallbackNum = requestedChapterNumber || requestedChapter?.attributes?.chapter;
+        if (fallbackNum) {
+          try {
+            englishFallbackChapter = await findChapterByNumber(targetMangaDexId, "en", fallbackNum);
+            if (englishFallbackChapter) {
+              fallbackReason = "english";
+            }
+          } catch (err) {
+            logger.error(`[GET /api/read/[id]] Error resolving English fallback chapter:`, err);
+          }
+        }
+      }
+
+      if (!englishFallbackChapter) {
+        fallbackReason = "unavailable";
+      }
 
       return cachedReadResponse(responseCacheKey, {
         mangaTitle,
         coverImage,
         chapters: excludeChapters ? [] : stripChaptersForClient(finalChapters),
-        currentChapter: stripChapterForClient(requestedChapter ?? { id: chapterId, attributes: { chapter: requestedChapterNumber, translatedLanguage: "es" } } as any),
+        currentChapter: stripChapterForClient(requestedChapter ?? { id: chapterId, attributes: { chapter: requestedChapterNumber, translatedLanguage: servedLanguage } } as any),
         pages: [],
         englishFallbackChapter,
         fallbackReason,
@@ -1491,6 +1507,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         currentChapter.id,
         currentChapter.attributes?.chapter || "0"
       );
+
+      if (servedLanguage !== "en") {
+        const fallbackNum = currentChapter.attributes?.chapter;
+        if (fallbackNum) {
+          try {
+            englishFallbackChapter = await findChapterByNumber(targetMangaDexId, "en", fallbackNum);
+            if (englishFallbackChapter) {
+              fallbackReason = "english";
+            }
+          } catch (err) {
+            logger.error(`[GET /api/read/[id]] Error resolving English fallback chapter for empty pages:`, err);
+          }
+        }
+      }
+
+      if (!englishFallbackChapter) {
+        fallbackReason = "unavailable";
+      }
     }
 
     const payload = {

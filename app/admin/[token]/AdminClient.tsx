@@ -1633,7 +1633,7 @@ export default function AdminClient() {
                                   {item.path}
                                 </span>
                                 <a
-                                  href={`https://mangastoon.com${item.path}`}
+                                  href={item.path}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="action-btn"
@@ -1714,7 +1714,7 @@ export default function AdminClient() {
                                   <CheckCircle size={14} />
                                 </button>
                                 <a
-                                  href={`https://mangastoon.com/comics/${ch.manga_id}`}
+                                  href={`/comics/${ch.manga_id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="action-btn"
@@ -1862,7 +1862,7 @@ export default function AdminClient() {
                             </button>
 
                             <a
-                              href={`https://mangastoon.com/comics/${ch.manga_id}`}
+                              href={`/comics/${ch.manga_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="btn-secondary"
