@@ -136,7 +136,7 @@ export type LocalApiComicsResponse = {
   };
 };
 
-export const SUPPORTED_READING_LANGUAGES = ["es", "es-la", "en", "pt-br"] as const;
+export const SUPPORTED_READING_LANGUAGES = ["es", "es-la", "pt-br"] as const;
 export const SAFE_CONTENT_RATINGS = ["safe", "suggestive"] as const;
 export const ADULT_CONTENT_RATINGS = ["erotica", "pornographic"] as const;
 
@@ -146,14 +146,14 @@ export function getAvailableTranslatedLanguageVariants(language: SupportedLangua
 
 export function getPreferredLanguageKeys(language: SupportedLanguage) {
   if (language === "es") {
-    return ["es", "es-la", "en", "ja-ro", "ja"];
+    return ["es", "es-la", "ja-ro", "ja"];
   }
 
   if (language === "pt") {
-    return ["pt-br", "pt", "en", "ja-ro", "ja"];
+    return ["pt-br", "pt", "ja-ro", "ja"];
   }
 
-  return ["en", "ja-ro", "ja"];
+  return ["ja-ro", "ja"];
 }
 
 export function getLocalizedValue(

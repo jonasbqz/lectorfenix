@@ -28,7 +28,7 @@ export function getMangaDexRequestHeaders() {
 export type MangaStoonLanguage = "es" | "en" | "pt";
 
 export function normalizeMangaStoonLanguage(value: string | null | undefined): MangaStoonLanguage {
-  if (value === "en" || value === "pt") {
+  if (value === "pt") {
     return value;
   }
 
@@ -36,15 +36,11 @@ export function normalizeMangaStoonLanguage(value: string | null | undefined): M
 }
 
 export function getMangaDexAvailableLanguages(language: MangaStoonLanguage) {
-  if (language === "es") {
-    return ["es", "es-la"];
-  }
-
   if (language === "pt") {
     return ["pt-br", "pt"];
   }
 
-  return ["en"];
+  return ["es", "es-la"];
 }
 
 export function appendMangaDexAvailableLanguageFilters(
