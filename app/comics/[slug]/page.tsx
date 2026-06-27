@@ -1046,9 +1046,9 @@ async function findBestChapterLanguageFallback(
   currentLanguage: SupportedLanguage
 ) {
   const fallbackPriority: Record<SupportedLanguage, SupportedLanguage[]> = {
-    es: ["en"],
-    en: ["es"],
-    pt: ["en", "es"],
+    es: [],
+    en: [],
+    pt: ["es"],
   };
   const fallbackCandidates = fallbackPriority[currentLanguage];
   const fallbacks = await Promise.all(
@@ -1061,26 +1061,7 @@ async function findBestChapterLanguageFallback(
 }
 
 async function fetchConsumetChaptersFallback(title: string) {
-  try {
-    const searchRes = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/${encodeURIComponent(title)}`);
-    const searchData = await searchRes.json();
-    const mangaId = searchData.results?.[0]?.id;
-    if (!mangaId) return [];
-
-    const infoRes = await fetch(`https://consumet-api-one.vercel.app/manga/manganato/info?id=${mangaId}`);
-    const infoData = await infoRes.json();
-
-    return infoData.chapters?.map((ch: any) => ({
-      id: ch.id,
-      attributes: {
-        chapter: ch.number?.toString() || ch.title?.match(/\d+/)?.[0] || "1",
-        title: ch.title,
-        translatedLanguage: "en"
-      }
-    })) || [];
-  } catch (e) {
-    return [];
-  }
+  return [];
 }
 
 async function fetchSimilarMangas(
