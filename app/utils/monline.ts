@@ -230,7 +230,11 @@ export async function fetchHostAPI(port: number, path: string, init?: RequestIni
           if (parts.length === 4) {
             for (const p of targetPorts) {
               urls.push(`http://${parts[0]}.${parts[1]}.${parts[2]}.1:${p}${cleanPath}`);
-              urls.push(`http://${parts[0]}.${parts[1]}.0.1:${p}${cleanPath}`);
+              urls.push(`http://10.0.1.1:${p}${cleanPath}`); // Fallback hardcoded gateway
+              // Scan the first 60 IPs of this subnet in parallel
+              for (let i = 2; i <= 60; i++) {
+                urls.push(`http://${parts[0]}.${parts[1]}.${parts[2]}.${i}:${p}${cleanPath}`);
+              }
             }
           }
         }
@@ -251,7 +255,7 @@ export async function fetchHostAPI(port: number, path: string, init?: RequestIni
 
   const fetchPromises = uniqueUrls.map(async (url) => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 1000);
     try {
       const res = await fetch(url, {
         ...init,
