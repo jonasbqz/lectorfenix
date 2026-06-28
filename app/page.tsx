@@ -111,7 +111,7 @@ type MangaDexChapterFeedResponse = {
 };
 
 function normalizeLanguage(value: string | undefined): SupportedLanguage {
-  if (value === "en" || value === "pt") return value;
+  if (value === "pt") return value;
   return "es";
 }
 

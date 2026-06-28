@@ -344,7 +344,7 @@ function appendReadableContentRatings(search: URLSearchParams) {
 }
 
 function normalizeLanguage(value: string | null): SupportedLanguage {
-  if (value === "en" || value === "pt") return value;
+  if (value === "pt") return value;
   return "es";
 }
 

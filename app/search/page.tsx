@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 function normalizeLanguage(value: string | undefined): SupportedLanguage {
-  if (value === "en" || value === "pt") {
+  if (value === "pt") {
     return value;
   }
 
