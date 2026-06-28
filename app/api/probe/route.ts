@@ -4,35 +4,31 @@ import dns from 'dns/promises';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const tests = [
-    { url: 'http://10.0.1.1/api/comics?limit=1', host: 'api.mangolibreria.com' },
-    { url: 'http://172.17.0.1/api/comics?limit=1', host: 'api.mangolibreria.com' },
-    { url: 'http://10.0.1.1:8085/api/comics?limit=1', host: 'api.mangolibreria.com' },
-    { url: 'http://127.0.0.1:8085/api/comics?limit=1', host: 'api.mangolibreria.com' }
-  ];
+  const baseIP = '10.0.1';
+  const ports = [3000, 8085, 8887];
+  const promises = [];
 
-  const results: Record<string, any> = {};
-  for (const t of tests) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(t.url, {
-        headers: {
-          'Host': t.host,
-          'User-Agent': 'Mozilla/5.0'
-        },
-        signal: controller.signal
-      });
-      clearTimeout(timeout);
-      results[t.url] = {
-        status: res.status,
-        ok: res.ok,
-        data: res.ok ? (await res.json()) : null
-      };
-    } catch (err: any) {
-      results[t.url] = { error: err.message };
+  for (let i = 2; i <= 60; i++) {
+    const ip = `${baseIP}.${i}`;
+    for (const p of ports) {
+      const url = `http://${ip}:${p}/api/comics?limit=1`;
+      promises.push((async () => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 600);
+        try {
+          const res = await fetch(url, {
+            signal: controller.signal
+          });
+          clearTimeout(timeout);
+          return { url, status: res.status, ok: res.ok };
+        } catch (err: any) {
+          clearTimeout(timeout);
+          return null;
+        }
+      })());
     }
   }
 
-  return NextResponse.json({ results });
+  const resolved = (await Promise.all(promises)).filter(Boolean);
+  return NextResponse.json({ resolved });
 }
