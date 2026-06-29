@@ -303,9 +303,6 @@ export default async function ReadPage({
   return (
     <>
       <Script id="reader-chapter-jsonld" type="application/ld+json" dangerouslySetInnerHTML={safeJsonLd(jsonLd)} />
-      {!isPremium && (
-        <Script id="monetag-vignette" src="https://dd133.com/vignette.min.js" data-zone="10986315" strategy="afterInteractive" />
-      )}
       <ReaderClient
         initialData={data}
         initialMangaId={realMangaId}

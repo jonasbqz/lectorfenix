@@ -1558,10 +1558,6 @@ export default async function MangaDetailsPage({
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Anuncio Vignette de Monetag */}
-      {!isPremium && (
-        <Script id="monetag-vignette" src="https://dd133.com/vignette.min.js" data-zone="10986315" strategy="afterInteractive" />
-      )}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
