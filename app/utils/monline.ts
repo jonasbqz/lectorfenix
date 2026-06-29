@@ -2,6 +2,26 @@ import { logger } from "./logger";
 import { getCached, setCached, stableCacheKey } from "./server-cache";
 import { MONLINE_API_URL as MONLINE_CONFIG_API_URL } from "./monline-config";
 
+/*
+  =============================================================================
+  ARQUITECTURA DE SCRAPERS Y APIS - LECTORFENIX
+  =============================================================================
+  
+  * SCRAPER 1 (MangaVF / Monline API):
+    - Propósito: Sirve el catálogo general, metadatos y portadas de los cómics.
+    - Puerto en Producción: 8085
+    - Host por Defecto: MONLINE_API_URL (api.lectorfenix.com)
+    - Función en código: fetchLocalAPI()
+    
+  * SCRAPER 2 (LeerCapitulo Scraper):
+    - Propósito: Scrapea capítulos y extrae imágenes en tiempo real de LeerCapitulo.
+    - Puerto en Producción: 3005 (Desarrollo local: 3001)
+    - Host por Defecto: MANGAVF_API_URL (api-scraper.sdownloader.com)
+    - Función en código: fetchMangaVfAPI()
+    
+  =============================================================================
+*/
+
 const MONLINE_API_URL = MONLINE_CONFIG_API_URL;
 
 const MONLINE_TIMEOUT_MS = 8000; // 👈 LO SUBIMOS A 8 SEGUNDOS (Hetzner lo necesita)
@@ -302,6 +322,7 @@ export async function fetchHostAPI(port: number, path: string, init?: RequestIni
   }
 }
 
+// ─── SCRAPER 1 (MangaVF / Monline API - puerto 8085) ────────────────────────
 export async function fetchLocalAPI(path: string, init?: RequestInit): Promise<Response> {
   return fetchHostAPI(8085, path, init);
 }
@@ -315,14 +336,15 @@ function recordScraperFailure() {
   scraperFailureCount++;
   if (scraperFailureCount >= FAILURE_THRESHOLD) {
     scraperOfflineUntil = Date.now() + CIRCUIT_BREAKER_COOLDOWN_MS;
-    logger.error(`[fetchMangaVfAPI] Scraper failed ${scraperFailureCount} times. Opening circuit breaker for 3 minutes.`);
+    logger.error(`[fetchMangaVfAPI] Scraper 2 failed ${scraperFailureCount} times. Opening circuit breaker for 3 minutes.`);
   }
 }
 
+// ─── SCRAPER 2 (LeerCapitulo Scraper - puerto 3005) ─────────────────────────
 export async function fetchMangaVfAPI(path: string, init?: RequestInit): Promise<Response> {
   const now = Date.now();
   if (now < scraperOfflineUntil) {
-    logger.warn(`[fetchMangaVfAPI] Circuit breaker is OPEN. Scraper is offline. Skipping request to ${path}`);
+    logger.warn(`[fetchMangaVfAPI] Circuit breaker is OPEN. Scraper 2 is offline. Skipping request to ${path}`);
     return new Response(
       JSON.stringify({ results: [], recientes: [], chapters: [], pages: [], error: "Scraper offline (circuit breaker open)" }),
       { status: 503, headers: { "Content-Type": "application/json" } }
@@ -339,7 +361,7 @@ export async function fetchMangaVfAPI(path: string, init?: RequestInit): Promise
     return res;
   } catch (error) {
     recordScraperFailure();
-    logger.warn(`[fetchMangaVfAPI] Failed to fetch path ${path}. Returning fallback 503.`, error);
+    logger.warn(`[fetchMangaVfAPI] Failed to fetch path ${path} from Scraper 2. Returning fallback 503.`, error);
     return new Response(
       JSON.stringify({ results: [], recientes: [], chapters: [], pages: [], error: "Scraper fetch failed" }),
       { status: 503, headers: { "Content-Type": "application/json" } }
