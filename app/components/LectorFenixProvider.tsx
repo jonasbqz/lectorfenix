@@ -102,6 +102,12 @@ export default function LectorFenixProvider() {
     if (!shouldLoad) return;
 
     let active = true;
+    let timeoutId: NodeJS.Timeout;
+
+    function cleanInjectedAdScripts() {
+      if (typeof document === "undefined") return;
+      document.querySelectorAll(".lectorfenix-ad-injected").forEach((el) => el.remove());
+    }
 
     function runFallback() {
       if (!active) return;
@@ -112,26 +118,39 @@ export default function LectorFenixProvider() {
         (function(s,u,z,p){s.src=u,s.setAttribute('data-zone',z),p.appendChild(s);})(document.createElement('script'),'/api/v1/stats/tracker',11014955,document.body||document.documentElement)
       `;
       inlineScript.id = "lectorfenix-ad-inline-fallback";
+      inlineScript.className = "lectorfenix-ad-injected";
 
       document.head.appendChild(inlineScript);
     }
 
     async function loadDynamicAds() {
       try {
-        const res = await fetch("/api/ads/tag");
-        if (!res.ok) {
-          runFallback();
-          return;
+        // 1. Reusar el tag de anuncios pre-cacheado en memoria para no hacer peticiones de red lentas en cada click
+        let adTag = (window as any).__lectorfenixCachedAdTag;
+        if (!adTag) {
+          const res = await fetch("/api/ads/tag");
+          if (!res.ok) {
+            runFallback();
+            return;
+          }
+          const data = await res.json();
+          if (data?.tag) {
+            adTag = data.tag;
+            (window as any).__lectorfenixCachedAdTag = adTag;
+          }
         }
-        const data = await res.json();
-        if (!active || !data.tag) {
+
+        if (!active || !adTag) {
           runFallback();
           return;
         }
 
-        // Parse HTML and extract script tags
+        // 2. Limpiar scripts inyectados previamente para evitar el consumo acumulado de CPU y memoria tras leer varios caps
+        cleanInjectedAdScripts();
+
+        // 3. Parsear e inyectar el script de anuncios de forma limpia
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = data.tag;
+        tempDiv.innerHTML = adTag;
 
         const originalScripts = Array.from(tempDiv.querySelectorAll("script"));
         if (originalScripts.length === 0) {
@@ -141,6 +160,7 @@ export default function LectorFenixProvider() {
 
         originalScripts.forEach((oldScript) => {
           const newScript = document.createElement("script");
+          newScript.className = "lectorfenix-ad-injected";
           
           // Copy all attributes
           Array.from(oldScript.attributes).forEach((attr) => {
@@ -160,10 +180,14 @@ export default function LectorFenixProvider() {
       }
     }
 
-    loadDynamicAds();
+    // 4. Carga diferida de 1.2 segundos para dejar que la UI cargue las paginas a velocidad luz
+    timeoutId = setTimeout(() => {
+      loadDynamicAds();
+    }, 1200);
 
     return () => {
       active = false;
+      clearTimeout(timeoutId);
     };
   }, [shouldLoad, pathname]);
 
