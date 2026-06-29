@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
       source: 'mangadex'
     });
   } catch (error) {
-    logger.error("Mangastoon API error", error);
+    logger.error("LectorFenix API error", error);
 
     return NextResponse.json(
       { error: "An error occurred while querying MangaDex." },

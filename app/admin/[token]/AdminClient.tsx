@@ -960,7 +960,7 @@ export default function AdminClient() {
       <div className="login-container">
         <div className="login-glow"></div>
         <div className="login-card glass-panel fade-in">
-          <div className="login-logo">MangaStoon</div>
+          <div className="login-logo">LectorFenix</div>
           <div className="login-subtitle">Panel de Control Administrativo</div>
 
           {loginError && <div className="login-error">{loginError}</div>}
@@ -1019,7 +1019,7 @@ export default function AdminClient() {
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          MangaStoon
+          LectorFenix
           <span className="sidebar-brand-sub">PANEL</span>
         </div>
 
@@ -1140,7 +1140,7 @@ export default function AdminClient() {
             </h1>
             <p className="page-subtitle">
               {activeTab === "dashboard" && "Monitoreo de actividad, telemetría y presencia activa."}
-              {activeTab === "broken-chapters" && "Gestión de páginas vacías detectadas en MangaStoon."}
+              {activeTab === "broken-chapters" && "Gestión de páginas vacías detectadas en LectorFenix."}
               {activeTab === "failed-searches" && "Registro de búsquedas que retornaron 0 resultados en la plataforma."}
               {activeTab === "comment-moderation" && "Revisión y gestión de comentarios reportados por la comunidad."}
               {activeTab === "scraper-queue" && "Priorización y monitoreo de tareas de extracción de contenido."}
@@ -2281,7 +2281,7 @@ export default function AdminClient() {
                 <textarea
                   required
                   rows={8}
-                  placeholder="👑 *¡Nuevo Capítulo Disponible!* 👑&#10;&#10;Se ha publicado el capítulo *150* de *Solo Leveling*.&#10;&#10;👉 ¡Ingresá a MangaStoon para leerlo ya! 👈"
+                  placeholder="👑 *¡Nuevo Capítulo Disponible!* 👑&#10;&#10;Se ha publicado el capítulo *150* de *Solo Leveling*.&#10;&#10;👉 ¡Ingresá a LectorFenix para leerlo ya! 👈"
                   value={announcementText}
                   onChange={(e) => setAnnouncementText(e.target.value)}
                   style={{
@@ -2518,7 +2518,7 @@ export default function AdminClient() {
                 </button>
               </form>
               <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "10px" }}>
-                El usuario debe haberse registrado previamente en MangaStoon para poseer una fila en la tabla profiles.
+                El usuario debe haberse registrado previamente en LectorFenix para poseer una fila en la tabla profiles.
               </p>
             </div>
 
@@ -2527,7 +2527,7 @@ export default function AdminClient() {
               <div className="panel-title-row">
                 <h3 className="panel-title">
                   <ShieldCheck size={18} className="text-primary" />
-                  Administradores de MangaStoon
+                  Administradores de LectorFenix
                 </h3>
                 <span className="badge badge-blue">{adminTeam.length} cuentas oficiales</span>
               </div>

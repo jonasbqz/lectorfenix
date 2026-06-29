@@ -7,7 +7,7 @@ const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_HXlaIRq65K65Yx9djOtK8Q_NKOFfPvN";
 
 const getSiteURL = () => {
-  let url = process.env.NEXT_PUBLIC_SITE_URL ?? "https://mangastoon.com";
+  let url = process.env.NEXT_PUBLIC_SITE_URL ?? "https://lectorfenix.com";
 
   if (!/^https?:\/\//i.test(url)) {
     url = `https://${url}`;

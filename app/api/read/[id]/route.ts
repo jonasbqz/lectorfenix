@@ -299,12 +299,12 @@ function readCacheHeaders(cacheStatus: "HIT" | "MISS" | "BYPASS" = "MISS", ttl =
   if (cacheStatus === "BYPASS") {
     return {
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-      "X-Mangastoon-Cache": "BYPASS",
+      "X-LectorFenix-Cache": "BYPASS",
     };
   }
   return {
     "Cache-Control": `public, max-age=${ttl}, s-maxage=${ttl}, stale-while-revalidate=${ttl * 12}`,
-    "X-Mangastoon-Cache": cacheStatus,
+    "X-LectorFenix-Cache": cacheStatus,
   };
 }
 
@@ -487,7 +487,7 @@ function slugToReadableTitle(slug: string): string {
   return clean
     .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())
-    .trim() || "Mangastoon";
+    .trim() || "LectorFenix";
 }
 
 function getRequestedLeerCapituloChapterNumber(chapterId: string | null) {
@@ -667,7 +667,7 @@ async function resolveLocalMangaIdentity(slug: string, lang: SupportedLanguage) 
     }
     const comicSlug = getStringValue(fullComic, ["slug", "manga_slug", "comic_slug"]) || cleanSlug;
     const rawTitle = getStringValue(fullComic, ["title", "name", "comic_title", "original_title"]);
-    const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle, isLocal: true }, lang) || "Mangastoon";
+    const title = await getLocalizedTitleAsync({ titleMap: getLocalTitleMap(fullComic), title: rawTitle, isLocal: true }, lang) || "LectorFenix";
     const coverImage = normalizeLocalImageUrl(
       getStringValue(fullComic, ["coverImage", "cover_image", "cover", "thumbnail", "image", "poster", "url_cover"])
     );
@@ -793,7 +793,7 @@ function buildFeedUrl(mangaId: string, lang: SupportedLanguage, limit: number, o
 async function resolveMangaIdentity(mangaId: string, lang: SupportedLanguage) {
   const response = await fetchMangaDex(`https://api.mangadex.org/manga/${mangaId}?includes[]=cover_art`);
 
-  if (!response.ok) return { title: "Mangastoon", coverImage: "", segments: ["mangastoon"] };
+  if (!response.ok) return { title: "LectorFenix", coverImage: "", segments: ["lectorfenix"] };
 
   const payload = (await response.json()) as MangaDetailsResponse;
   const attributes = payload.data?.attributes;
@@ -1321,14 +1321,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (pages.length === 0 && currentChapter) {
           await reportBrokenChapter(
             id,
-            details.manga_title || details.title || "MangaStoon",
+            details.manga_title || details.title || "LectorFenix",
             currentChapter.id,
             currentChapter.attributes?.chapter || "0"
           );
         }
 
         return cachedReadResponse(responseCacheKey, {
-          mangaTitle: details.manga_title || details.title || "MangaStoon",
+          mangaTitle: details.manga_title || details.title || "LectorFenix",
           comicSlug: id,
           coverImage: details.cover || "",
           chapters: excludeChapters ? [] : stripChaptersForClient(chapters),
@@ -1428,7 +1428,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         if (pages.length === 0) {
           await reportBrokenChapter(
             targetMangaDexId || id,
-            mangaIdentity.title || "MangaStoon",
+            mangaIdentity.title || "LectorFenix",
             requestedChapter.id,
             requestedChapter.attributes?.chapter || "0"
           );
@@ -1541,7 +1541,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (pages.length === 0 && currentChapter) {
       await reportBrokenChapter(
         targetMangaDexId || id,
-        mangaTitle || "MangaStoon",
+        mangaTitle || "LectorFenix",
         currentChapter.id,
         currentChapter.attributes?.chapter || "0"
       );
@@ -1614,7 +1614,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         status: isRateLimit ? 429 : 503,
         headers: {
           "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
-          "X-Mangastoon-Cache": "BYPASS",
+          "X-LectorFenix-Cache": "BYPASS",
         },
       }
     );

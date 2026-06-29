@@ -26,7 +26,7 @@ export default function LegalPage({
 
         <header className="mb-12 border-b border-white/10 pb-8">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.24em] text-orange-500">
-            MangaStoon Legal
+            LectorFenix Legal
           </p>
           <h1 className="text-4xl font-black leading-tight text-white md:text-5xl">
             {title[language]}

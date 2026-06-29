@@ -205,7 +205,7 @@ export async function updateUsername(newUsername: string) {
     .single();
 
   const lowerUsername = trimmed.toLowerCase();
-  const reservedWords = ["mangastoon", "admin", "owner", "staff", "moderador", "moderator", "soporte", "support", "system", "dueño", "dueno"];
+  const reservedWords = ["lectorfenix", "mangastoon", "admin", "owner", "staff", "moderador", "moderator", "soporte", "support", "system", "dueño", "dueno"];
   const hasReservedWord = reservedWords.some((word) => lowerUsername.includes(word));
 
   if (hasReservedWord && !profile?.is_admin) {
@@ -397,16 +397,16 @@ export async function getDailyTelegramCode(username: string, offsetDays = 0, tel
     date.setDate(date.getDate() + offsetDays);
   }
   const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
-  const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
+  const salt = process.env.TELEGRAM_PREMIUM_SALT || "lectorfenix_secreto_salt_2026";
   const normalizedUsername = username.trim().toLowerCase();
   
   const tid = telegramId !== undefined ? telegramId : 0;
   const hash = crypto.createHash("md5").update(normalizedUsername + tid + dateString + salt).digest("hex");
   
   if (telegramId !== undefined) {
-    return `MST-${tid}-${hash.substring(0, 5).toUpperCase()}`;
+    return `LFX-${tid}-${hash.substring(0, 5).toUpperCase()}`;
   }
-  return `MST-${hash.substring(0, 5).toUpperCase()}`;
+  return `LFX-${hash.substring(0, 5).toUpperCase()}`;
 }
 
 const failedAttemptsMap = new Map<string, { count: number; blockedUntil: number }>();
@@ -451,9 +451,9 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
     const username = profile.username;
     const cleanCode = code.trim().toUpperCase();
 
-    // Parsear código MST-{telegramId}-{hash}
+    // Parsear código LFX-{telegramId}-{hash} o MST-{telegramId}-{hash}
     const parts = cleanCode.split("-");
-    if (parts.length !== 3 || parts[0] !== "MST") {
+    if (parts.length !== 3 || (parts[0] !== "LFX" && parts[0] !== "MST")) {
       return { error: "Código inválido o formato incorrecto." };
     }
 

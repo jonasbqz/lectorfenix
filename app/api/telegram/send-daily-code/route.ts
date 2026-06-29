@@ -20,12 +20,12 @@ export async function GET(req: Request) {
   }
 
   // Mensaje estético premium en español con formato Markdown
-  const messageText = `👑 *MangaStoon Premium Free Pass* 👑\n\n` +
+  const messageText = `👑 *LectorFenix Premium Free Pass* 👑\n\n` +
     `🎁 ¡Reclamá tu pase de regalo diario gratis!\n\n` +
     `💬 Obtené tu código diario único enviando en este chat:\n` +
     `👉 \`/codigo TU_USUARIO\` 👈\n\n` +
     `*(Reemplazá \`TU_USUARIO\` con tu nombre de usuario de la web. Ejemplo: \`/codigo Juan123\`)*\n\n` +
-    `🌐 [Entrar a MangaStoon](https://mangastoon.com/)`;
+    `🌐 [Entrar a LectorFenix](https://lectorfenix.com/)`;
 
   const telegramUrl = `https://api.telegram.org/bot${token}/sendMessage`;
 

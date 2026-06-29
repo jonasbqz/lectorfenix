@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   appendMangaDexAvailableLanguageFilters,
   getMangaDexRequestHeaders,
-  normalizeMangaStoonLanguage,
+  normalizeLectorFenixLanguage,
   toMangaDexApiUrl,
 } from "../../../utils/mangadex-config";
 
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     const hasLanguageFilter = params.has("availableTranslatedLanguage[]") || params.has("availableTranslatedLanguage");
     const skipLanguageFilter = params.get("skipLanguageFilter") === "1";
-    const language = normalizeMangaStoonLanguage(
+    const language = normalizeLectorFenixLanguage(
       params.get("lang") ?? request.cookies.get("lang")?.value
     );
 

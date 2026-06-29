@@ -25,9 +25,9 @@ export function getMangaDexRequestHeaders() {
 }
 
 
-export type MangaStoonLanguage = "es" | "en" | "pt";
+export type LectorFenixLanguage = "es" | "en" | "pt";
 
-export function normalizeMangaStoonLanguage(value: string | null | undefined): MangaStoonLanguage {
+export function normalizeLectorFenixLanguage(value: string | null | undefined): LectorFenixLanguage {
   if (value === "pt") {
     return value;
   }
@@ -35,7 +35,7 @@ export function normalizeMangaStoonLanguage(value: string | null | undefined): M
   return "es";
 }
 
-export function getMangaDexAvailableLanguages(language: MangaStoonLanguage) {
+export function getMangaDexAvailableLanguages(language: LectorFenixLanguage) {
   if (language === "pt") {
     return ["pt-br", "pt"];
   }
@@ -45,7 +45,7 @@ export function getMangaDexAvailableLanguages(language: MangaStoonLanguage) {
 
 export function appendMangaDexAvailableLanguageFilters(
   params: URLSearchParams,
-  language: MangaStoonLanguage
+  language: LectorFenixLanguage
 ) {
   params.delete("availableTranslatedLanguage[]");
 

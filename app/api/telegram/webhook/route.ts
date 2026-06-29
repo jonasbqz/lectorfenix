@@ -214,7 +214,7 @@ export async function POST(req: Request) {
         if (member.is_bot) continue;
 
         const welcomeText = `👋 *¡Hola ${member.first_name || "MangaLector"}!*\n` +
-          `Bienvenido/a a la comunidad oficial de *MangaStoon*.\n\n` +
+          `Bienvenido/a a la comunidad oficial de *LectorFenix*.\n\n` +
           `🔑 Si estás aquí por tu *Pase Premium Gratis*, puedes solicitar tu código diario de hoy hablando por privado con nuestro bot.`;
 
         const replyMarkup = {
@@ -227,8 +227,8 @@ export async function POST(req: Request) {
             ],
             [
               {
-                text: "🌐 Visitar MangaStoon",
-                url: "https://mangastoon.com"
+                text: "🌐 Visitar LectorFenix",
+                url: "https://lectorfenix.com"
               }
             ]
           ]
@@ -402,7 +402,7 @@ export async function POST(req: Request) {
         }
 
         if (!arg) {
-          const publicError = `⚠️ *@${message.from.username || message.from.first_name}*, te faltó colocar tu nombre de usuario de MangaStoon.\n\n` +
+          const publicError = `⚠️ *@${message.from.username || message.from.first_name}*, te faltó colocar tu nombre de usuario de LectorFenix.\n\n` +
             `Usa el comando de esta forma: \`/codigo TU_USUARIO\`\n\n` +
             `_(Ejemplo: \`/codigo Juan123\` - encontrás tu usuario en tu perfil de la web)_`;
           await sendTelegramMessage(token, chatId, publicError, undefined, undefined, 30000);
@@ -411,12 +411,12 @@ export async function POST(req: Request) {
 
         // Intentar enviar el código por privado
         const codeToday = await getDailyTelegramCode(arg || "tu_usuario", 0, senderId);
-        const privateText = `🔑 *MangaStoon Pase Premium Gratis (1 Mes)* 🔑\n\n` +
+        const privateText = `🔑 *LectorFenix Pase Premium Gratis (1 Mes)* 🔑\n\n` +
           `👤 Usuario: *${arg || "usuario"}*\n` +
           `🔑 Código único de hoy:\n` +
           `👉 \`${codeToday}\` 👈\n\n` +
           `*¿Cómo usarlo?*\n` +
-          `1. Ingresa a tu perfil en MangaStoon.\n` +
+          `1. Ingresa a tu perfil en LectorFenix.\n` +
           `2. Haz clic en *Reclamar Pase Gratis*.\n` +
           `3. Pega este código y ¡listo! Disfruta de 30 días de premium gratis.`;
 
@@ -436,10 +436,10 @@ export async function POST(req: Request) {
       // Comandos ejecutados en privado
       if (message.chat.type === "private" && senderId) {
         if (command === "/start") {
-          const startText = `👑 *¡Hola ${message.from.first_name || "MangaLector"}!* Soy el bot oficial de MangaStoon.\n\n` +
+          const startText = `👑 *¡Hola ${message.from.first_name || "Lector"}!* Soy el bot oficial de LectorFenix.\n\n` +
             `Para conseguir tu código diario único de premium gratis, usa el comando:\n` +
             `👉 \`/codigo TU_USUARIO\`\n\n` +
-            `_(Ejemplo: \`/codigo Juan123\`. Puedes ver tu nombre de usuario en tu perfil de MangaStoon)_`;
+            `_(Ejemplo: \`/codigo Juan123\`. Puedes ver tu nombre de usuario en tu perfil de LectorFenix)_`;
 
           await sendTelegramMessage(token, chatId, startText, message.message_id);
           return NextResponse.json({ ok: true });
@@ -450,7 +450,7 @@ export async function POST(req: Request) {
             const missingArgText = `⚠️ *Falta tu nombre de usuario.*\n\n` +
               `Por favor, ingresa el comando de esta forma:\n` +
               `👉 \`/codigo TU_USUARIO\`\n\n` +
-              `_(Reemplaza \`TU_USUARIO\` con tu usuario real de MangaStoon)_`;
+              `_(Reemplaza \`TU_USUARIO\` con tu usuario real de LectorFenix)_`;
 
             await sendTelegramMessage(token, chatId, missingArgText, message.message_id);
             return NextResponse.json({ ok: true });
@@ -481,12 +481,12 @@ export async function POST(req: Request) {
           const currentCount = limitInfo && limitInfo.date === todayStr ? limitInfo.count + 1 : 1;
           telegramRequestLimitMap.set(senderId, { count: currentCount, date: todayStr });
 
-          const codeText = `🔑 *MangaStoon Pase Premium Gratis (1 Mes)* 🔑\n\n` +
+          const codeText = `🔑 *LectorFenix Pase Premium Gratis (1 Mes)* 🔑\n\n` +
             `👤 Usuario: *${arg}*\n` +
             `🔑 Código único de hoy:\n` +
             `👉 \`${codeToday}\` 👈\n\n` +
             `*¿Cómo usarlo?*\n` +
-            `1. Ingresa a tu perfil en MangaStoon.\n` +
+            `1. Ingresa a tu perfil en LectorFenix.\n` +
             `2. Haz clic en *Reclamar Pase Gratis*.\n` +
             `3. Pega este código y ¡listo! Disfruta de todos los beneficios premium por 30 días gratis.\n\n` +
             `_(Este código es exclusivo para la cuenta *${arg}*. Si colocas otro usuario en la web, el código no funcionará)_`;
@@ -496,17 +496,17 @@ export async function POST(req: Request) {
         }
 
         // Fallback para cualquier otro mensaje o pregunta en privado
-        const fallbackText = `🤖 *Centro de Ayuda de MangaStoon* 🤖\n\n` +
+        const fallbackText = `🤖 *Centro de Ayuda de LectorFenix* 🤖\n\n` +
           `Para reclamar tu **Pase Premium Gratis**, recuerda usar el comando:\n` +
           `👉 \`/codigo TU_USUARIO\`\n` +
           `_(Ejemplo: \`/codigo Juan123\` - encuentras tu usuario en tu perfil de la web)_\n\n` +
           `⚠️ *Errores comunes y soluciones:*\n` +
-          `• **"Código incorrecto"**: Asegúrate de haber escrito tu nombre de usuario exactamente igual a como aparece en tu perfil de MangaStoon (respetando mayúsculas, minúsculas, puntos y guiones).\n` +
+          `• **"Código incorrecto"**: Asegúrate de haber escrito tu nombre de usuario exactamente igual a como aparece en tu perfil de LectorFenix (respetando mayúsculas, minúsculas, puntos y guiones).\n` +
           `• **"Debes formar parte del grupo oficial"**: Es obligatorio unirse a nuestro grupo antes de pedir el código. [Únete aquí](https://t.me/+dtPKjcBfiDUyOWQx).\n` +
           `• **"Límite diario alcanzado"**: Solo puedes solicitar tus códigos hasta 3 veces al día. Si ya activaste tu pase, tendrás 30 días de premium gratis.\n\n` +
           `💬 *¿Tienes dudas o preguntas?*\n` +
           `Por seguridad y para darte una mejor atención, por favor **haz tu pregunta en nuestro grupo oficial de Telegram**. Allí, los administradores de la página te brindarán ayuda lo antes posible.\n` +
-          `👉 [Ir al Grupo Oficial de MangaStoon](https://t.me/+dtPKjcBfiDUyOWQx)`;
+          `👉 [Ir al Grupo Oficial de LectorFenix](https://t.me/+dtPKjcBfiDUyOWQx)`;
 
         await sendTelegramMessage(token, chatId, fallbackText, message.message_id);
         return NextResponse.json({ ok: true });
