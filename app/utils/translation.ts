@@ -89,7 +89,7 @@ export function sanitizeText(text: string): string {
   cleaned = cleaned
     .replace(/Sumérgete en la apasionante trama de[\s\S]*?Aquí tienes los detalles clave de su historia:\s*/gi, "")
     .replace(/Explora el increíble universo que propone[\s\S]*?Te invitamos a leer la sinopsis oficial de esta gran obra:\s*/gi, "")
-    .replace(/Sigue de cerca esta emocionante aventura y lee[\s\S]*?(?:de manera cómoda en nuestro lector|en MangaStoon)\.?/gi, "")
+    .replace(/Sigue de cerca esta emocionante aventura y lee[\s\S]*?(?:de manera cómoda en nuestro lector|en LectorFenix)\.?/gi, "")
     .trim();
 
   // 6. Normalize whitespaces

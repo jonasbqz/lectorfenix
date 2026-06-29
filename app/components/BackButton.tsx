@@ -31,10 +31,10 @@ export default function BackButton({
       const pathParts = window.location.pathname.split("/");
       const lastPart = pathParts[pathParts.length - 1];
 
-      const storedMangaId = sessionStorage.getItem("mangastoon_current_manga_id");
+      const storedMangaId = sessionStorage.getItem("lectorfenix_current_manga_id");
       if (storedMangaId !== lastPart) {
-        sessionStorage.setItem("mangastoon_current_manga_id", lastPart);
-        sessionStorage.setItem("mangastoon_manga_entry_time", String(Date.now()));
+        sessionStorage.setItem("lectorfenix_current_manga_id", lastPart);
+        sessionStorage.setItem("lectorfenix_manga_entry_time", String(Date.now()));
       }
     }
   }, []);
@@ -42,8 +42,8 @@ export default function BackButton({
   const handleBack = (e: React.MouseEvent) => {
     e.preventDefault();
     if (typeof window !== "undefined") {
-      const storedReferrer = sessionStorage.getItem("mangastoon_manga_referrer");
-      const entryTimeStr = sessionStorage.getItem("mangastoon_manga_entry_time");
+      const storedReferrer = sessionStorage.getItem("lectorfenix_manga_referrer");
+      const entryTimeStr = sessionStorage.getItem("lectorfenix_manga_entry_time");
       const referrer = document.referrer;
       const isFromReader = referrer && (referrer.includes("/chapters/") || referrer.includes("/read/"));
       const isMangaPage = window.location.pathname.startsWith("/comics/") && 

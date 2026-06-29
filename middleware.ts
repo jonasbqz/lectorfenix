@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
           <head>
             <meta charset="utf-8" />
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title>Contenido no disponible - MangaStoon</title>
+            <title>Contenido no disponible - LectorFenix</title>
             <meta name="robots" content="noindex, nofollow" />
             <style>
               body {

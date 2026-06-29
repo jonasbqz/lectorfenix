@@ -138,7 +138,7 @@ function sanitizeFilename(value: string) {
   return value
     .replace(/[\\/:*?"<>|]/g, "")
     .trim()
-    .replace(/\s+/g, "_") || "mangastoon";
+    .replace(/\s+/g, "_") || "lectorfenix";
 }
 
 function downloadBlob(blob: Blob, filename: string) {

@@ -10,7 +10,7 @@ const COPY = {
     intro: (title: string) => (
       <>
         Estás leyendo <strong className="font-semibold text-white">{title}</strong>{" "}
-        online en MangaStoon, con una experiencia pensada para seguir cada capítulo sin ruido visual,
+        online en LectorFenix, con una experiencia pensada para seguir cada capítulo sin ruido visual,
         sin saltos innecesarios y con una presentación oscura que acompaña la lectura.
       </>
     ),
@@ -21,7 +21,7 @@ const COPY = {
         haya nuevas actualizaciones sin perder el hilo de la historia.
       </>
     ),
-    whyRead: (title: string) => <>Por qué leer <strong>{title}</strong> en MangaStoon</>,
+    whyRead: (title: string) => <>Por qué leer <strong>{title}</strong> en LectorFenix</>,
     freeLabel: "Lectura gratuita:",
     freeText: (title: string) => (
       <>
@@ -46,7 +46,7 @@ const COPY = {
     closing: (title: string) => (
       <>
         Sumérgete en <strong className="font-semibold text-white">{title}</strong>{" "}
-        desde el primer capítulo o continúa desde el último disponible en MangaStoon.
+        desde el primer capítulo o continúa desde el último disponible en LectorFenix.
       </>
     ),
     readLess: "Leer menos",
@@ -57,7 +57,7 @@ const COPY = {
     intro: (title: string) => (
       <>
         You are reading <strong className="font-semibold text-white">{title}</strong>{" "}
-        online on MangaStoon, with an experience designed to follow every chapter smoothly,
+        online on LectorFenix, with an experience designed to follow every chapter smoothly,
         without unnecessary jumps and with a dark presentation built for reading.
       </>
     ),
@@ -68,7 +68,7 @@ const COPY = {
         new updates are published without losing your place in the story.
       </>
     ),
-    whyRead: (title: string) => <>Why read <strong>{title}</strong> on MangaStoon</>,
+    whyRead: (title: string) => <>Why read <strong>{title}</strong> on LectorFenix</>,
     freeLabel: "Free reading:",
     freeText: (title: string) => (
       <>
@@ -93,7 +93,7 @@ const COPY = {
     closing: (title: string) => (
       <>
         Dive into <strong className="font-semibold text-white">{title}</strong>{" "}
-        from the first chapter or continue from the latest available chapter on MangaStoon.
+        from the first chapter or continue from the latest available chapter on LectorFenix.
       </>
     ),
     readLess: "Read less",
@@ -104,7 +104,7 @@ const COPY = {
     intro: (title: string) => (
       <>
         Você está lendo <strong className="font-semibold text-white">{title}</strong>{" "}
-        online no MangaStoon, com uma experiência pensada para acompanhar cada capítulo sem ruído visual,
+        online no LectorFenix, com uma experiência pensada para acompanhar cada capítulo sem ruído visual,
         sem saltos desnecessários e com uma apresentação escura feita para leitura.
       </>
     ),
@@ -115,7 +115,7 @@ const COPY = {
         houver novas atualizações sem perder o fio da história.
       </>
     ),
-    whyRead: (title: string) => <>Por que ler <strong>{title}</strong> no MangaStoon</>,
+    whyRead: (title: string) => <>Por que ler <strong>{title}</strong> no LectorFenix</>,
     freeLabel: "Leitura gratuita:",
     freeText: (title: string) => (
       <>
@@ -140,7 +140,7 @@ const COPY = {
     closing: (title: string) => (
       <>
         Mergulhe em <strong className="font-semibold text-white">{title}</strong>{" "}
-        desde o primeiro capítulo ou continue pelo último disponível no MangaStoon.
+        desde o primeiro capítulo ou continue pelo último disponível no LectorFenix.
       </>
     ),
     readLess: "Ler menos",

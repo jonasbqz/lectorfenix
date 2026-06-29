@@ -206,7 +206,7 @@ export async function generateMetadata({
   const sourceMetadata = isMangaDexUuid(mangaId)
     ? await getMangaDexReadMetadata(mangaId)
     : await getLocalReadMetadata(mangaId);
-  const mangaTitle = sourceMetadata?.title || "MangaStoon";
+  const mangaTitle = sourceMetadata?.title || "LectorFenix";
   const chapterLabel = getChapterLabel(chapterId);
   const title = chapterId
     ? `${mangaTitle} - ${chapterLabel} online | ${SITE_NAME}`

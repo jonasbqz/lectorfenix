@@ -12,7 +12,7 @@ export default function GlobalError({
   return (
     <html lang="es" className="dark">
       <head>
-        <title>Algo salió mal | MangaStoon</title>
+        <title>Algo salió mal | LectorFenix</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet" />
@@ -160,7 +160,7 @@ export default function GlobalError({
             <AlertTriangle size={36} className="animate-pulse" />
           </div>
           <span className="tag">Algo salió mal</span>
-          <h1 className="title">MangaStoon fue enviado a otro mundo</h1>
+          <h1 className="title">LectorFenix fue enviado a otro mundo</h1>
           <p className="description">
             Ocurrió un error inesperado al invocar la página. No te desesperes, estamos lanzando un hechizo de resurrección para restaurar todo.
           </p>

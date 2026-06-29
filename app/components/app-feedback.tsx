@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
 
-const COOKIE_CONSENT_KEY = "mangastoon_cookie_consent";
+const COOKIE_CONSENT_KEY = "lectorfenix_cookie_consent";
 
 export default function AppFeedback() {
   const [showCookieBanner, setShowCookieBanner] = useState(false);

@@ -1315,7 +1315,7 @@ export async function fetchMangaDetails(id: string, language?: string, slug?: st
 
           const payload = (await response.json()) as MangaDetailsResponse;
           if (!payload.data) {
-            logger.warn(`[MangaStoon] MangaDex devolvio detalles vacios para manga ${resolution.mangadexId}`);
+            logger.warn(`[LectorFenix] MangaDex devolvio detalles vacios para manga ${resolution.mangadexId}`);
           }
 
           const mangaDetails = payload.data ?? null;
@@ -1543,7 +1543,7 @@ export async function resolveBestSource(idOrSlug: string, slug?: string | null):
         if (!leercapituloSlug && slug) {
           const extractedTitle = extractTitleFromSlug(slug);
           logger.info(`[resolveBestSource] MangaDex failed, extracted title fallback: "${extractedTitle}"`);
-          if (extractedTitle && extractedTitle !== "mangastoon" && extractedTitle !== "comic") {
+          if (extractedTitle && extractedTitle !== "lectorfenix" && extractedTitle !== "comic") {
             leercapituloSlug = (await searchLeerCapituloByTitle(extractedTitle)) ?? undefined;
           }
         }

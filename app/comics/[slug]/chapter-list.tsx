@@ -79,7 +79,7 @@ export default function ChapterList({
 
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("mangastoon_progress:")) {
+        if (key && key.startsWith("lectorfenix_progress:")) {
           const parts = key.split(":");
           if (parts.length >= 3) {
             const keyMangaId = parts[1];

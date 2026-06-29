@@ -9,7 +9,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 ## 1. Confirmar Registro (Confirm Signup)
 
 ### Asunto (Subject)
-`Confirmación de Cuenta de MangaStoon`
+`Confirmación de Cuenta de LectorFenix`
 
 ### Contenido HTML (Body)
 ```html
@@ -126,7 +126,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 <body>
   <div class="wrapper">
     <div class="card">
-      <div class="logo">MangaStoon</div>
+      <div class="logo">LectorFenix</div>
       <div class="text-title">¡Te damos la bienvenida, {{ .User.UserMetadata.username }}!</div>
       <div class="text-body">
         Gracias por unirte a nuestra comunidad. Para completar tu registro, empezar a guardar tus lecturas favoritas, organizar tus colecciones y comentar los capítulos, confirma tu correo haciendo clic en el botón de abajo:
@@ -137,7 +137,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
       <div class="divider"></div>
       <div class="text-footer">
         Si no has solicitado crear esta cuenta, puedes ignorar este correo de forma segura.<br><br>
-        MangaStoon &copy; 2026. Todos los derechos reservados.
+        LectorFenix &copy; 2026. Todos los derechos reservados.
       </div>
     </div>
   </div>
@@ -150,7 +150,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 ## 2. Restablecer Contraseña (Reset Password)
 
 ### Asunto (Subject)
-`Restablecer contraseña de MangaStoon`
+`Restablecer contraseña de LectorFenix`
 
 ### Contenido HTML (Body)
 ```html
@@ -267,10 +267,10 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 <body>
   <div class="wrapper">
     <div class="card">
-      <div class="logo">MangaStoon</div>
+      <div class="logo">LectorFenix</div>
       <div class="text-title">Restablecer Contraseña</div>
       <div class="text-body">
-        Has solicitado restablecer la contraseña de tu cuenta de MangaStoon. Para continuar con el proceso y definir una nueva contraseña, haz clic en el botón de abajo:
+        Has solicitado restablecer la contraseña de tu cuenta de LectorFenix. Para continuar con el proceso y definir una nueva contraseña, haz clic en el botón de abajo:
       </div>
       <div>
         <a href="{{ .ConfirmationURL }}" class="btn">Restablecer Contraseña</a>
@@ -278,7 +278,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
       <div class="divider"></div>
       <div class="text-footer">
         Si no has solicitado este cambio, puedes ignorar este correo de forma segura. Tu contraseña seguirá siendo la misma.<br><br>
-        MangaStoon &copy; 2026. Todos los derechos reservados.
+        LectorFenix &copy; 2026. Todos los derechos reservados.
       </div>
     </div>
   </div>
@@ -291,7 +291,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 ## 3. Confirmar Cambio de Correo (Change Email Address)
 
 ### Asunto (Subject)
-`Confirmar cambio de correo en MangaStoon`
+`Confirmar cambio de correo en LectorFenix`
 
 ### Contenido HTML (Body)
 ```html
@@ -408,10 +408,10 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
 <body>
   <div class="wrapper">
     <div class="card">
-      <div class="logo">MangaStoon</div>
+      <div class="logo">LectorFenix</div>
       <div class="text-title">Confirmar Cambio de Correo</div>
       <div class="text-body">
-        Has solicitado cambiar la dirección de correo electrónico asociada a tu cuenta de MangaStoon. Para confirmar la nueva dirección de correo, haz clic en el botón de abajo:
+        Has solicitado cambiar la dirección de correo electrónico asociada a tu cuenta de LectorFenix. Para confirmar la nueva dirección de correo, haz clic en el botón de abajo:
       </div>
       <div>
         <a href="{{ .ConfirmationURL }}" class="btn">Confirmar nuevo correo</a>
@@ -419,7 +419,7 @@ Soportan automáticamente la detección de **Modo Oscuro** y **Modo Claro** del 
       <div class="divider"></div>
       <div class="text-footer">
         Si no has solicitado este cambio, puedes ignorar este correo de forma segura.<br><br>
-        MangaStoon &copy; 2026. Todos los derechos reservados.
+        LectorFenix &copy; 2026. Todos los derechos reservados.
       </div>
     </div>
   </div>

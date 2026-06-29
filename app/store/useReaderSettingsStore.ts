@@ -29,6 +29,6 @@ export const useReaderSettingsStore = create<ReaderSettingsState>()(
       doublePageSpread: false,
       setDoublePageSpread: (enabled) => set({ doublePageSpread: enabled }),
     }),
-    { name: "mangastoon-reader-settings" }
+    { name: "lectorfenix-reader-settings" }
   )
 );

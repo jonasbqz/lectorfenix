@@ -412,18 +412,18 @@ async function getOriginalContent(
   if (genres.length > 0) {
     const genresLabel = lang === "pt" ? "Gêneros" : lang === "en" ? "Genres" : "Géneros";
     const baseFallback = lang === "pt"
-      ? `Leia ${title} online grátis no MangaStoon. Acesse todos os capítulos em português, inglês e espanhol.`
+      ? `Leia ${title} online grátis no LectorFenix. Acesse todos os capítulos em português, inglês e espanhol.`
       : lang === "en"
-        ? `Read ${title} online for free on MangaStoon. Access all chapters in English, Spanish, and Portuguese.`
-        : `Leé ${title} online gratis en MangaStoon. Accedé a todos los capítulos en español, inglés y portugués.`;
+        ? `Read ${title} online for free on LectorFenix. Access all chapters in English, Spanish, and Portuguese.`
+        : `Leé ${title} online gratis en LectorFenix. Accedé a todos los capítulos en español, inglés y portugués.`;
     return `${baseFallback} ${genresLabel}: ${genres.join(", ")}.`;
   }
 
   return lang === "pt"
-    ? `Leia ${title} online grátis no MangaStoon. Acesse todos os capítulos em português, inglês e espanhol.`
+    ? `Leia ${title} online grátis no LectorFenix. Acesse todos os capítulos em português, inglês e espanhol.`
     : lang === "en"
-      ? `Read ${title} online for free on MangaStoon. Access all chapters in English, Spanish, and Portuguese.`
-      : `Leé ${title} online gratis en MangaStoon. Accedé a todos los capítulos en español, inglés y portugués.`;
+      ? `Read ${title} online for free on LectorFenix. Access all chapters in English, Spanish, and Portuguese.`
+      : `Leé ${title} online gratis en LectorFenix. Accedé a todos los capítulos en español, inglés y portugués.`;
 }
 
 export async function generateMetadata({
@@ -459,7 +459,7 @@ export async function generateMetadata({
     if (!manga) {
       return {
         title: `Manga no encontrado | ${SITE_NAME}`,
-        description: "Explora manga, manhwa y comics online en MangaStoon.",
+        description: "Explora manga, manhwa y comics online en LectorFenix.",
         alternates: {
           canonical: fallbackCanonicalUrl,
         },
@@ -510,7 +510,7 @@ export async function generateMetadata({
         `${displayTitle} online`,
         languageKeyword,
         genericKeyword,
-        "MangaStoon",
+        "LectorFenix",
       ],
       alternates: {
         canonical: canonicalUrl,
@@ -550,7 +550,7 @@ export async function generateMetadata({
   } catch {
     return {
       title: `Manga | ${SITE_NAME}`,
-      description: "Lee este manga en MangaStoon.",
+      description: "Lee este manga en LectorFenix.",
       alternates: {
         canonical: fallbackCanonicalUrl,
       },
@@ -629,14 +629,14 @@ const UI_COPY: Record<
     chapterSearchPlaceholder: "Ej: 16",
     sortNewestLabel: "Mostrar capítulo más reciente primero",
     sortOldestLabel: "Mostrar capítulo 1 primero",
-    suggestedEyebrow: "MangaStoon recomienda",
+    suggestedEyebrow: "LectorFenix recomienda",
     suggestedTitle: "Más contenido similar",
     faqWhereQuestion: (title) => `¿Dónde leer ${title} online gratis?`,
-    faqWhereAnswer: (title) => `Puedes leer ${title} online gratis en MangaStoon, con capítulos disponibles desde la página de la serie.`,
+    faqWhereAnswer: (title) => `Puedes leer ${title} online gratis en LectorFenix, con capítulos disponibles desde la página de la serie.`,
     faqLanguagesQuestion: (title) => `¿En qué idiomas está disponible ${title}?`,
     faqLanguagesAnswer: (title) => `${title} puede estar disponible en Español, Inglés y Portugués según los capítulos publicados para cada idioma.`,
     faqContinueQuestion: (title) => `¿Dónde continuar leyendo ${title}?`,
-    faqContinueAnswer: (title) => `En MangaStoon puedes abrir ${title}, elegir un capítulo y continuar la lectura desde el historial del navegador.`,
+    faqContinueAnswer: (title) => `En LectorFenix puedes abrir ${title}, elegir un capítulo y continuar la lectura desde el historial del navegador.`,
   },
   en: {
     addToFavorites: "Add to Favorites",
@@ -667,14 +667,14 @@ const UI_COPY: Record<
     chapterSearchPlaceholder: "Ex: 16",
     sortNewestLabel: "Show newest chapter first",
     sortOldestLabel: "Show chapter 1 first",
-    suggestedEyebrow: "MangaStoon recommends",
+    suggestedEyebrow: "LectorFenix recommends",
     suggestedTitle: "More similar content",
     faqWhereQuestion: (title) => `Where can I read ${title} online for free?`,
-    faqWhereAnswer: (title) => `You can read ${title} online for free on MangaStoon, with available chapters from the series page.`,
+    faqWhereAnswer: (title) => `You can read ${title} online for free on LectorFenix, with available chapters from the series page.`,
     faqLanguagesQuestion: (title) => `Which languages is ${title} available in?`,
     faqLanguagesAnswer: (title) => `${title} may be available in Spanish, English and Portuguese depending on the chapters published for each language.`,
     faqContinueQuestion: (title) => `Where can I continue reading ${title}?`,
-    faqContinueAnswer: (title) => `On MangaStoon you can open ${title}, choose a chapter and continue reading from your browser history.`,
+    faqContinueAnswer: (title) => `On LectorFenix you can open ${title}, choose a chapter and continue reading from your browser history.`,
   },
   pt: {
     addToFavorites: "Adicionar aos Favoritos",
@@ -705,14 +705,14 @@ const UI_COPY: Record<
     chapterSearchPlaceholder: "Ex: 16",
     sortNewestLabel: "Mostrar capítulo mais recente primeiro",
     sortOldestLabel: "Mostrar capítulo 1 primeiro",
-    suggestedEyebrow: "MangaStoon recomenda",
+    suggestedEyebrow: "LectorFenix recomenda",
     suggestedTitle: "Mais conteúdo similar",
     faqWhereQuestion: (title) => `Onde ler ${title} online grátis?`,
-    faqWhereAnswer: (title) => `Você pode ler ${title} online grátis no MangaStoon, com capítulos disponíveis na página da série.`,
+    faqWhereAnswer: (title) => `Você pode ler ${title} online grátis no LectorFenix, com capítulos disponíveis na página da série.`,
     faqLanguagesQuestion: (title) => `Em quais idiomas ${title} está disponível?`,
     faqLanguagesAnswer: (title) => `${title} pode estar disponível em Espanhol, Inglês e Português conforme os capítulos publicados para cada idioma.`,
     faqContinueQuestion: (title) => `Onde continuar lendo ${title}?`,
-    faqContinueAnswer: (title) => `No MangaStoon você pode abrir ${title}, escolher um capítulo e continuar a leitura pelo histórico do navegador.`,
+    faqContinueAnswer: (title) => `No LectorFenix você pode abrir ${title}, escolher um capítulo e continuar a leitura pelo histórico do navegador.`,
   },
 };
 
@@ -1146,7 +1146,7 @@ export default async function MangaDetailsPage({
   const cookieStore = await cookies();
   const rawCookieLang = cookieStore.get("lang")?.value;
   const cookieLang = normalizeLanguage(rawCookieLang);
-  const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
+  const isAdult = cookieStore.get("lectorfenix_adult")?.value === "true";
 
   if (isDmcaBlocked(id)) {
     return (
@@ -1167,11 +1167,11 @@ export default async function MangaDetailsPage({
       const { data: { user } } = await supabase.auth.getUser();
       return { supabase, user };
     } catch (err) {
-      logger.error("[MangaStoon] Error al obtener usuario de Supabase:", err);
+      logger.error("[LectorFenix] Error al obtener usuario de Supabase:", err);
       return { supabase, user: null };
     }
   }).catch((err) => {
-    logger.error("[MangaStoon] Error al inicializar cliente Supabase:", err);
+    logger.error("[LectorFenix] Error al inicializar cliente Supabase:", err);
     return { supabase: null, user: null };
   });
 
@@ -1337,7 +1337,7 @@ export default async function MangaDetailsPage({
       isPremium = resPremium;
       userHasLiked = resLiked;
     } catch (err) {
-      logger.error(`[MangaStoon] Error al cargar likes/usuario/premium para ${manga.id}:`, err);
+      logger.error(`[LectorFenix] Error al cargar likes/usuario/premium para ${manga.id}:`, err);
     }
 
     return { userId, isPremium, dbLikesCount, userHasLiked };
@@ -1384,7 +1384,7 @@ export default async function MangaDetailsPage({
   const englishTitle = titleEn;
 
   if (displayTitle === "Título Desconocido") {
-    logger.warn(`[MangaStoon] Manga sin titulo utilizable: ${manga.id}`);
+    logger.warn(`[LectorFenix] Manga sin titulo utilizable: ${manga.id}`);
   }
 
   const coverUrl = getCoverUrl(manga.id, manga.relationships);
@@ -1393,7 +1393,7 @@ export default async function MangaDetailsPage({
   const databaseAuthor =
     manga.author &&
     manga.author.trim() &&
-    manga.author !== "MangaStoon" &&
+    manga.author !== "LectorFenix" &&
     manga.author.toLowerCase() !== "autor desconocido"
       ? manga.author.trim()
       : null;
@@ -1484,7 +1484,7 @@ export default async function MangaDetailsPage({
     aggregateRating,
     author: {
       "@type": "Person",
-      name: realAuthor || manga.author || "MangaStoon Editor",
+      name: realAuthor || manga.author || "LectorFenix Editor",
     },
     image: primaryCoverUrl || "",
     url: mangaCanonicalUrl,
@@ -1492,7 +1492,7 @@ export default async function MangaDetailsPage({
     isAccessibleForFree: true,
     publisher: {
       "@type": "Organization",
-      name: "MangaStoon",
+      name: "LectorFenix",
     },
     workExample: {
       "@type": "Book",
@@ -1830,7 +1830,7 @@ export default async function MangaDetailsPage({
                     }
 
                     const slug = getLocalStringValue(suggested, ["slug", "manga_slug", "comic_slug", "id"]);
-                    const title = getLocalStringValue(suggested, ["title", "name", "comic_title", "original_title"]) || "MangaStoon";
+                    const title = getLocalStringValue(suggested, ["title", "name", "comic_title", "original_title"]) || "LectorFenix";
                     const coverImage = normalizeLocalImageUrl(
                       getLocalStringValue(suggested, ["coverImage", "cover_image", "cover", "thumbnail", "image", "poster", "url_cover"])
                     );

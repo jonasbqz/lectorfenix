@@ -59,7 +59,7 @@ export default function AdultToggle({ language }: { language: SupportedLanguage 
 
   useEffect(() => {
     setMounted(true);
-    const adultState = localStorage.getItem("mangastoon_adult") === "true";
+    const adultState = localStorage.getItem("lectorfenix_adult") === "true";
     setAdult(adultState);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,14 +83,14 @@ export default function AdultToggle({ language }: { language: SupportedLanguage 
       return;
     }
 
-    localStorage.setItem("mangastoon_adult", "false");
+    localStorage.setItem("lectorfenix_adult", "false");
     setAdult(false);
     toast.success("Modo +18 desactivado");
     window.setTimeout(() => window.location.reload(), 450);
   }
 
   function handleConfirm() {
-    localStorage.setItem("mangastoon_adult", "true");
+    localStorage.setItem("lectorfenix_adult", "true");
     setAdult(true);
     setShowAgeModal(false);
     toast.success("Modo +18 activado");

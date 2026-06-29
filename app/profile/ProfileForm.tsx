@@ -557,7 +557,7 @@ export default function ProfileForm({ profile, user }: Props) {
 
   // Check stored email cooldown on mount
   useEffect(() => {
-    const lastEmailChange = localStorage.getItem("mangastoon_last_email_change_sent");
+    const lastEmailChange = localStorage.getItem("lectorfenix_last_email_change_sent");
     if (lastEmailChange) {
       const elapsed = Math.floor((Date.now() - parseInt(lastEmailChange, 10)) / 1000);
       if (elapsed < 120) {
@@ -642,7 +642,7 @@ export default function ProfileForm({ profile, user }: Props) {
         ? "Solicitação enviada! Confirme a alteração na sua caixa de entrada."
         : "Request sent! Please confirm the change in your inbox."
     );
-    localStorage.setItem("mangastoon_last_email_change_sent", String(Date.now()));
+    localStorage.setItem("lectorfenix_last_email_change_sent", String(Date.now()));
     setEmailCooldown(120);
     setIsChangeEmailModalOpen(false);
     setNewEmail("");

@@ -22,8 +22,8 @@ type LanguageContextValue = {
 
 const STORAGE_KEY = "lang";
 const COOKIE_NAME = "lang";
-const ADULT_STORAGE_KEY = "mangastoon_adult";
-const ADULT_COOKIE_NAME = "mangastoon_adult";
+const ADULT_STORAGE_KEY = "lectorfenix_adult";
+const ADULT_COOKIE_NAME = "lectorfenix_adult";
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
@@ -50,13 +50,13 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedPrev = window.sessionStorage.getItem("mangastoon:current-path");
+      const storedPrev = window.sessionStorage.getItem("lectorfenix:current-path");
       if (pathname === "/explore") {
         if (storedPrev !== "/explore" && (!storedPrev || !storedPrev.startsWith("/comics/"))) {
-          window.sessionStorage.removeItem("mangastoon:explore-state");
+          window.sessionStorage.removeItem("lectorfenix:explore-state");
         }
       }
-      window.sessionStorage.setItem("mangastoon:current-path", pathname);
+      window.sessionStorage.setItem("lectorfenix:current-path", pathname);
     }
   }, [pathname]);
 

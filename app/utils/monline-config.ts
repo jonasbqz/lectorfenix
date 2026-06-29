@@ -7,7 +7,7 @@ if (
   !rawApiUrl.includes("127.0.0.1")
 ) {
   console.warn(
-    "[MangaStoon Security Warning]: MONLINE_API_URL is using an insecure HTTP protocol ('" + 
+    "[LectorFenix Security Warning]: MONLINE_API_URL is using an insecure HTTP protocol ('" + 
     rawApiUrl + 
     "'). Ensure SSL/TLS is enabled in production."
   );

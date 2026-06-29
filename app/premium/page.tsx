@@ -21,7 +21,7 @@ import { AnimatePresence, motion } from "framer-motion";
 const PREMIUM_COPY = {
   es: {
     backToHome: "Volver al Inicio",
-    premiumTitle: "MangaStoon Premium",
+    premiumTitle: "LectorFenix Premium",
     premiumSubtitle: "Desbloquea todas las funciones exclusivas de lectura, descargas y personalización sin límites.",
     benefits: {
       noAdsTitle: "Lectura Sin Anuncios",
@@ -77,7 +77,7 @@ const PREMIUM_COPY = {
     },
     gateway: {
       title: "Activación de Período de Prueba Premium",
-      subtitle: "MangaStoon Trial Activation",
+      subtitle: "LectorFenix Trial Activation",
       testMode: "Para reclamar tu mes de prueba gratuita Premium, es requisito obligatorio unirse a nuestro grupo de la comunidad en Telegram. Una vez dentro, solicita tu código hablando en privado con nuestro bot usando tu nombre de usuario. Luego, pega el código recibido abajo.",
       confirmButton: "Comenzar Prueba Gratis",
       cancelButton: "Cancelar",
@@ -87,9 +87,9 @@ const PREMIUM_COPY = {
       processingTitle: "Activando período de prueba gratis",
       processingMessages: [
         "Verificando cuenta...",
-        "Conectando con el servidor de MangaStoon...",
+        "Conectando con el servidor de LectorFenix...",
         "Estableciendo período de prueba gratis...",
-        "Procesando alta de prueba en MangaStoon..."
+        "Procesando alta de prueba en LectorFenix..."
       ],
       successTitle: "¡Prueba Premium Activada!",
       successDesc: "Tu cuenta ha sido mejorada a Premium 👑 para tu período de prueba gratuito. Disfruta de todas las ventajas exclusivas.",
@@ -98,7 +98,7 @@ const PREMIUM_COPY = {
   },
   en: {
     backToHome: "Back to Home",
-    premiumTitle: "MangaStoon Premium",
+    premiumTitle: "LectorFenix Premium",
     premiumSubtitle: "Unlock all exclusive reading, download, and customization features without limits.",
     benefits: {
       noAdsTitle: "Ad-Free Reading",
@@ -154,7 +154,7 @@ const PREMIUM_COPY = {
     },
     gateway: {
       title: "Premium Trial Activation",
-      subtitle: "MangaStoon Trial Activation",
+      subtitle: "LectorFenix Trial Activation",
       testMode: "To claim your free 1-month Premium trial, you must first join our official Telegram community group. Once inside, request your activation code by chatting privately with our bot. Then, paste the received code below.",
       confirmButton: "Start Free Trial",
       cancelButton: "Cancel",
@@ -164,9 +164,9 @@ const PREMIUM_COPY = {
       processingTitle: "Activating free trial period",
       processingMessages: [
         "Verifying account...",
-        "Connecting to MangaStoon server...",
+        "Connecting to LectorFenix server...",
         "Setting up free trial period...",
-        "Processing MangaStoon trial registration..."
+        "Processing LectorFenix trial registration..."
       ],
       successTitle: "Free Trial Activated!",
       successDesc: "Your account has been successfully upgraded to Premium 👑 for your free trial period. Enjoy all the exclusive benefits.",
@@ -175,7 +175,7 @@ const PREMIUM_COPY = {
   },
   pt: {
     backToHome: "Voltar ao Início",
-    premiumTitle: "MangaStoon Premium",
+    premiumTitle: "LectorFenix Premium",
     premiumSubtitle: "Desbloqueie todas as funções exclusivas de leitura, download e personalização sem limites.",
     benefits: {
       noAdsTitle: "Leitura Sem Anúncios",
@@ -231,7 +231,7 @@ const PREMIUM_COPY = {
     },
     gateway: {
       title: "Ativação do Período de Teste Premium",
-      subtitle: "MangaStoon Trial Activation",
+      subtitle: "LectorFenix Trial Activation",
       testMode: "Para resgatar seu teste Premium gratuito de 1 mês, você deve primeiro entrar em nosso grupo oficial da comunidade no Telegram. Uma vez dentro, solicite seu código de ativação conversando privadamente com nosso bot. Depois, cole o código abaixo.",
       confirmButton: "Iniciar Teste Grátis",
       cancelButton: "Cancelar",
@@ -241,9 +241,9 @@ const PREMIUM_COPY = {
       processingTitle: "Ativando período de teste gratuito",
       processingMessages: [
         "Verificando conta...",
-        "Conectando com o servidor MangaStoon...",
+        "Conectando com o servidor LectorFenix...",
         "Configurando período de teste gratuito...",
-        "Processando registro de teste MangaStoon..."
+        "Processando registro de teste LectorFenix..."
       ],
       successTitle: "Teste Gratuito Ativado!",
       successDesc: "Sua conta foi atualizada para Premium 👑 com sucesso para o seu período de teste gratuito. Aproveite todas as vantagens exclusivas.",
@@ -557,7 +557,7 @@ export default function PremiumPage() {
                     {/* Pill badge */}
                     <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-500/30 bg-black/40 text-amber-500 text-[10px] font-heading font-extrabold uppercase tracking-[0.15em] shadow-[0_0_15px_rgba(245,158,11,0.05)]">
                       <Sparkles size={10} className="fill-amber-500/20" />
-                      <span>{language === "es" ? "MangaStoon Premium" : language === "pt" ? "MangaStoon Premium" : "MangaStoon Premium"}</span>
+                      <span>{language === "es" ? "LectorFenix Premium" : language === "pt" ? "LectorFenix Premium" : "LectorFenix Premium"}</span>
                     </div>
                     {/* Headline */}
                     <h1 className="text-3xl md:text-5xl font-heading font-black tracking-tight text-white uppercase mt-4 leading-tight">
@@ -566,10 +566,10 @@ export default function PremiumPage() {
                     {/* Subtitle */}
                     <p className="mt-4 text-sm md:text-base text-neutral-400 leading-relaxed font-semibold">
                       {language === "es" 
-                        ? "Todo listo y has iniciado sesión. ¡Disfruta de tus beneficios Premium en MangaStoon!" 
+                        ? "Todo listo y has iniciado sesión. ¡Disfruta de tus beneficios Premium en LectorFenix!" 
                         : language === "pt" 
-                          ? "Tudo pronto e você está conectado. Aproveite seus benefícios Premium no MangaStoon!" 
-                          : "All set and you are logged in. Enjoy your Premium benefits on MangaStoon!"}
+                          ? "Tudo pronto e você está conectado. Aproveite seus benefícios Premium no LectorFenix!" 
+                          : "All set and you are logged in. Enjoy your Premium benefits on LectorFenix!"}
                     </p>
                     {/* Link button */}
                     <Link

@@ -31,7 +31,7 @@ export async function generateMetadata({
 
   if (!list) {
     return {
-      title: "Lista no disponible | MangaStoon",
+      title: "Lista no disponible | LectorFenix",
       robots: {
         index: false,
         follow: false,
@@ -40,7 +40,7 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${list.name} — MangaStoon`,
+    title: `${list.name} — LectorFenix`,
     description: list.description || `Colección de cómics creada por @${list.profiles?.username || "usuario"}.`,
     robots: {
       index: list.is_public,

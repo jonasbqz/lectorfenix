@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     }
 
     // Verificar token secreto para evitar suplantación (spoofing)
-    const salt = process.env.TELEGRAM_PREMIUM_SALT || "mangastoon_secreto_salt_2026";
+    const salt = process.env.TELEGRAM_PREMIUM_SALT || "lectorfenix_secreto_salt_2026";
     const expectedSecret = require("crypto").createHash("sha256").update(salt).digest("hex");
     const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
 
@@ -198,7 +198,7 @@ export async function POST(req: Request) {
         // C. Filtro de Enlaces Externos
         if (text) {
           const hasExternalLink = text.match(/https?:\/\/[^\s]+/i) && 
-                                  !text.toLowerCase().includes("mangastoon.com") && 
+                                  !text.toLowerCase().includes("lectorfenix.com") && 
                                   !text.toLowerCase().includes("t.me");
           if (hasExternalLink) {
             await fetch(`https://api.telegram.org/bot${token}/deleteMessage?chat_id=${GROUP_CHAT_ID}&message_id=${message.message_id}`);

@@ -7,14 +7,14 @@ import { createClient } from "../../utils/supabase/client";
 // Generar o recuperar session_id único de forma segura para la pestaña actual
 const getSessionId = (): string => {
   if (typeof window === "undefined") return "";
-  let id = sessionStorage.getItem("mangastoon_session_id");
+  let id = sessionStorage.getItem("lectorfenix_session_id");
   if (!id) {
     if (typeof crypto !== "undefined" && crypto.randomUUID) {
       id = crypto.randomUUID();
     } else {
       id = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
     }
-    sessionStorage.setItem("mangastoon_session_id", id);
+    sessionStorage.setItem("lectorfenix_session_id", id);
   }
   return id;
 };

@@ -1,5 +1,5 @@
 {
-  "name": "mangastoon",
+  "name": "lectorfenix",
   "version": "1.0.0",
   "private": true,
   "description": "Mangastoon MVP built with Next.js App Router and Tailwind CSS.",
@@ -15,7 +15,7 @@
     "nextjs",
     "manga",
     "tailwindcss",
-    "mangastoon"
+    "lectorfenix"
   ],
   "author": "",
   "license": "ISC",

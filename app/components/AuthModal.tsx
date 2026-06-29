@@ -57,7 +57,7 @@ function isAllowedEmailDomain(email: string): boolean {
 const getAuthCallbackURL = (nextPath?: string) => {
   let url = typeof window !== "undefined"
     ? window.location.origin
-    : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://mangastoon.com");
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? "https://lectorfenix.com");
 
   if (!/^https?:\/\//i.test(url)) {
     url = `https://${url}`;
@@ -183,8 +183,8 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
 
   const getRemainingCooldown = () => {
     if (typeof window === "undefined") return 0;
-    const lastResend = localStorage.getItem("mangastoon_last_resend_sent");
-    const lastSignup = localStorage.getItem("mangastoon_last_signup_sent");
+    const lastResend = localStorage.getItem("lectorfenix_last_resend_sent");
+    const lastSignup = localStorage.getItem("lectorfenix_last_signup_sent");
 
     const resendTs = lastResend ? parseInt(lastResend, 10) : 0;
     const signupTs = lastSignup ? parseInt(lastSignup, 10) : 0;
@@ -252,7 +252,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
     }
 
     toast.success("¡Correo de verificación reenviado! Revisa tu bandeja de entrada.");
-    localStorage.setItem("mangastoon_last_resend_sent", String(Date.now()));
+    localStorage.setItem("lectorfenix_last_resend_sent", String(Date.now()));
     setResendCooldown(24 * 60 * 60); // 24 horas
   };
 
@@ -277,7 +277,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
     setTab(defaultTab || "signin");
     clearError();
  
-    const lastForgot = localStorage.getItem("mangastoon_last_forgot_sent");
+    const lastForgot = localStorage.getItem("lectorfenix_last_forgot_sent");
     if (lastForgot) {
       const elapsed = Math.floor((Date.now() - parseInt(lastForgot, 10)) / 1000);
       if (elapsed < 120) {
@@ -285,7 +285,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
       }
     }
  
-    const lastSignup = localStorage.getItem("mangastoon_last_signup_sent");
+    const lastSignup = localStorage.getItem("lectorfenix_last_signup_sent");
     if (lastSignup) {
       const elapsed = Math.floor((Date.now() - parseInt(lastSignup, 10)) / 1000);
       if (elapsed < 120) {
@@ -579,7 +579,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
       return;
     }
 
-    localStorage.setItem("mangastoon_last_signup_sent", String(Date.now()));
+    localStorage.setItem("lectorfenix_last_signup_sent", String(Date.now()));
     setSignupCooldown(120);
     setView("signup-success");
   };
@@ -605,7 +605,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
     });
     setLoading(false);
     if (error) { setErrorMsg(translateError(error.message)); return; }
-    localStorage.setItem("mangastoon_last_forgot_sent", String(Date.now()));
+    localStorage.setItem("lectorfenix_last_forgot_sent", String(Date.now()));
     setForgotCooldown(120);
     setView("forgot-sent");
   };
@@ -689,7 +689,7 @@ export default function AuthModal({ open, onClose, defaultTab }: Props) {
                     {tab === "signin" ? <LogIn size={20} className="ml-0.5" /> : <UserPlus size={20} />}
                   </div>
                   <h2 className="text-xl font-heading font-extrabold tracking-tight text-gray-100">
-                    {tab === "signin" ? "¡Hola de vuelta!" : "Unirse a MangaStoon"}
+                    {tab === "signin" ? "¡Hola de vuelta!" : "Unirse a LectorFenix"}
                   </h2>
                   <p className="mt-1 text-xs text-neutral-400 leading-normal">
                     {tab === "signin" 

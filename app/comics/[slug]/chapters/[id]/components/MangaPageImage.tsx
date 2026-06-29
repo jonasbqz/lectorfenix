@@ -166,7 +166,7 @@ export default function MangaPageImage({
         <div className="absolute inset-0 bg-amber-500/5 blur-2xl animate-pulse" />
         <div className="relative flex flex-col items-center gap-3 z-20">
           <div className="h-9 w-9 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
-          <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
+          <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">LectorFenix</span>
         </div>
       </div>
 

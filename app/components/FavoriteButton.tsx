@@ -89,11 +89,11 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
     // Lógica para mostrar la sugerencia de registro a usuarios invitados
     if (!isLoggedIn) {
       try {
-        const rawCount = localStorage.getItem("mangastoon_anon_fav_count") || "0";
+        const rawCount = localStorage.getItem("lectorfenix_anon_fav_count") || "0";
         const count = parseInt(rawCount, 10) + 1;
-        localStorage.setItem("mangastoon_anon_fav_count", count.toString());
+        localStorage.setItem("lectorfenix_anon_fav_count", count.toString());
 
-        const lastPromptRaw = localStorage.getItem("mangastoon_last_signup_prompt");
+        const lastPromptRaw = localStorage.getItem("lectorfenix_last_signup_prompt");
         const lastPromptTime = lastPromptRaw ? parseInt(lastPromptRaw, 10) : 0;
         const now = Date.now();
 
@@ -102,7 +102,7 @@ export default function FavoriteButton(props: FavoriteButtonProps) {
 
         if (count % 3 === 0 && now - lastPromptTime > cooldown) {
           setShowSuggestModal(true);
-          localStorage.setItem("mangastoon_last_signup_prompt", now.toString());
+          localStorage.setItem("lectorfenix_last_signup_prompt", now.toString());
         }
       } catch (err) {
         console.error("[FavoriteButton] Error al procesar spam limits en localStorage:", err);

@@ -139,7 +139,7 @@ function HorizontalReaderImage({
         <div className="absolute inset-0 bg-amber-500/5 blur-2xl animate-pulse" />
         <div className="relative flex flex-col items-center gap-3 z-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
-          <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
+          <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">LectorFenix</span>
         </div>
       </div>
 
@@ -247,7 +247,7 @@ export default function HorizontalReader({
   useEffect(() => {
     let initialPage = 0;
     try {
-      const saved = localStorage.getItem(`mangastoon_last_page:${mangaId}:${chapterId}`);
+      const saved = localStorage.getItem(`lectorfenix_last_page:${mangaId}:${chapterId}`);
       if (saved) {
         const pageIndex = parseInt(saved, 10);
         if (Number.isFinite(pageIndex) && pageIndex >= 0 && pageIndex < pages.length) {
@@ -263,9 +263,9 @@ export default function HorizontalReader({
   useEffect(() => {
     if (!pages || pages.length === 0) return;
     try {
-      localStorage.setItem(`mangastoon_last_page:${mangaId}:${chapterId}`, String(currentPage));
+      localStorage.setItem(`lectorfenix_last_page:${mangaId}:${chapterId}`, String(currentPage));
       localStorage.setItem(
-        `mangastoon_progress:${mangaId}:${chapterId}`,
+        `lectorfenix_progress:${mangaId}:${chapterId}`,
         JSON.stringify({ page: currentPage, total: pages.length })
       );
     } catch {}
@@ -466,7 +466,7 @@ export default function HorizontalReader({
                   <div className="w-full h-full min-h-[50vh] flex justify-center items-center bg-[#0a0a0c] rounded-2xl">
                     <div className="relative flex flex-col items-center gap-3">
                       <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500/10 border-t-amber-500" />
-                      <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">MangaStoon</span>
+                      <span className="text-[9px] uppercase tracking-[0.25em] text-gray-600/90 font-black select-none">LectorFenix</span>
                     </div>
                   </div>
                 )}

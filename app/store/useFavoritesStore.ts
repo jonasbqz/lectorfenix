@@ -129,6 +129,6 @@ export const useFavoritesStore = create<FavoritesState>()(
         set({ favorites: [] });
       },
     }),
-    { name: "mangastoon-favorites" }
+    { name: "lectorfenix-favorites" }
   )
 );

@@ -205,7 +205,7 @@ export async function updateUsername(newUsername: string) {
     .single();
 
   const lowerUsername = trimmed.toLowerCase();
-  const reservedWords = ["lectorfenix", "mangastoon", "admin", "owner", "staff", "moderador", "moderator", "soporte", "support", "system", "dueño", "dueno"];
+  const reservedWords = ["lectorfenix", "lectorfenix", "admin", "owner", "staff", "moderador", "moderator", "soporte", "support", "system", "dueño", "dueno"];
   const hasReservedWord = reservedWords.some((word) => lowerUsername.includes(word));
 
   if (hasReservedWord && !profile?.is_admin) {

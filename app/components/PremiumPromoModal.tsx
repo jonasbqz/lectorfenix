@@ -72,7 +72,7 @@ export default function PremiumPromoModal() {
 
     async function checkEligibilityAndShow() {
       // 1. Verificar si ya fue descartado en localStorage
-      const isDismissed = localStorage.getItem("mangastoon:premium-invite-dismissed");
+      const isDismissed = localStorage.getItem("lectorfenix:premium-invite-dismissed");
       if (isDismissed === "true") return;
 
       // 2. Verificar si el usuario está logueado y si ya es Premium
@@ -102,12 +102,12 @@ export default function PremiumPromoModal() {
 
   const handleDismiss = () => {
     setIsOpen(false);
-    localStorage.setItem("mangastoon:premium-invite-dismissed", "true");
+    localStorage.setItem("lectorfenix:premium-invite-dismissed", "true");
   };
 
   const handleCTA = async () => {
     setIsOpen(false);
-    localStorage.setItem("mangastoon:premium-invite-dismissed", "true");
+    localStorage.setItem("lectorfenix:premium-invite-dismissed", "true");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       router.push("/premium?register=true");

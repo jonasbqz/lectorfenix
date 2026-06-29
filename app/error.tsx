@@ -21,7 +21,7 @@ export default function ErrorPage({
           Algo salió mal
         </p>
         <h1 className="mt-3 text-4xl font-black tracking-tight text-white font-heading leading-tight">
-          MangaStoon fue enviado a otro mundo
+          LectorFenix fue enviado a otro mundo
         </h1>
         <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-gray-400">
           La conexión se ha interrumpido temporalmente. Estamos lanzando un hechizo de resurrección para traer la lectura de vuelta.

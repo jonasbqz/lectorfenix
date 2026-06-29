@@ -1,6 +1,6 @@
-# REGLAS DE ARQUITECTURA Y ORQUESTACIÓN: MANGASTOON
+# REGLAS DE ARQUITECTURA Y ORQUESTACIÓN: LECTORFENIX
 
-Este archivo es la fuente de verdad absoluta para la orquestación del desarrollo, arquitectura, infraestructura y flujos de MangaStoon. **Cualquier modelo o desarrollador que trabaje en este proyecto debe leer y seguir estas reglas sin excepción.**
+Este archivo es la fuente de verdad absoluta para la orquestación del desarrollo, arquitectura, infraestructura y flujos de LectorFenix. **Cualquier modelo o desarrollador que trabaje en este proyecto debe leer y seguir estas reglas sin excepción.**
 
 ---
 

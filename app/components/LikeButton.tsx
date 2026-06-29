@@ -183,7 +183,7 @@ export default function LikeButton({
 
                   <h3 className="text-lg font-bold text-gray-100">Inicia sesión para valorar</h3>
                   <p className="mt-2 text-xs leading-relaxed text-gray-400">
-                    Para dar me gusta a tus mangas favoritos y guardarlos en la nube, necesitas estar registrado en MangaStoon.
+                    Para dar me gusta a tus mangas favoritos y guardarlos en la nube, necesitas estar registrado en LectorFenix.
                   </p>
 
                   <div className="mt-6 flex w-full flex-col gap-2">
@@ -297,7 +297,7 @@ export default function LikeButton({
 
                 <h3 className="text-lg font-bold text-gray-100">Inicia sesión para valorar</h3>
                 <p className="mt-2 text-xs leading-relaxed text-gray-400">
-                  Para dar me gusta a tus mangas favoritos y guardarlos en la nube, necesitas estar registrado en MangaStoon.
+                  Para dar me gusta a tus mangas favoritos y guardarlos en la nube, necesitas estar registrado en LectorFenix.
                 </p>
 
                 <div className="mt-6 flex w-full flex-col gap-2">

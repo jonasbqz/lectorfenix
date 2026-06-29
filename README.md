@@ -1,4 +1,4 @@
-# MangaStoon
+# LectorFenix
 
 MVP de lectura y exploracion de mangas construido con Next.js App Router, React, Tailwind CSS y MangaDex.
 

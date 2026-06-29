@@ -10,7 +10,7 @@ type CachedPdf = {
   filename: string;
 };
 
-const DB_NAME = "mangastoon_pdf_cache";
+const DB_NAME = "lectorfenix_pdf_cache";
 const STORE_NAME = "pdfs";
 const DB_VERSION = 1;
 const memoryCache = new Map<string, CachedPdf>();

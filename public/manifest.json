@@ -1,7 +1,7 @@
 ﻿{
-  "name": "MangaStoon",
-  "short_name": "MangaStoon",
-  "description": "Lee manga, manhwa y comics online en MangaStoon.",
+  "name": "LectorFenix",
+  "short_name": "LectorFenix",
+  "description": "Lee manga, manhwa y comics online en LectorFenix.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

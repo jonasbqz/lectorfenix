@@ -118,7 +118,7 @@ export async function generateMetadata({
 
   if (isDmcaBlocked(mangaId)) {
     return {
-      title: "Contenido no disponible - MangaStoon",
+      title: "Contenido no disponible - LectorFenix",
       description: "Contenido retirado debido a una reclamación por infracción de derechos de autor.",
       robots: {
         index: false,
@@ -131,7 +131,7 @@ export async function generateMetadata({
 
   if (!data || !data.currentChapter || data.code === "LOCAL_PAGES_UNAVAILABLE" || !data.pages || data.pages.length === 0) {
     return {
-      title: "Capítulo no disponible - MangaStoon",
+      title: "Capítulo no disponible - LectorFenix",
       description: "Este capítulo no está disponible o no existe.",
       robots: {
         index: false,
@@ -153,14 +153,14 @@ export async function generateMetadata({
   let title = "";
   let description = "";
   if (lang === "pt") {
-    title = `Ler ${mangaTitle} - ${currentLabel} Online Grátis - MangaStoon`;
-    description = `Leia o ${currentLabel} de ${mangaTitle} online gratuitamente em português, inglês e espanhol no MangaStoon.`;
+    title = `Ler ${mangaTitle} - ${currentLabel} Online Grátis - LectorFenix`;
+    description = `Leia o ${currentLabel} de ${mangaTitle} online gratuitamente em português, inglês e espanhol no LectorFenix.`;
   } else if (lang === "en") {
-    title = `Read ${mangaTitle} - ${currentLabel} Online Free - MangaStoon`;
-    description = `Read ${mangaTitle} - ${currentLabel} online for free in English, Spanish, and Portuguese on MangaStoon.`;
+    title = `Read ${mangaTitle} - ${currentLabel} Online Free - LectorFenix`;
+    description = `Read ${mangaTitle} - ${currentLabel} online for free in English, Spanish, and Portuguese on LectorFenix.`;
   } else {
-    title = `Leer ${mangaTitle} - ${currentLabel} Online Gratis - MangaStoon`;
-    description = `Leé el ${currentLabel} de ${mangaTitle} online gratis en español, inglés y portugués en MangaStoon.`;
+    title = `Leer ${mangaTitle} - ${currentLabel} Online Gratis - LectorFenix`;
+    description = `Leé el ${currentLabel} de ${mangaTitle} online gratis en español, inglés y portugués en LectorFenix.`;
   }
 
   const canonicalSlug = data?.comicSlug || slug;
@@ -212,7 +212,7 @@ export default async function ReadPage({
 
   console.log("[Reader Server] lang resolved:", lang, "| cookieLang:", cookieLang, "| searchParamLang:", resolvedSearchParams.lang, "| slug:", slug);
 
-  const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
+  const isAdult = cookieStore.get("lectorfenix_adult")?.value === "true";
 
   if (!isAdult) {
     const manga = await fetchMangaDetails(mangaId, lang);

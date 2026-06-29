@@ -61,31 +61,31 @@ const UI_COPY: Record<
   }
 > = {
   es: {
-    worldTop: "Top Mundial de MangaStoon",
+    worldTop: "Top Mundial de LectorFenix",
     worldTopSubtitle: "Los comics más vistos de nuestra biblioteca",
     topManhwas: "Top Manhuas Mundiales",
-    topManhwasSubtitle: "Los manhuas chinos con más vistas en MangaStoon",
-    latestReleases: "Recién agregados en MangaStoon",
+    topManhwasSubtitle: "Los manhuas chinos con más vistas en LectorFenix",
+    latestReleases: "Recién agregados en LectorFenix",
     latestReleasesSubtitle: "Nuevas series incorporadas a la biblioteca",
     homeUnavailable: "Mangastoon",
     homeUnavailableBody: "No pudimos cargar las filas principales en este momento.",
   },
   en: {
-    worldTop: "MangaStoon Global Top",
+    worldTop: "LectorFenix Global Top",
     worldTopSubtitle: "The most viewed comics from our library",
     topManhwas: "Global Top Manhuas",
-    topManhwasSubtitle: "The most viewed Chinese manhuas on MangaStoon",
-    latestReleases: "Recently Added on MangaStoon",
+    topManhwasSubtitle: "The most viewed Chinese manhuas on LectorFenix",
+    latestReleases: "Recently Added on LectorFenix",
     latestReleasesSubtitle: "New series added to the library",
     homeUnavailable: "Mangastoon",
     homeUnavailableBody: "We could not load the main rows right now.",
   },
   pt: {
-    worldTop: "Top Mundial da MangaStoon",
+    worldTop: "Top Mundial da LectorFenix",
     worldTopSubtitle: "Os comics mais vistos da nossa biblioteca",
     topManhwas: "Top Manhuas Mundiais",
-    topManhwasSubtitle: "Os manhuas chineses mais vistos na MangaStoon",
-    latestReleases: "Recém adicionados na MangaStoon",
+    topManhwasSubtitle: "Os manhuas chineses mais vistos na LectorFenix",
+    latestReleases: "Recém adicionados na LectorFenix",
     latestReleasesSubtitle: "Novas séries adicionadas à biblioteca",
     homeUnavailable: "Mangastoon",
     homeUnavailableBody: "Nao foi possivel carregar as principais fileiras agora.",
@@ -385,7 +385,7 @@ function normalizeMonlineImageUrl(value: string) {
 function mapMonlineComicsToShowcase(comics: MonlineComic[], language: SupportedLanguage) {
   return comics.slice(0, 15).map((comic, index): MangaShowcaseItem => {
     const titleMap = getMonlineTitleMap(comic);
-    const title = getLocalizedTitle({ titleMap }, language) || "MangaStoon";
+    const title = getLocalizedTitle({ titleMap }, language) || "LectorFenix";
     const slug = getStringValue(comic, ["slug", "manga_slug", "comic_slug", "id"]);
     const mangaDexId = getStringValue(comic, [
       "mangaDexId",
@@ -604,7 +604,7 @@ async function fetchMangaDexFallbackRows(isAdult: boolean, language: SupportedLa
 export default async function HomePage() {
   const cookieStore = await cookies();
   const currentLanguage = normalizeLanguage(cookieStore.get("lang")?.value);
-  const isAdult = cookieStore.get("mangastoon_adult")?.value === "true";
+  const isAdult = cookieStore.get("lectorfenix_adult")?.value === "true";
   const copy = UI_COPY[currentLanguage];
   const { lists: publicLists } = await getPublicMangaLists().catch(() => ({ lists: [] }));
 

@@ -53,8 +53,8 @@ export async function generateMetadata({ params }: DirectoryParams): Promise<Met
   const totalComics = await getMonlineSitemapTotal().catch(() => 2000);
   const totalPages = Math.ceil(totalComics / 120);
 
-  const title = `Directorio de Mangas y Manhwas - Página ${page} | MangaStoon`;
-  const description = `Explora el catálogo alfabético completo de MangaStoon. Todos los capítulos de tus mangas, manhwas y manhuas online gratis. Página ${page} de ${totalPages || 20}.`;
+  const title = `Directorio de Mangas y Manhwas - Página ${page} | LectorFenix`;
+  const description = `Explora el catálogo alfabético completo de LectorFenix. Todos los capítulos de tus mangas, manhwas y manhuas online gratis. Página ${page} de ${totalPages || 20}.`;
   const canonical = absoluteUrl(`/directorio/${page}`);
 
   return {

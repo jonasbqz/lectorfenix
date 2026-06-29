@@ -52,7 +52,7 @@ export const useHistoryStore = create<HistoryState>()(
 
         // Reject phantom entries with the site-name fallback title
         const normalizedTitle = item.mangaTitle?.trim().toLowerCase();
-        if (!normalizedTitle || normalizedTitle === "mangastoon") {
+        if (!normalizedTitle || normalizedTitle === "lectorfenix") {
           return;
         }
 
@@ -179,7 +179,7 @@ export const useHistoryStore = create<HistoryState>()(
         set({ history: [] });
       },
     }),
-    { name: "mangastoon-reading-history" }
+    { name: "lectorfenix-reading-history" }
   )
 );
 

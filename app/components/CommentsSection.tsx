@@ -396,7 +396,7 @@ export default function CommentsSection({
           <User className="mx-auto h-8 w-8 text-[#ff6b00]/50 mb-3" />
           <h4 className="text-sm font-bold text-white">¿Quieres unirte al debate?</h4>
           <p className="mt-1 text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
-            Inicia sesión en MangaStoon para publicar comentarios, reaccionar y reportar spoilers.
+            Inicia sesión en LectorFenix para publicar comentarios, reaccionar y reportar spoilers.
           </p>
           <Button
             type="button"

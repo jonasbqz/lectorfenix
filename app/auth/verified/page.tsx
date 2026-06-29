@@ -10,21 +10,21 @@ const VERIFIED_COPY = {
   es: {
     title: "¡Cuenta Verificada!",
     subtitle: "Verification Successful",
-    desc: "Tu correo electrónico ha sido confirmado con éxito. Ya tenés acceso completo a MangaStoon, tus listas de lectura e historial sincronizados.",
+    desc: "Tu correo electrónico ha sido confirmado con éxito. Ya tenés acceso completo a LectorFenix, tus listas de lectura e historial sincronizados.",
     cta: "Comenzar a Leer",
     secondaryCta: "Ir a mi Perfil"
   },
   en: {
     title: "Account Verified!",
     subtitle: "Verification Successful",
-    desc: "Your email address has been successfully confirmed. You now have full access to MangaStoon, with your reading lists and history synchronized.",
+    desc: "Your email address has been successfully confirmed. You now have full access to LectorFenix, with your reading lists and history synchronized.",
     cta: "Start Reading",
     secondaryCta: "Go to Profile"
   },
   pt: {
     title: "Conta Verificada!",
     subtitle: "Verification Successful",
-    desc: "Seu endereço de e-mail foi confirmado com sucesso. Agora você tem acesso completo ao MangaStoon, com suas listas de leitura e histórico sincronizados.",
+    desc: "Seu endereço de e-mail foi confirmado com sucesso. Agora você tem acesso completo ao LectorFenix, com suas listas de leitura e histórico sincronizados.",
     cta: "Começar a Ler",
     secondaryCta: "Ir para meu Perfil"
   }

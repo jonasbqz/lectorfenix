@@ -1,28 +1,28 @@
 # ESPECIFICACIÓN TÉCNICA (SPEC.md) - MEJORAS DE DOMINIO, OPTIMIZACIÓN Y SEGURIDAD
 
-Este documento detalla los cambios planificados para mejorar el flujo de MangaStoon, resolver violaciones de marca de dominio ("Webtoon"), optimizar el UI/UX y documentar flujos de despliegue eficientes.
+Este documento detalla los cambios planificados para mejorar el flujo de LectorFenix, resolver violaciones de marca de dominio ("Webtoon"), optimizar el UI/UX y documentar flujos de despliegue eficientes.
 
 ---
 
 ## 1. Regla de Dominio (Eliminación de la palabra "Webtoon")
 
-Para evitar problemas legales de marcas registradas, el término **"Webtoon"** queda estrictamente prohibido en áreas públicas de MangaStoon. Se reemplazará por **"Manhwas"** o **"Cascada"**.
+Para evitar problemas legales de marcas registradas, el término **"Webtoon"** queda estrictamente prohibido en áreas públicas de LectorFenix. Se reemplazará por **"Manhwas"** o **"Cascada"**.
 
 ### Archivos Afectados y Modificaciones:
 
-#### [MODIFY] [reader-client.tsx](file:///c:/Users/josel/Documents/New%20project/mangastoon/app/comics/%5Bslug%5D/chapters/%5Bid%5D/reader-client.tsx)
+#### [MODIFY] [reader-client.tsx](file:///c:/Users/josel/Documents/New%20project/lectorfenix/app/comics/%5Bslug%5D/chapters/%5Bid%5D/reader-client.tsx)
 - Reemplazar las traducciones de la preferencia de lectura vertical:
   - **Español (es):** `"Modo Vertical (Webtoon)"` $\rightarrow$ `"Modo Vertical (Manhwas)"`
   - **Inglés (en):** `"Vertical Mode (Webtoon)"` $\rightarrow$ `"Vertical Mode (Manhwas)"`
   - **Portugués (pt):** `"Modo Vertical (Webtoon)"` $\rightarrow$ `"Modo Vertical (Manhwas)"`
 
-#### [MODIFY] [ProfileForm.tsx](file:///c:/Users/josel/Documents/New%20project/mangastoon/app/profile/ProfileForm.tsx)
+#### [MODIFY] [ProfileForm.tsx](file:///c:/Users/josel/Documents/New%20project/lectorfenix/app/profile/ProfileForm.tsx)
 - Reemplazar las traducciones de visualización de perfil en las preferencias de lectura por defecto:
   - **Español (es):** `cascadeWebtoon: "Cascada / Webtoon"` $\rightarrow$ `cascadeWebtoon: "Cascada / Manhwas"`
   - **Inglés (en):** `cascadeWebtoon: "Cascade / Webtoon"` $\rightarrow$ `cascadeWebtoon: "Cascade / Manhwas"`
   - **Portugués (pt):** `cascadeWebtoon: "Cascata / Webtoon"` $\rightarrow$ `cascadeWebtoon: "Cascata / Manhwas"`
 
-#### [MODIFY] [tagTranslations.ts](file:///c:/Users/josel/Documents/New%20project/mangastoon/app/utils/tagTranslations.ts)
+#### [MODIFY] [tagTranslations.ts](file:///c:/Users/josel/Documents/New%20project/lectorfenix/app/utils/tagTranslations.ts)
 - Cambiar la traducción de la etiqueta `"Long Strip"` (el formato oficial de cómic en cascada vertical):
   - `es: "Webtoon"` $\rightarrow$ `es: "Manhwas"`
   - `pt: "Webtoon"` $\rightarrow$ `pt: "Manhwas"`

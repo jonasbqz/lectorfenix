@@ -32,7 +32,7 @@ const AD_COPY = {
       {
         title: "👑 ¿Cansado de la Publicidad Molesta? 👑",
         desc: "Unite a nuestro grupo oficial de Telegram y reclamá tu Pase Premium Gratis. Disfrutá de lectura limpia, modo horizontal y descargas PDF extendidas.",
-        badge: "MangaStoon Pro",
+        badge: "LectorFenix Pro",
         cta: "Activar Premium Gratis"
       }
     ]
@@ -59,7 +59,7 @@ const AD_COPY = {
       {
         title: "👑 Tired of Annoying Ads? 👑",
         desc: "Join our official Telegram group and claim your Free Premium Pass. Enjoy ad-free reading, horizontal mode, and extended PDF downloads.",
-        badge: "MangaStoon Pro",
+        badge: "LectorFenix Pro",
         cta: "Get Free Premium"
       }
     ]
@@ -86,7 +86,7 @@ const AD_COPY = {
       {
         title: "👑 Cansado de Publicidades Irritantes? 👑",
         desc: "Entre no nosso grupo oficial do Telegram e resgate seu Passe Premium Grátis. Desfrute de leitura limpa, modo horizontal e downloads em PDF.",
-        badge: "MangaStoon Pro",
+        badge: "LectorFenix Pro",
         cta: "Ativar Premium Grátis"
       }
     ]
@@ -102,7 +102,7 @@ export default function MangaAdBanner({ index, onUpgrade, lang }: MangaAdBannerP
   const ad = t.ads[resolvedAdIndex];
 
   const handleClick = () => {
-    // Si es el anuncio de MangaStoon Pro (Premium), abrimos el modal de upgrade
+    // Si es el anuncio de LectorFenix Pro (Premium), abrimos el modal de upgrade
     if (resolvedAdIndex === 2) {
       onUpgrade();
     } else {

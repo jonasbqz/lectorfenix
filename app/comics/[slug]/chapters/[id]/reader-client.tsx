@@ -29,7 +29,7 @@ import ReaderSettingsPanel from "./components/ReaderSettingsPanel";
 type ScrollSpeed = 1 | 2 | 3 | 4 | 5;
 export type ReaderTheme = "dark" | "amoled" | "sepia" | "light" | "gray";
 
-const READER_THEME_KEY = "mangastoon_reader_theme";
+const READER_THEME_KEY = "lectorfenix_reader_theme";
 
 const THEME_CLASSES: Record<ReaderTheme, { bg: string; text: string; headerBg: string; border: string; card: string; sidepanelBg: string }> = {
   dark: {
@@ -215,8 +215,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     nextChapterCta: "Siguiente Capítulo",
     backToSeries: "Volver",
     endReachedTitle: "Llegaste al último capítulo disponible",
-    endReachedBody: "Por ahora no hay más episodios publicados. Te dejamos lecturas de MangaStoon para que sigas con el ritmo.",
-    suggestedTitle: "Seguir leyendo en MangaStoon",
+    endReachedBody: "Por ahora no hay más episodios publicados. Te dejamos lecturas de LectorFenix para que sigas con el ritmo.",
+    suggestedTitle: "Seguir leyendo en LectorFenix",
     exploreMore: "Explorar más mangas",
     scrollSpeedTooltip: "Velocidad de desplazamiento",
     modeVertical: "Modo Vertical (Manhwas)",
@@ -263,8 +263,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     nextChapterCta: "Next Chapter",
     backToSeries: "Back to series",
     endReachedTitle: "You reached the latest available chapter",
-    endReachedBody: "There are no more published episodes yet. Here are MangaStoon picks so you can keep reading.",
-    suggestedTitle: "Keep reading on MangaStoon",
+    endReachedBody: "There are no more published episodes yet. Here are LectorFenix picks so you can keep reading.",
+    suggestedTitle: "Keep reading on LectorFenix",
     exploreMore: "Explore more manga",
     scrollSpeedTooltip: "Scroll speed",
     modeVertical: "Vertical Mode (Manhwas)",
@@ -311,8 +311,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
     nextChapterCta: "Próximo Capítulo",
     backToSeries: "Voltar para a série",
     endReachedTitle: "Você chegou ao último capítulo disponible",
-    endReachedBody: "Por enquanto não há mais episódios publicados. Deixamos recomendações da MangaStoon para você continuar lendo.",
-    suggestedTitle: "Continuar lendo na MangaStoon",
+    endReachedBody: "Por enquanto não há mais episódios publicados. Deixamos recomendações da LectorFenix para você continuar lendo.",
+    suggestedTitle: "Continuar lendo na LectorFenix",
     exploreMore: "Explorar mais mangas",
     scrollSpeedTooltip: "Velocidade de rolagem",
     modeVertical: "Modo Vertical (Manhwas)",
@@ -325,8 +325,8 @@ const UI_COPY: Record<SupportedLanguage, ReaderDictionary> = {
 };
 
 const MAX_PDF_CHAPTERS = 50;
-const READING_PROGRESS_KEY = "mangastoon_reading_progress";
-const SIDEBAR_VISIBILITY_KEY = "mangastoon_sidebar_is_hidden";
+const READING_PROGRESS_KEY = "lectorfenix_reading_progress";
+const SIDEBAR_VISIBILITY_KEY = "lectorfenix_sidebar_is_hidden";
 const READER_REQUEST_TIMEOUT_MS = 20000;
 
 function normalizeReaderLanguage(value: string | null, fallback: SupportedLanguage) {
@@ -606,19 +606,19 @@ function RetryableSuggestedImage({ src, alt }: { src: string; alt: string }) {
 const REG_BANNER_COPY = {
   es: {
     title: "¡Te está gustando la lectura! 📖",
-    body: "Regístrate gratis en MangaStoon para guardar tu historial, marcar tus favoritos y crear listas personalizadas.",
+    body: "Regístrate gratis en LectorFenix para guardar tu historial, marcar tus favoritos y crear listas personalizadas.",
     cta: "Crear Cuenta Gratis",
     dismiss: "Cerrar"
   },
   en: {
     title: "Enjoying the read? 📖",
-    body: "Sign up free on MangaStoon to save your progress, bookmark favorites, and create custom manga lists.",
+    body: "Sign up free on LectorFenix to save your progress, bookmark favorites, and create custom manga lists.",
     cta: "Create Free Account",
     dismiss: "Dismiss"
   },
   pt: {
     title: "Está gostando da leitura? 📖",
-    body: "Cadastre-se grátis no MangaStoon para salvar seu progresso, favoritar mangás e criar listas personalizadas.",
+    body: "Cadastre-se grátis no LectorFenix para salvar seu progresso, favoritar mangás e criar listas personalizadas.",
     cta: "Criar Conta Grátis",
     dismiss: "Fechar"
   }
@@ -780,7 +780,7 @@ export default function ReaderClient({
   const handleDismissRegBanner = () => {
     setDismissedRegBanner(true);
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("mangastoon:dismiss-reg-banner", "true");
+      sessionStorage.setItem("lectorfenix:dismiss-reg-banner", "true");
     }
   };
 
@@ -792,7 +792,7 @@ export default function ReaderClient({
         // Default to "dark" (free/classic) theme initially to prevent flash of premium theme
         setReaderTheme("dark");
 
-        const dismissed = sessionStorage.getItem("mangastoon:dismiss-reg-banner") === "true";
+        const dismissed = sessionStorage.getItem("lectorfenix:dismiss-reg-banner") === "true";
         if (dismissed) {
           setDismissedRegBanner(true);
         }
@@ -989,11 +989,11 @@ export default function ReaderClient({
 
         try {
           localStorage.setItem(
-            `mangastoon_last_page:${mangaId}:${currentChapter.id}`,
+            `lectorfenix_last_page:${mangaId}:${currentChapter.id}`,
             String(currentVisibleIndex)
           );
           localStorage.setItem(
-            `mangastoon_progress:${mangaId}:${currentChapter.id}`,
+            `lectorfenix_progress:${mangaId}:${currentChapter.id}`,
             JSON.stringify({ page: currentVisibleIndex, total: pages.length })
           );
         } catch {}
@@ -1013,7 +1013,7 @@ export default function ReaderClient({
 
     const restoreVerticalScroll = () => {
       try {
-        const saved = localStorage.getItem(`mangastoon_last_page:${mangaId}:${currentChapter.id}`);
+        const saved = localStorage.getItem(`lectorfenix_last_page:${mangaId}:${currentChapter.id}`);
         if (saved) {
           const pageIndex = parseInt(saved, 10);
           if (Number.isFinite(pageIndex) && pageIndex > 0 && pageIndex < pages.length) {
@@ -1412,9 +1412,9 @@ export default function ReaderClient({
       let count = 0;
       if (typeof window !== "undefined") {
         try {
-          count = Number(sessionStorage.getItem("mangastoon_chapters_navigated") ?? "0");
+          count = Number(sessionStorage.getItem("lectorfenix_chapters_navigated") ?? "0");
           count += 1;
-          sessionStorage.setItem("mangastoon_chapters_navigated", String(count));
+          sessionStorage.setItem("lectorfenix_chapters_navigated", String(count));
         } catch {
           // Fallback if sessionStorage is blocked/disabled
           count = 1;
@@ -1489,7 +1489,7 @@ export default function ReaderClient({
       }
       setIsPremium(true);
       setShowPremiumModal(false);
-      toast.success("¡Bienvenido al Club Premium de MangaStoon! 🎉 Disfruta de todos tus beneficios.");
+      toast.success("¡Bienvenido al Club Premium de LectorFenix! 🎉 Disfruta de todos tus beneficios.");
     } catch {
       toast.error("Ocurrió un error al activar tu cuenta Premium.");
     }
@@ -1862,7 +1862,7 @@ export default function ReaderClient({
               </div>
             ) : (
               <div className={`mx-auto my-16 max-w-3xl rounded-3xl border ${THEME_CLASSES[readerTheme].border} ${THEME_CLASSES[readerTheme].card} p-8 text-center shadow-2xl shadow-black/50 md:p-10 transition-colors duration-300`}>
-                <span className="text-[10px] font-heading font-bold uppercase tracking-[0.3em] text-amber-500">MangaStoon</span>
+                <span className="text-[10px] font-heading font-bold uppercase tracking-[0.3em] text-amber-500">LectorFenix</span>
                 <h2 className="mt-3 text-2xl font-black text-white md:text-3xl tracking-tight">{dictionary.endReachedTitle}</h2>
                 <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-gray-400">{dictionary.endReachedBody}</p>
 

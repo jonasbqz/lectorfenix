@@ -196,7 +196,7 @@ h6 {
 }
 
 /* MangaCard critical sizing: forced because global/mobile typography and stale Tailwind output were keeping badges oversized. */
-.mangastoon-card-format-badge {
+.lectorfenix-card-format-badge {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -206,7 +206,7 @@ h6 {
   max-height: 16px !important;
 }
 
-.mangastoon-card-adult-badge {
+.lectorfenix-card-adult-badge {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -216,12 +216,12 @@ h6 {
   max-height: 16px !important;
 }
 
-.mangastoon-card-title {
+.lectorfenix-card-title {
   font-size: 13px !important;
   line-height: 1.15 !important;
 }
 
-.mangastoon-card-genre {
+.lectorfenix-card-genre {
   font-size: 10px !important;
   line-height: 1.1 !important;
 }

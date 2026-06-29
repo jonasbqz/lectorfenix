@@ -96,7 +96,7 @@ const ORDER_OPTIONS = [
 const DEFAULT_ORDER_BY = "latestUploadedChapter";
 const DEFAULT_SORT_DIR = "desc";
 const DEFAULT_TYPE = "all";
-const EXPLORE_STATE_STORAGE_KEY = "mangastoon:explore-state";
+const EXPLORE_STATE_STORAGE_KEY = "lectorfenix:explore-state";
 const MANGADEX_MAX_OFFSET = 10_000;
 const MANGADEX_FALLBACK_TOTAL = 12_000;
 

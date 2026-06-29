@@ -196,7 +196,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
         // Limpiar caché de premium en cualquier cambio de sesión/auth
         if (typeof window !== "undefined") {
           try {
-            sessionStorage.removeItem("mangastoon_is_premium");
+            sessionStorage.removeItem("lectorfenix_is_premium");
           } catch {}
         }
 
@@ -288,7 +288,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
             // Si el perfil cambia en tiempo real, invalidamos la caché de premium
             if (typeof window !== "undefined") {
               try {
-                sessionStorage.removeItem("mangastoon_is_premium");
+                sessionStorage.removeItem("lectorfenix_is_premium");
               } catch {}
             }
           }
@@ -300,7 +300,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
     const handleProfileUpdateEvent = () => {
       if (typeof window !== "undefined") {
         try {
-          sessionStorage.removeItem("mangastoon_is_premium");
+          sessionStorage.removeItem("lectorfenix_is_premium");
         } catch {}
       }
       if (active) fetchProfile();
