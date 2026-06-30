@@ -1,4 +1,6 @@
 const DMCA_BLOCKED_IDS = new Set([
+  "d22cf103-18fa-4fb0-bc2c-75695895c74b", // Jaco el Patrullero Galactico
+  "fb74e93d-e947-4774-83e7-d972b85d3d11", // Pokemon Especial Escarlata y Violeta
   "e52ca767-92fc-4b4e-9343-656dd18da17d", // Reported by Hetzner DMCA
   "4bafceb5-c1b9-46f7-928d-3ff01b6627b4", // O Ultimo Saiyuki
   "141609b6-cf86-4266-904c-6648f389cdc9", // RuriDragon
