@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { fetchMangaVfDetailsBySlug } from "../../../utils/mangadex";
 import { logger } from "../../../utils/logger";
 
@@ -14,10 +14,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  try {
-    const supabase = await createClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://xlcsqqwelopzpslxgdni.supabase.co";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    // 2. Obtener la tarea pendiente con mayor prioridad
+  if (!serviceRoleKey) {
+    logger.error("[scraper-worker] SUPABASE_SERVICE_ROLE_KEY no está configurada.");
+    return NextResponse.json({ error: "Error de configuración de Supabase (falta service role key)" }, { status: 500 });
+  }
+
+  try {
+    // 2. Crear cliente administrativo (Bypass RLS)
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
+    });
+
+    // 3. Obtener la tarea pendiente con mayor prioridad
     const { data: job, error: fetchError } = await supabase
       .from("scraper_queue")
       .select("*")
@@ -38,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     logger.info(`[scraper-worker] Procesando tarea: "${job.manga_title}" (ID: ${job.id}, URL: ${job.source_url})`);
 
-    // 3. Cambiar estado a 'processing' de inmediato para evitar colisiones
+    // 4. Cambiar estado a 'processing' de inmediato para evitar colisiones
     const { error: updateError } = await supabase
       .from("scraper_queue")
       .update({
@@ -52,7 +66,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    // 4. Extraer información en base a la URL
+    // 5. Extraer información en base a la URL
     const sourceUrl = job.source_url;
     let success = false;
     let errorMsg = "";
@@ -81,12 +95,12 @@ export async function GET(request: NextRequest) {
       logger.error(`[scraper-worker] Falló el scraping para ${job.manga_title}:`, scrapingErr);
     }
 
-    // 5. Guardar el resultado final de la ejecución
+    // 6. Guardar el resultado final de la ejecución
     const { error: updateResultError } = await supabase
       .from("scraper_queue")
       .update({
         status: success ? "completed" : "failed",
-        error_message: success ? null : errorMsg.substring(0, 1000), // truncar si es un mensaje muy largo
+        error_message: success ? null : errorMsg.substring(0, 1000),
         processed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
