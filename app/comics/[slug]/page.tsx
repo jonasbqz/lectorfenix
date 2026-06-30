@@ -1046,9 +1046,9 @@ async function findBestChapterLanguageFallback(
   currentLanguage: SupportedLanguage
 ) {
   const fallbackPriority: Record<SupportedLanguage, SupportedLanguage[]> = {
-    es: [],
-    en: [],
-    pt: ["es"],
+    es: ["en"],
+    en: ["es"],
+    pt: ["es", "en"],
   };
   const fallbackCandidates = fallbackPriority[currentLanguage];
   const fallbacks = await Promise.all(
