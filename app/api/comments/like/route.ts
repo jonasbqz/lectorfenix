@@ -1,38 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import { createClient } from "../../../../utils/supabase/server";
+import { sql } from "../../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 
-const commentsFilePath = path.join(process.cwd(), ".next", "comments.json");
-
-// ── Fallback File System logic ─────────────────────────────────────────────
-async function readCommentsFile(): Promise<any[]> {
+async function ensureLocalProfileExists(user: any) {
   try {
-    await fs.mkdir(path.dirname(commentsFilePath), { recursive: true });
-    try {
-      const data = await fs.readFile(commentsFilePath, "utf-8");
-      return JSON.parse(data);
-    } catch (err: any) {
-      if (err.code === "ENOENT") {
-        await fs.writeFile(commentsFilePath, "[]", "utf-8");
-        return [];
-      }
-      throw err;
+    const [existing] = await sql`
+      SELECT id FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
+
+    if (!existing) {
+      const emailUsername = user.email ? user.email.split("@")[0] : "usuario";
+      const username = user.user_metadata?.username || user.user_metadata?.full_name || emailUsername || "Usuario";
+      const avatarUrl = user.user_metadata?.avatar_url || null;
+
+      await sql`
+        INSERT INTO public.profiles (id, username, avatar_url, updated_at)
+        VALUES (${user.id}, ${username}, ${avatarUrl}, NOW())
+        ON CONFLICT (id) DO NOTHING
+      `;
     }
-  } catch {
-    return [];
-  }
-}
-
-async function writeCommentsFile(comments: any[]): Promise<boolean> {
-  try {
-    await fs.mkdir(path.dirname(commentsFilePath), { recursive: true });
-    await fs.writeFile(commentsFilePath, JSON.stringify(comments, null, 2), "utf-8");
-    return true;
-  } catch {
-    return false;
+  } catch (err) {
+    console.error("[ensureLocalProfileExists] Error:", err);
   }
 }
 
@@ -52,160 +42,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
-    // Intentar toggle de likes en Supabase
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(commentId);
-    
-    let existingLike = null;
-    let checkError: any = null;
+    // Asegurar que el perfil exista localmente
+    await ensureLocalProfileExists(user);
 
-    if (isUuid) {
-      const { data, error } = await supabase
-        .from("comment_likes")
-        .select("*")
-        .eq("comment_id", commentId)
-        .eq("user_id", userId)
-        .maybeSingle();
-      existingLike = data;
-      checkError = error;
-    } else {
-      checkError = { code: "22P02", message: "invalid input syntax for type uuid" };
-    }
-
-    // Fallback si la tabla no existe o si el ID es local (formato UUID invalido)
-    if (checkError && (
-      checkError.code === "P0001" ||
-      checkError.code === "PGRST205" ||
-      checkError.code === "42P01" ||
-      checkError.code === "22P02" ||
-      checkError.message?.includes("relation") ||
-      checkError.message?.includes("does not exist") ||
-      checkError.message?.includes("schema cache") ||
-      checkError.message?.includes("invalid input syntax")
-    )) {
-      console.warn("[Comments Like API] La tabla 'comment_likes' no existe. Usando fallback de archivos locales.");
-      const fileComments = await readCommentsFile();
-      const index = fileComments.findIndex((c) => c.id === commentId);
-
-      if (index === -1) {
-        return NextResponse.json({ error: "Comment not found in fallback file" }, { status: 404 });
-      }
-
-      const comment = fileComments[index];
-      if (!comment.likes) {
-        comment.likes = [];
-      }
-
-      const hasLiked = comment.likes.includes(userId);
-      if (hasLiked) {
-        comment.likes = comment.likes.filter((id: string) => id !== userId);
-      } else {
-        comment.likes.push(userId);
-
-        // Disparar notificación en segundo plano
-        (async () => {
-          try {
-            let senderName = "Lector";
-            let senderAvatar = null;
-            const { data: dbProfile } = await supabase
-              .from("profiles")
-              .select("username, avatar_url")
-              .eq("id", userId)
-              .maybeSingle();
-            if (dbProfile) {
-              senderName = dbProfile.username || senderName;
-              senderAvatar = dbProfile.avatar_url || senderAvatar;
-            }
-
-            const { triggerNotification } = await import("../../notifications/helper");
-            await triggerNotification({
-              userId: comment.userId,
-              type: "like",
-              senderId: userId,
-              senderName,
-              senderAvatar,
-              commentId: comment.id,
-              commentContent: comment.content,
-              mangaId: comment.mangaId,
-              chapterId: comment.chapterId,
-            });
-          } catch (notifErr) {
-            console.error("[Like API Fallback Notification] Error:", notifErr);
-          }
-        })();
-      }
-
-      fileComments[index] = comment;
-      const success = await writeCommentsFile(fileComments);
-      if (!success) {
-        return NextResponse.json({ error: "Failed to update fallback file" }, { status: 500 });
-      }
-
-      return NextResponse.json({
-        success: true,
-        likes: comment.likes,
-        likesCount: comment.likes.length,
-        hasLiked: !hasLiked,
-      });
-    }
-
-    if (checkError) {
-      return NextResponse.json({ error: checkError.message }, { status: 500 });
-    }
+    // 1. Verificar si ya le dio like al comentario en Postgres local
+    const [existingLike] = await sql`
+      SELECT user_id FROM public.comment_likes
+      WHERE comment_id = ${commentId} AND user_id = ${userId}
+      LIMIT 1
+    ` as any[];
 
     let hasLiked = false;
-    if (existingLike) {
-      const { error: deleteError } = await supabase
-        .from("comment_likes")
-        .delete()
-        .eq("comment_id", commentId)
-        .eq("user_id", userId);
 
-      if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 500 });
-      }
+    if (existingLike) {
+      // Eliminar el like
+      await sql`
+        DELETE FROM public.comment_likes
+        WHERE comment_id = ${commentId} AND user_id = ${userId}
+      `;
       hasLiked = false;
     } else {
-      const { error: insertError } = await supabase
-        .from("comment_likes")
-        .insert({
-          comment_id: commentId,
-          user_id: userId,
-        });
-
-      if (insertError) {
-        return NextResponse.json({ error: insertError.message }, { status: 500 });
-      }
+      // Agregar el like
+      await sql`
+        INSERT INTO public.comment_likes (comment_id, user_id, created_at)
+        VALUES (${commentId}, ${userId}, NOW())
+      `;
       hasLiked = true;
 
-      // Disparar notificación en segundo plano para Supabase
+      // Disparar la notificación de like en segundo plano
       (async () => {
         try {
-          const { data: dbComment } = await supabase
-            .from("comments")
-            .select("user_id, content, manga_id, chapter_id")
-            .eq("id", commentId)
-            .maybeSingle();
+          // Buscar el creador del comentario original
+          const [dbComment] = await sql`
+            SELECT user_id, content, manga_id, chapter_id FROM public.comments
+            WHERE id = ${commentId}
+            LIMIT 1
+          ` as any[];
 
-          if (dbComment) {
-            let senderName = "Lector";
-            let senderAvatar = null;
-            const { data: dbProfile } = await supabase
-              .from("profiles")
-              .select("username, avatar_url")
-              .eq("id", userId)
-              .maybeSingle();
-            if (dbProfile) {
-              senderName = dbProfile.username || senderName;
-              senderAvatar = dbProfile.avatar_url || senderAvatar;
-            }
+          if (dbComment && dbComment.user_id !== userId) {
+            const [profile] = await sql`
+              SELECT username, avatar_url FROM public.profiles WHERE id = ${userId} LIMIT 1
+            ` as any[];
 
             const { triggerNotification } = await import("../../notifications/helper");
             await triggerNotification({
               userId: dbComment.user_id,
               type: "like",
               senderId: userId,
-              senderName,
-              senderAvatar,
+              senderName: profile?.username || "Lector",
+              senderAvatar: profile?.avatar_url || null,
               commentId,
               commentContent: dbComment.content,
               mangaId: dbComment.manga_id,
@@ -213,22 +98,18 @@ export async function POST(req: NextRequest) {
             });
           }
         } catch (notifErr) {
-          console.error("[Like API Supabase Notification] Error:", notifErr);
+          console.error("[Like API Notification] Error:", notifErr);
         }
       })();
     }
 
-    // Obtener la lista actualizada de likes de este comentario
-    const { data: allLikes, error: fetchError } = await supabase
-      .from("comment_likes")
-      .select("user_id")
-      .eq("comment_id", commentId);
+    // Obtener la lista actualizada de likes de este comentario en la base de datos local
+    const allLikes = await sql`
+      SELECT user_id FROM public.comment_likes
+      WHERE comment_id = ${commentId}
+    ` as any[];
 
-    if (fetchError) {
-      return NextResponse.json({ error: fetchError.message }, { status: 500 });
-    }
-
-    const likesList = (allLikes || []).map((l: any) => l.user_id);
+    const likesList = allLikes.map((l: any) => l.user_id);
 
     return NextResponse.json({
       success: true,
@@ -236,7 +117,9 @@ export async function POST(req: NextRequest) {
       likesCount: likesList.length,
       hasLiked,
     });
+
   } catch (err: any) {
+    console.error("[Comments Like API] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

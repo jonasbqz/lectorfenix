@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "../../utils/supabase/server";
+import { sql } from "../../utils/postgres/client";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 
@@ -11,33 +12,31 @@ export async function getProfile() {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) return null;
 
-    let { data: profile } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type")
-      .eq("id", user.id)
-      .maybeSingle();
+    // Buscar en la base de datos local de Postgres
+    let [profile] = await sql`
+      SELECT id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type
+      FROM public.profiles
+      WHERE id = ${user.id}
+      LIMIT 1
+    ` as any[];
 
-    // Si no tiene fila en la tabla profiles (por ejemplo, porque se registró antes del trigger)
-    // la creamos automáticamente con sus metadatos de auth
+    // Si no tiene fila en la tabla profiles, la creamos automáticamente
     if (!profile) {
-      const fallbackUsername = user.user_metadata?.username || user.email?.split("@")[0] || "Usuario";
+      const emailUsername = user.email ? user.email.split("@")[0] : "usuario";
+      const fallbackUsername = user.user_metadata?.username || user.user_metadata?.full_name || emailUsername || "Usuario";
       const fallbackAvatar = user.user_metadata?.picture || null;
 
-      const { data: newProfile, error: insertError } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          username: fallbackUsername,
-          avatar_url: fallbackAvatar,
-          updated_at: new Date().toISOString(),
-        })
-        .select("id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, created_at, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type")
-        .maybeSingle();
+      const [newProfile] = await sql`
+        INSERT INTO public.profiles (id, username, avatar_url, updated_at)
+        VALUES (${user.id}, ${fallbackUsername}, ${fallbackAvatar}, NOW())
+        ON CONFLICT (id) DO UPDATE
+        SET username = COALESCE(profiles.username, EXCLUDED.username),
+            avatar_url = COALESCE(profiles.avatar_url, EXCLUDED.avatar_url)
+        RETURNING id, username, avatar_url, username_updated_at, updated_at, reading_direction, is_premium, telegram_id, premium_until, telegram_last_checked, telegram_grace_started, premium_type
+      ` as any[];
 
-      if (!insertError && newProfile) {
+      if (newProfile) {
         profile = newProfile;
-      } else {
-        console.error("[getProfile] failed to auto-create profile:", insertError);
       }
     }
 
@@ -48,23 +47,19 @@ export async function getProfile() {
       // 1. Verificar si ya expiró el período de 30 días
       if (profile.premium_until && new Date(profile.premium_until) < now) {
         console.log(`[getProfile] El premium de regalo de ${profile.username} ha expirado.`);
-        const { error: updateErr } = await supabase
-          .from("profiles")
-          .update({
-            is_premium: false,
-            premium_until: null,
-            telegram_grace_started: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", user.id);
-
-        if (!updateErr) {
-          profile.is_premium = false;
-          profile.premium_until = null;
-          profile.telegram_grace_started = null;
-        }
+        await sql`
+          UPDATE public.profiles
+          SET is_premium = false,
+              premium_until = NULL,
+              telegram_grace_started = NULL,
+              updated_at = NOW()
+          WHERE id = ${user.id}
+        `;
+        profile.is_premium = false;
+        profile.premium_until = null;
+        profile.telegram_grace_started = null;
       }
-      // 2. Si sigue siendo premium, chequear membresía de Telegram si pasaron más de 24 horas desde la última revisión
+      // 2. Si sigue siendo premium, chequear membresía de Telegram si pasaron más de 24 horas
       else if (profile.telegram_id) {
         const lastChecked = profile.telegram_last_checked ? new Date(profile.telegram_last_checked) : null;
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -91,38 +86,30 @@ export async function getProfile() {
           }
 
           if (isMember) {
-            // Sigue en el grupo, actualizar fecha de chequeo y limpiar gracia (si estaba en gracia)
-            const { error: updateErr } = await supabase
-              .from("profiles")
-              .update({
-                telegram_last_checked: new Date().toISOString(),
-                telegram_grace_started: null,
-                updated_at: new Date().toISOString()
-              })
-              .eq("id", user.id);
-
-            if (!updateErr) {
-              profile.telegram_last_checked = new Date().toISOString();
-              profile.telegram_grace_started = null;
-            }
+            // Sigue en el grupo, actualizar fecha de chequeo y limpiar gracia
+            await sql`
+              UPDATE public.profiles
+              SET telegram_last_checked = NOW(),
+                  telegram_grace_started = NULL,
+                  updated_at = NOW()
+              WHERE id = ${user.id}
+            `;
+            profile.telegram_last_checked = new Date().toISOString();
+            profile.telegram_grace_started = null;
           } else {
             // Ya no está en el grupo
             if (!profile.telegram_grace_started) {
               // Iniciar período de gracia de 24 horas
               const graceStart = new Date().toISOString();
-              const { error: updateErr } = await supabase
-                .from("profiles")
-                .update({
-                  telegram_last_checked: new Date().toISOString(),
-                  telegram_grace_started: graceStart,
-                  updated_at: new Date().toISOString()
-                })
-                .eq("id", user.id);
-
-              if (!updateErr) {
-                profile.telegram_last_checked = new Date().toISOString();
-                profile.telegram_grace_started = graceStart;
-              }
+              await sql`
+                UPDATE public.profiles
+                SET telegram_last_checked = NOW(),
+                    telegram_grace_started = ${graceStart},
+                    updated_at = NOW()
+                WHERE id = ${user.id}
+              `;
+              profile.telegram_last_checked = new Date().toISOString();
+              profile.telegram_grace_started = graceStart;
             } else {
               // Ya estaba en gracia, ver si ya pasaron las 24 horas
               const graceStart = new Date(profile.telegram_grace_started);
@@ -131,21 +118,17 @@ export async function getProfile() {
               if (now > graceExpiration) {
                 // Período de gracia expiró! Revocar premium.
                 console.log(`[getProfile] Período de gracia de 24h expiró para ${profile.username}. Revocando premium.`);
-                const { error: updateErr } = await supabase
-                  .from("profiles")
-                  .update({
-                    is_premium: false,
-                    premium_until: null,
-                    telegram_grace_started: null,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq("id", user.id);
-
-                if (!updateErr) {
-                  profile.is_premium = false;
-                  profile.premium_until = null;
-                  profile.telegram_grace_started = null;
-                }
+                await sql`
+                  UPDATE public.profiles
+                  SET is_premium = false,
+                      premium_until = NULL,
+                      telegram_grace_started = NULL,
+                      updated_at = NOW()
+                  WHERE id = ${user.id}
+                `;
+                profile.is_premium = false;
+                profile.premium_until = null;
+                profile.telegram_grace_started = null;
               }
             }
           }
@@ -197,12 +180,10 @@ export async function updateUsername(newUsername: string) {
     return { error: "Solo se permiten letras, números, puntos, guiones y guiones bajos." };
   }
 
-  // Verificar bloqueo de 7 días y estado de administrador
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, username_updated_at, is_admin")
-    .eq("id", user.id)
-    .single();
+  // Verificar bloqueo de 7 días y estado de administrador en Postgres local
+  const [profile] = await sql`
+    SELECT username, username_updated_at, is_admin FROM public.profiles WHERE id = ${user.id} LIMIT 1
+  ` as any[];
 
   const lowerUsername = trimmed.toLowerCase();
   const reservedWords = ["lectorfenix", "lectorfenix", "admin", "owner", "staff", "moderador", "moderator", "soporte", "support", "system", "dueño", "dueno"];
@@ -224,48 +205,48 @@ export async function updateUsername(newUsername: string) {
     }
   }
 
-  const { error } = await supabase.from("profiles").upsert({
-    id: user.id,
-    username: trimmed,
-    username_updated_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  try {
+    await sql`
+      INSERT INTO public.profiles (id, username, username_updated_at, updated_at)
+      VALUES (${user.id}, ${trimmed}, NOW(), NOW())
+      ON CONFLICT (id) DO UPDATE
+      SET username = EXCLUDED.username,
+          username_updated_at = EXCLUDED.username_updated_at,
+          updated_at = NOW()
+    `;
 
-  if (error) {
-    console.error("[updateUsername] DB error:", error.code, error.message, error.details);
-    return { error: `Error al guardar: ${error.message} (code: ${error.code})` };
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[updateUsername] DB error:", error);
+    return { error: `Error al guardar: ${error.message}` };
   }
-
-  revalidatePath("/profile");
-  return { success: true };
 }
 
 // ─── Upsert de perfil desde OAuth (Discord, etc.) ─────────────────────────
-// Llamado desde el callback de autenticación
 export async function upsertOAuthProfile(userId: string, discordUsername: string, avatarUrl?: string) {
-  const supabase = await createClient();
+  try {
+    // Solo escribir username si el perfil aún no tiene uno
+    const [existing] = await sql`
+      SELECT username FROM public.profiles WHERE id = ${userId} LIMIT 1
+    ` as any[];
 
-  // Solo escribir username si el perfil aún no tiene uno
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("id", userId)
-    .single();
+    if (existing?.username) return;
 
-  if (existing?.username) return; // ya tiene username, no sobreescribir
-
-  await supabase.from("profiles").upsert({
-    id: userId,
-    username: discordUsername,
-    avatar_url: avatarUrl ?? null,
-    updated_at: new Date().toISOString(),
-    // username_updated_at NO se setea en el primer ingreso para no bloquear el cambio inicial
-  });
+    await sql`
+      INSERT INTO public.profiles (id, username, avatar_url, updated_at)
+      VALUES (${userId}, ${discordUsername}, ${avatarUrl ?? null}, NOW())
+      ON CONFLICT (id) DO UPDATE
+      SET username = COALESCE(profiles.username, EXCLUDED.username),
+          avatar_url = COALESCE(profiles.avatar_url, EXCLUDED.avatar_url),
+          updated_at = NOW()
+    `;
+  } catch (err) {
+    console.error("[upsertOAuthProfile] error:", err);
+  }
 }
 
 // ─── Subida de avatar ─────────────────────────────────────────────────────
-// Path fijo: avatars/{userId}/avatar — siempre sobrescribe el mismo archivo.
-// upsert: true evita archivos huérfanos sin importar el tipo de imagen anterior.
 const ALLOWED_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/jpg":  "jpg",
@@ -288,26 +269,21 @@ export async function uploadAvatar(formData: FormData) {
     return { error: "No se seleccionó ningún archivo." };
   }
 
-  // ── Validación de tipo ──────────────────────────────────────────────────
   if (!ALLOWED_MIME[file.type]) {
     return { error: "Solo se permiten imágenes .jpg, .jpeg, .png o .webp." };
   }
 
-  // ── Validación de tamaño (doble capa: cliente ya validó, servidor confirma) ─
   if (file.size > MAX_BYTES) {
     return { error: "La imagen es demasiado pesada. El tamaño máximo permitido es de 1 MB." };
   }
 
-  // ── Path fijo: mismo archivo siempre, upsert lo sobrescribe ────────────
-  // Usamos el userId como carpeta + "avatar" como nombre fijo.
-  // Nunca quedan archivos huérfanos: siempre es la misma ruta.
   const storagePath = `${user.id}/avatar`;
 
   const { error: uploadError } = await supabase.storage
     .from("avatars")
     .upload(storagePath, file, {
-      upsert: true,            // sobreescribe si ya existe
-      contentType: file.type,  // sirve con el MIME correcto
+      upsert: true,
+      contentType: file.type,
       cacheControl: "3600",
     });
 
@@ -316,27 +292,28 @@ export async function uploadAvatar(formData: FormData) {
     return { error: `Error de Storage: ${uploadError.message}` };
   }
 
-  // ── URL pública + cache-bust para que el navegador no muestre la foto vieja ─
   const { data: { publicUrl } } = supabase.storage
     .from("avatars")
     .getPublicUrl(storagePath);
 
   const bustUrl = `${publicUrl}?t=${Date.now()}`;
 
-  // ── Actualizar perfil ────────────────────────────────────────────────────
-  const { error: profileError } = await supabase.from("profiles").upsert({
-    id: user.id,
-    avatar_url: bustUrl,
-    updated_at: new Date().toISOString(),
-  });
+  try {
+    // Guardar URL en base de datos local
+    await sql`
+      INSERT INTO public.profiles (id, avatar_url, updated_at)
+      VALUES (${user.id}, ${bustUrl}, NOW())
+      ON CONFLICT (id) DO UPDATE
+      SET avatar_url = EXCLUDED.avatar_url,
+          updated_at = NOW()
+    `;
 
-  if (profileError) {
-    console.error("[uploadAvatar] profile update error:", profileError.code, profileError.message);
+    revalidatePath("/profile");
+    return { success: true, url: bustUrl };
+  } catch (profileError: any) {
+    console.error("[uploadAvatar] profile update error:", profileError);
     return { error: `Imagen subida, pero no se pudo actualizar el perfil: ${profileError.message}` };
   }
-
-  revalidatePath("/profile");
-  return { success: true, url: bustUrl };
 }
 
 // ─── Actualizar dirección de lectura ──────────────────────────────────────
@@ -348,19 +325,21 @@ export async function updateReadingDirection(direction: "vertical" | "horizontal
     return { error: "No autorizado." };
   }
 
-  const { error } = await supabase.from("profiles").upsert({
-    id: user.id,
-    reading_direction: direction,
-    updated_at: new Date().toISOString(),
-  });
+  try {
+    await sql`
+      INSERT INTO public.profiles (id, reading_direction, updated_at)
+      VALUES (${user.id}, ${direction}, NOW())
+      ON CONFLICT (id) DO UPDATE
+      SET reading_direction = EXCLUDED.reading_direction,
+          updated_at = NOW()
+    `;
 
-  if (error) {
-    console.error("[updateReadingDirection] DB error:", error.code, error.message);
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[updateReadingDirection] DB error:", error);
     return { error: `Error al guardar preferencia: ${error.message}` };
   }
-
-  revalidatePath("/profile");
-  return { success: true };
 }
 
 // ─── Programar eliminación de cuenta (período de gracia de 30 días) ───────────
@@ -374,7 +353,6 @@ export async function deleteAccountAction() {
 
   const targetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Guardar fecha de eliminación en los metadatos de auth del usuario
   const { error } = await supabase.auth.updateUser({
     data: {
       scheduled_delete_at: targetDate
@@ -396,7 +374,7 @@ export async function getDailyTelegramCode(username: string, offsetDays = 0, tel
   if (offsetDays !== 0) {
     date.setDate(date.getDate() + offsetDays);
   }
-  const dateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
+  const dateString = date.toISOString().split("T")[0];
   const salt = process.env.TELEGRAM_PREMIUM_SALT || "lectorfenix_secreto_salt_2026";
   const normalizedUsername = username.trim().toLowerCase();
   
@@ -422,11 +400,9 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
 
   let verifiedTelegramId: number | null = null;
 
-  // Validación de código de Telegram para el Pase de Regalo (1 mes)
   if (type === "gifted") {
     const userId = user.id;
 
-    // Verificar si el usuario está bloqueado por rate limit
     const attemptInfo = failedAttemptsMap.get(userId);
     if (attemptInfo && attemptInfo.blockedUntil > Date.now()) {
       const minutesLeft = Math.ceil((attemptInfo.blockedUntil - Date.now()) / 60000);
@@ -437,21 +413,18 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
       return { error: "Código de activación requerido. Pídele tu código al bot de Telegram usando tu nombre de usuario." };
     }
 
-    // Obtener perfil para sacar el username
-    const { data: profile, error: profileErr } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("id", user.id)
-      .single();
+    // Obtener perfil para el username del Postgres local
+    const [profile] = await sql`
+      SELECT username FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
 
-    if (profileErr || !profile || !profile.username) {
+    if (!profile || !profile.username) {
       return { error: "Configura un nombre de usuario en tu perfil antes de reclamar el Pase Premium Gratis." };
     }
 
     const username = profile.username;
     const cleanCode = code.trim().toUpperCase();
 
-    // Parsear código LFX-{telegramId}-{hash} o MST-{telegramId}-{hash}
     const parts = cleanCode.split("-");
     if (parts.length !== 3 || (parts[0] !== "LFX" && parts[0] !== "MST")) {
       return { error: "Código inválido o formato incorrecto." };
@@ -470,12 +443,11 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
     const codeTomorrow = await getDailyTelegramCode(username, 1, telegramId);
 
     if (cleanCode !== codeToday && cleanCode !== codeYesterday && cleanCode !== codeTomorrow) {
-      // Incrementar contador de intentos fallidos
       const currentAttempts = attemptInfo ? attemptInfo.count + 1 : 1;
       if (currentAttempts >= 5) {
         failedAttemptsMap.set(userId, {
           count: currentAttempts,
-          blockedUntil: Date.now() + 15 * 60 * 1000 // 15 minutos de bloqueo
+          blockedUntil: Date.now() + 15 * 60 * 1000
         });
         return { error: "Código incorrecto. Tu cuenta fue bloqueada temporalmente por 15 minutos debido a demasiados intentos fallidos." };
       } else {
@@ -488,64 +460,56 @@ export async function upgradeToPremiumAction(type: "gifted" | "paid" = "paid", c
       }
     }
 
-    // Código correcto
     verifiedTelegramId = telegramId;
     failedAttemptsMap.delete(userId);
   }
 
   const premiumUntilDate = type === "gifted" 
-    ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 días
+    ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
-  const updateData: any = {
-    id: user.id,
-    is_premium: true,
-    updated_at: new Date().toISOString(),
-    premium_until: premiumUntilDate,
-    telegram_last_checked: type === "gifted" ? new Date().toISOString() : null,
-    telegram_grace_started: null,
-  };
+  // Actualizar en Postgres local
+  try {
+    await sql`
+      INSERT INTO public.profiles (id, is_premium, premium_until, telegram_last_checked, telegram_grace_started, telegram_id, premium_type, updated_at)
+      VALUES (
+        ${user.id}, 
+        true, 
+        ${premiumUntilDate}, 
+        ${type === "gifted" ? new Date().toISOString() : null}, 
+        null, 
+        ${verifiedTelegramId}, 
+        ${type}, 
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE 
+      SET is_premium = true,
+          premium_until = EXCLUDED.premium_until,
+          telegram_last_checked = EXCLUDED.telegram_last_checked,
+          telegram_grace_started = null,
+          telegram_id = COALESCE(EXCLUDED.telegram_id, profiles.telegram_id),
+          premium_type = EXCLUDED.premium_type,
+          updated_at = NOW()
+    `;
 
-  if (verifiedTelegramId !== null) {
-    updateData.telegram_id = verifiedTelegramId;
-  }
-
-  // Guardar premium_since en los metadatos de auth del usuario para persistir la fecha original si no existe ya
-  const existingPremiumSince = user.user_metadata?.premium_since;
-  if (!existingPremiumSince) {
-    const { error: authMetaError } = await supabase.auth.updateUser({
-      data: {
-        premium_since: new Date().toISOString()
+    // Intentar sincronizar metadatos de Supabase Auth
+    const existingPremiumSince = user.user_metadata?.premium_since;
+    if (!existingPremiumSince) {
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            premium_since: new Date().toISOString()
+          }
+        });
+      } catch (authMetaErr: any) {
+        console.warn("[upgradeToPremiumAction] failed to update auth metadata:", authMetaErr.message);
       }
-    });
-
-    if (authMetaError) {
-      console.warn("[upgradeToPremiumAction] failed to update auth metadata:", authMetaError.message);
     }
+
+    revalidatePath("/profile");
+    return { success: true };
+  } catch (error: any) {
+    console.error("[upgradeToPremiumAction] DB error:", error);
+    return { error: `Error al activar Premium: ${error.message}` };
   }
-
-  // Intentamos guardar con premium_type primero
-  const { error } = await supabase.from("profiles").upsert({
-    ...updateData,
-    premium_type: type,
-  });
-
-  if (error) {
-    // Si la columna premium_type no existe en la BD, hacemos fallback al guardado simple
-    if (error.message?.includes("column") && error.message?.includes("does not exist")) {
-      console.warn("[upgradeToPremiumAction] La columna 'premium_type' no existe en la tabla profiles. Haciendo fallback al modo simple (is_premium: true). ¡Por favor ejecuta el script de migración SQL en Supabase!");
-      const { error: fallbackError } = await supabase.from("profiles").upsert(updateData);
-      if (fallbackError) {
-        console.error("[upgradeToPremiumAction] Fallback DB error:", fallbackError.code, fallbackError.message);
-        return { error: `Error al activar Premium: ${fallbackError.message}` };
-      }
-    } else {
-      console.error("[upgradeToPremiumAction] DB error:", error.code, error.message);
-      return { error: `Error al activar Premium: ${error.message}` };
-    }
-  }
-
-  revalidatePath("/profile");
-  return { success: true };
 }
-

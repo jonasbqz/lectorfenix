@@ -1,40 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import { createClient } from "../../../utils/supabase/server";
+import { sql } from "../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 
-const commentsFilePath = path.join(process.cwd(), ".next", "comments.json");
-
-// ── Fallback File System logic ─────────────────────────────────────────────
-async function readCommentsFile(): Promise<any[]> {
+async function ensureLocalProfileExists(user: any) {
   try {
-    await fs.mkdir(path.dirname(commentsFilePath), { recursive: true });
-    try {
-      const data = await fs.readFile(commentsFilePath, "utf-8");
-      return JSON.parse(data);
-    } catch (err: any) {
-      if (err.code === "ENOENT") {
-        await fs.writeFile(commentsFilePath, "[]", "utf-8");
-        return [];
-      }
-      throw err;
+    const [existing] = await sql`
+      SELECT id FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
+
+    if (!existing) {
+      const emailUsername = user.email ? user.email.split("@")[0] : "usuario";
+      const username = user.user_metadata?.username || user.user_metadata?.full_name || emailUsername || "Usuario";
+      const avatarUrl = user.user_metadata?.avatar_url || null;
+
+      await sql`
+        INSERT INTO public.profiles (id, username, avatar_url, updated_at)
+        VALUES (${user.id}, ${username}, ${avatarUrl}, NOW())
+        ON CONFLICT (id) DO NOTHING
+      `;
     }
   } catch (err) {
-    console.error("[Comments File Fallback] Error reading comments file:", err);
-    return [];
-  }
-}
-
-async function writeCommentsFile(comments: any[]): Promise<boolean> {
-  try {
-    await fs.mkdir(path.dirname(commentsFilePath), { recursive: true });
-    await fs.writeFile(commentsFilePath, JSON.stringify(comments, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("[Comments File Fallback] Error writing comments file:", err);
-    return false;
+    console.error("[ensureLocalProfileExists] Error:", err);
   }
 }
 
@@ -48,102 +36,74 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Missing chapterId or mangaId" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    let dbQuery = supabase
-      .from("comments")
-      .select(`
-        id,
-        chapter_id,
-        manga_id,
-        user_id,
-        content,
-        is_spoiler,
-        is_moderated,
-        created_at,
-        parent_id,
-        profiles:profiles!user_id (
-          username,
-          avatar_url,
-          is_premium
-        ),
-        comment_likes (
-          user_id
-        ),
-        comment_reports (
-          user_id,
-          report_type
-        )
-      `);
+    let data: any[] = [];
 
+    // Consulta SQL unificada con Left Join y agregaciones en la base de datos local
     if (chapterId) {
-      dbQuery = dbQuery.eq("chapter_id", chapterId);
+      data = await sql`
+        SELECT 
+          c.id, c.chapter_id, c.manga_id, c.user_id, c.content, c.is_spoiler, c.is_moderated, c.created_at, c.parent_id,
+          p.username as user_name, p.avatar_url as user_avatar, p.is_premium as user_is_premium,
+          COALESCE(
+            (SELECT json_agg(cl.user_id) FROM public.comment_likes cl WHERE cl.comment_id = c.id),
+            '[]'::json
+          ) as likes,
+          COALESCE(
+            (SELECT count(*)::int FROM public.comment_reports cr WHERE cr.comment_id = c.id AND cr.report_type = 'words'),
+            0
+          ) as reported_words,
+          COALESCE(
+            (SELECT count(*)::int FROM public.comment_reports cr WHERE cr.comment_id = c.id AND cr.report_type = 'spoiler'),
+            0
+          ) as reported_spoilers
+        FROM public.comments c
+        LEFT JOIN public.profiles p ON p.id = c.user_id
+        WHERE c.chapter_id = ${chapterId}
+        ORDER BY c.created_at DESC
+      ` as any[];
     } else {
-      dbQuery = dbQuery.eq("manga_id", mangaId).eq("chapter_id", "general");
+      data = await sql`
+        SELECT 
+          c.id, c.chapter_id, c.manga_id, c.user_id, c.content, c.is_spoiler, c.is_moderated, c.created_at, c.parent_id,
+          p.username as user_name, p.avatar_url as user_avatar, p.is_premium as user_is_premium,
+          COALESCE(
+            (SELECT json_agg(cl.user_id) FROM public.comment_likes cl WHERE cl.comment_id = c.id),
+            '[]'::json
+          ) as likes,
+          COALESCE(
+            (SELECT count(*)::int FROM public.comment_reports cr WHERE cr.comment_id = c.id AND cr.report_type = 'words'),
+            0
+          ) as reported_words,
+          COALESCE(
+            (SELECT count(*)::int FROM public.comment_reports cr WHERE cr.comment_id = c.id AND cr.report_type = 'spoiler'),
+            0
+          ) as reported_spoilers
+        FROM public.comments c
+        LEFT JOIN public.profiles p ON p.id = c.user_id
+        WHERE c.manga_id = ${mangaId} AND c.chapter_id = 'general'
+        ORDER BY c.created_at DESC
+      ` as any[];
     }
 
-    const { data, error } = await dbQuery.order("created_at", { ascending: false });
-
-    if (error) {
-      console.warn("[Comments API] Error al consultar Supabase. Usando fallback de archivos locales (.next/comments.json):", error.message);
-      const fileComments = await readCommentsFile();
-      let filtered = fileComments;
-      if (chapterId) {
-        filtered = filtered.filter((c) => c.chapterId === chapterId);
-      } else {
-        filtered = filtered.filter((c) => c.mangaId === mangaId && (c.chapterId === "general" || !c.chapterId));
-      }
-      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      // Fetch profiles dynamically from Supabase for these users
-      const userIds = Array.from(new Set(filtered.map((c) => c.userId).filter(Boolean)));
-      if (userIds.length > 0) {
-        try {
-          const { data: dbProfiles } = await supabase
-            .from("profiles")
-            .select("id, username, avatar_url, is_premium")
-            .in("id", userIds);
-
-          if (dbProfiles) {
-            const profileMap = new Map(dbProfiles.map((p: any) => [p.id, p]));
-            filtered = filtered.map((c) => {
-              const prof = profileMap.get(c.userId);
-              return {
-                ...c,
-                userName: prof?.username || c.userName || "Usuario",
-                userAvatar: prof?.avatar_url || c.userAvatar || null,
-                userIsPremium: prof ? !!prof.is_premium : !!c.userIsPremium,
-              };
-            });
-          }
-        } catch (profileErr) {
-          console.warn("[Comments API Fallback] Error fetching profiles dynamically:", profileErr);
-        }
-      }
-
-      return NextResponse.json(filtered);
-    }
-
-    const mappedComments = (data || []).map((c: any) => {
-      const likes = (c.comment_likes || []).map((l: any) => l.user_id);
-      const reportedWords = (c.comment_reports || []).filter((r: any) => r.report_type === "words").length;
-      const reportedSpoiler = (c.comment_reports || []).filter((r: any) => r.report_type === "spoiler").length;
-      const isSpoiler = c.is_spoiler || reportedSpoiler >= 3;
-      const isModerated = c.is_moderated || reportedWords >= 5;
+    const mappedComments = data.map((c: any) => {
+      const likes = typeof c.likes === "string" ? JSON.parse(c.likes) : (c.likes || []);
+      const isSpoiler = c.is_spoiler || c.reported_spoilers >= 3;
+      const isModerated = c.is_moderated || c.reported_words >= 5;
 
       return {
         id: c.id,
         chapterId: c.chapter_id,
         mangaId: c.manga_id,
         userId: c.user_id,
-        userName: c.profiles?.username || "Usuario",
-        userAvatar: c.profiles?.avatar_url || null,
-        userIsPremium: !!c.profiles?.is_premium,
+        userName: c.user_name || "Usuario",
+        userAvatar: c.user_avatar || null,
+        userIsPremium: !!c.user_is_premium,
         content: c.content,
         isSpoiler,
         isModerated,
         likes,
-        reportedWords,
-        reportedSpoiler,
+        reportedWords: c.reported_words,
+        reportedSpoiler: c.reported_spoilers,
         createdAt: c.created_at,
         parentId: c.parent_id || null,
       };
@@ -151,6 +111,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(mappedComments);
   } catch (err: any) {
+    console.error("[Comments GET] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -171,162 +132,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
+    // Asegurar que el perfil exista en la base de datos local
+    await ensureLocalProfileExists(user);
+
     const resolvedChapterId = chapterId || "general";
 
-    // Intentar escribir en Supabase
-    const { data: newComment, error } = await supabase
-      .from("comments")
-      .insert({
-        chapter_id: resolvedChapterId,
-        manga_id: mangaId,
-        user_id: userId,
-        content: content.trim(),
-        is_spoiler: !!isSpoiler,
-        parent_id: parentId || null,
-      })
-      .select(`
-        id,
-        chapter_id,
-        manga_id,
-        user_id,
-        content,
-        is_spoiler,
-        is_moderated,
-        created_at,
-        parent_id,
-        profiles:profiles!user_id (
-          username,
-          avatar_url,
-          is_premium
-        )
-      `)
-      .maybeSingle();
+    // Insertar el comentario en Postgres local
+    const [newComment] = await sql`
+      INSERT INTO public.comments (chapter_id, manga_id, user_id, content, is_spoiler, parent_id, created_at)
+      VALUES (${resolvedChapterId}, ${mangaId}, ${userId}, ${content.trim()}, ${!!isSpoiler}, ${parentId || null}, NOW())
+      RETURNING id, chapter_id, manga_id, user_id, content, is_spoiler, is_moderated, created_at, parent_id
+    ` as any[];
 
-    // Fallback si la tabla no existe
-    if (error && (
-      error.code === "P0001" ||
-      error.code === "PGRST205" ||
-      error.code === "42P01" ||
-      error.code === "42703" ||
-      error.message?.includes("relation") ||
-      error.message?.includes("does not exist") ||
-      error.message?.includes("column") ||
-      error.message?.includes("schema cache")
-    )) {
-      console.warn("[Comments API] Fallback a archivo para inserción.");
-
-      // Fetch the profile from Supabase to get the correct premium status and details
-      let finalIsPremium = !!userIsPremium;
-      let finalUserName = userName;
-      let finalUserAvatar = userAvatar;
-      try {
-        const { data: dbProfile } = await supabase
-          .from("profiles")
-          .select("username, avatar_url, is_premium")
-          .eq("id", userId)
-          .maybeSingle();
-        if (dbProfile) {
-          finalIsPremium = !!dbProfile.is_premium;
-          finalUserName = dbProfile.username || userName;
-          finalUserAvatar = dbProfile.avatar_url || userAvatar;
-        }
-      } catch (profErr) {
-        console.warn("[Comments POST Fallback] Error querying user profile:", profErr);
-      }
-
-      const fileComments = await readCommentsFile();
-      const newFileComment: any = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        chapterId: resolvedChapterId,
-        mangaId,
-        userId,
-        userName: finalUserName,
-        userAvatar: finalUserAvatar || null,
-        userIsPremium: finalIsPremium,
-        content: content.trim(),
-        isSpoiler: !!isSpoiler,
-        isModerated: false,
-        likes: [],
-        reportedWords: 0,
-        reportedSpoiler: 0,
-        createdAt: new Date().toISOString(),
-        parentId: parentId || null,
-      };
-      fileComments.push(newFileComment);
-      const success = await writeCommentsFile(fileComments);
-      if (!success) {
-        return NextResponse.json({ error: "Failed to save comment in fallback file" }, { status: 500 });
-      }
-
-      // Disparar notificación de respuesta en segundo plano si corresponde
-      if (parentId) {
-        (async () => {
-          try {
-            const parentComment = fileComments.find((c) => c.id === parentId);
-            if (parentComment && parentComment.userId !== userId) {
-              const { triggerNotification } = await import("../notifications/helper");
-              await triggerNotification({
-                userId: parentComment.userId,
-                type: "reply",
-                senderId: userId,
-                senderName: finalUserName,
-                senderAvatar: finalUserAvatar,
-                commentId: newFileComment.id,
-                commentContent: content,
-                mangaId,
-                chapterId: resolvedChapterId,
-              });
-            }
-          } catch (notifErr) {
-            console.error("[Comments POST Fallback Notification] Error:", notifErr);
-          }
-        })();
-      }
-
-      return NextResponse.json(newFileComment, { status: 201 });
+    if (!newComment) {
+      throw new Error("Failed to save comment in database");
     }
 
-    if (error || !newComment) {
-      console.error("[Comments POST] DB error:", error);
-      return NextResponse.json({ error: error?.message || "Failed to save comment" }, { status: 500 });
-    }
+    // Obtener detalles del perfil local actualizado
+    const [profile] = await sql`
+      SELECT username, avatar_url, is_premium FROM public.profiles WHERE id = ${userId} LIMIT 1
+    ` as any[];
 
-    // Disparar notificación de respuesta en segundo plano si corresponde para Supabase
+    // Disparar notificación de respuesta en segundo plano si corresponde
     if (parentId && resolvedChapterId && newComment) {
       (async () => {
         try {
-          const { data: parentComment } = await supabase
-            .from("comments")
-            .select("user_id")
-            .eq("id", parentId)
-            .maybeSingle();
+          // Buscar el creador del comentario padre en Postgres local
+          const [parentComment] = await sql`
+            SELECT user_id FROM public.comments WHERE id = ${parentId} LIMIT 1
+          ` as any[];
 
           if (parentComment && parentComment.user_id !== userId) {
-            let finalIsPremium = !!userIsPremium;
-            let finalUserName = userName;
-            let finalUserAvatar = userAvatar;
-            try {
-              const { data: dbProfile } = await supabase
-                .from("profiles")
-                .select("username, avatar_url, is_premium")
-                .eq("id", userId)
-                .maybeSingle();
-              if (dbProfile) {
-                finalIsPremium = !!dbProfile.is_premium;
-                finalUserName = dbProfile.username || userName;
-                finalUserAvatar = dbProfile.avatar_url || userAvatar;
-              }
-            } catch (profErr) {
-              console.warn("[Comments POST Notification] Error querying user profile:", profErr);
-            }
-
             const { triggerNotification } = await import("../notifications/helper");
             await triggerNotification({
               userId: parentComment.user_id,
               type: "reply",
               senderId: userId,
-              senderName: finalUserName,
-              senderAvatar: finalUserAvatar,
+              senderName: profile?.username || userName,
+              senderAvatar: profile?.avatar_url || userAvatar,
               commentId: newComment.id,
               commentContent: content,
               mangaId,
@@ -334,7 +177,7 @@ export async function POST(req: NextRequest) {
             });
           }
         } catch (notifErr) {
-          console.error("[Comments POST Supabase Notification] Error:", notifErr);
+          console.error("[Comments POST Notification] Error:", notifErr);
         }
       })();
     }
@@ -344,9 +187,9 @@ export async function POST(req: NextRequest) {
       chapterId: newComment.chapter_id,
       mangaId: newComment.manga_id,
       userId: newComment.user_id,
-      userName: (newComment.profiles as any)?.username || userName,
-      userAvatar: (newComment.profiles as any)?.avatar_url || userAvatar || null,
-      userIsPremium: !!(newComment.profiles as any)?.is_premium,
+      userName: profile?.username || userName,
+      userAvatar: profile?.avatar_url || userAvatar || null,
+      userIsPremium: !!profile?.is_premium,
       content: newComment.content,
       isSpoiler: newComment.is_spoiler,
       isModerated: !!newComment.is_moderated,
@@ -357,6 +200,7 @@ export async function POST(req: NextRequest) {
       parentId: newComment.parent_id || null,
     }, { status: 201 });
   } catch (err: any) {
+    console.error("[Comments POST] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -377,60 +221,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "No autorizado." }, { status: 401 });
     }
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(commentId);
-
-    if (!isUuid) {
-      // Si no es un UUID, definitivamente es un comentario del fallback de archivos locales (.next/comments.json)
-      console.log("[Comments API] ID no es UUID, borrando de archivo local.");
-      const fileComments = await readCommentsFile();
-      const commentIndex = fileComments.findIndex((c) => c.id === commentId);
-
-      if (commentIndex === -1) {
-        return NextResponse.json({ error: "Comentario no encontrado" }, { status: 404 });
-      }
-
-      if (fileComments[commentIndex].userId !== user.id) {
-        return NextResponse.json({ error: "No autorizado para borrar este comentario" }, { status: 403 });
-      }
-
-      fileComments.splice(commentIndex, 1);
-      const success = await writeCommentsFile(fileComments);
-      if (!success) {
-        return NextResponse.json({ error: "Failed to delete comment in fallback file" }, { status: 500 });
-      }
-      return NextResponse.json({ success: true });
-    }
-
-    // Si es un UUID, intentamos borrar en Supabase
-    const { error: dbError } = await supabase
-      .from("comments")
-      .delete()
-      .eq("id", commentId)
-      .eq("user_id", user.id);
-
-    if (dbError) {
-      // Si hay un error de conexión o de tabla no existente, intentamos borrar del archivo fallback por si acaso
-      console.warn("[Comments DELETE] DB error, intentando fallback:", dbError.message);
-      const fileComments = await readCommentsFile();
-      const commentIndex = fileComments.findIndex((c) => c.id === commentId);
-      if (commentIndex !== -1 && fileComments[commentIndex].userId === user.id) {
-        fileComments.splice(commentIndex, 1);
-        await writeCommentsFile(fileComments);
-        return NextResponse.json({ success: true });
-      }
-      return NextResponse.json({ error: dbError.message }, { status: 500 });
-    }
-
-    // Limpieza de seguridad en el archivo fallback si se borró con éxito en Supabase
-    const fileComments = await readCommentsFile();
-    const commentIndex = fileComments.findIndex((c) => c.id === commentId);
-    if (commentIndex !== -1 && fileComments[commentIndex].userId === user.id) {
-      fileComments.splice(commentIndex, 1);
-      await writeCommentsFile(fileComments);
-    }
+    // Ejecutar el borrado en Postgres local
+    await sql`
+      DELETE FROM public.comments
+      WHERE id = ${commentId} AND user_id = ${user.id}
+    `;
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
+    console.error("[Comments DELETE] Error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

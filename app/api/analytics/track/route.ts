@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { sql } from "../../../../utils/postgres/client";
+
+export const dynamic = "force-dynamic";
 
 // Parser de origen/fuente de tráfico basado en referrer
 function parseSource(referrer: string | null): string {
@@ -24,7 +25,6 @@ function parseUserAgent(ua: string | null) {
   if (!ua) return { device: "Desktop", browser: "Otros" };
   const lower = ua.toLowerCase();
   
-  // Categoría de dispositivo
   let device = "Desktop";
   if (lower.includes("ipad") || lower.includes("tablet") || (lower.includes("android") && !lower.includes("mobile"))) {
     device = "Tablet";
@@ -32,7 +32,6 @@ function parseUserAgent(ua: string | null) {
     device = "Mobile";
   }
 
-  // Navegador principal
   let browser = "Otros";
   if (lower.includes("chrome") || lower.includes("criod")) browser = "Chrome";
   else if (lower.includes("firefox")) browser = "Firefox";
@@ -43,51 +42,26 @@ function parseUserAgent(ua: string | null) {
   return { device, browser };
 }
 
-async function ensureSessionExists(supabaseDb: any, session_id: string, request: NextRequest) {
+async function ensureSessionExists(session_id: string, request: NextRequest) {
   try {
-    const { data, error } = await supabaseDb
-      .from("analytics_sessions")
-      .select("session_id")
-      .eq("session_id", session_id)
-      .maybeSingle();
+    const [existing] = await sql`
+      SELECT session_id FROM public.analytics_sessions WHERE session_id = ${session_id} LIMIT 1
+    ` as any[];
 
-    if (!data && !error) {
+    if (!existing) {
       const userAgent = request.headers.get("user-agent") || "";
-      let device = "Desktop";
-      let browser = "Otros";
-      
-      const lower = userAgent.toLowerCase();
-      if (lower.includes("ipad") || lower.includes("tablet") || (lower.includes("android") && !lower.includes("mobile"))) {
-        device = "Tablet";
-      } else if (lower.includes("mobile") || lower.includes("iphone") || lower.includes("android")) {
-        device = "Mobile";
-      }
-
-      if (lower.includes("chrome") || lower.includes("criod")) browser = "Chrome";
-      else if (lower.includes("firefox")) browser = "Firefox";
-      else if (lower.includes("safari") && !lower.includes("chrome")) browser = "Safari";
-      else if (lower.includes("edge") || lower.includes("edg/")) browser = "Edge";
-      else if (lower.includes("opera") || lower.includes("opr/")) browser = "Opera";
-
+      const { device, browser } = parseUserAgent(userAgent);
       const country = 
         request.headers.get("x-vercel-ip-country") || 
         request.headers.get("cf-ipcountry") || 
         request.headers.get("x-real-ip-country") ||
         "Desconocido";
 
-      await supabaseDb
-        .from("analytics_sessions")
-        .insert({
-          session_id,
-          user_id: null,
-          referrer: null,
-          source: "Direct",
-          device,
-          browser,
-          country,
-          has_adblocker: false,
-          created_at: new Date().toISOString()
-        });
+      await sql`
+        INSERT INTO public.analytics_sessions (session_id, user_id, referrer, source, device, browser, country, has_adblocker, created_at)
+        VALUES (${session_id}, NULL, NULL, 'Direct', ${device}, ${browser}, ${country}, false, NOW())
+        ON CONFLICT (session_id) DO NOTHING
+      `;
     }
   } catch (err) {
     console.error("[StoonAnalytics] Error in ensureSessionExists:", err);
@@ -97,207 +71,111 @@ async function ensureSessionExists(supabaseDb: any, session_id: string, request:
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, session_id } = body;
-
-    if (!session_id) {
-      return NextResponse.json({ error: "Falta session_id" }, { status: 400 });
-    }
-
-    const supabase = await createClient();
     
-    // Obtener el cliente de base de datos apropiado. Si contamos con la clave de servicio
-    // (SUPABASE_SERVICE_ROLE_KEY) la usamos para evadir problemas de RLS en analíticas.
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://xlcsqqwelopzpslxgdni.supabase.co";
-    
-    const supabaseDb = serviceRoleKey
-      ? createSupabaseClient(supabaseUrl, serviceRoleKey, {
-          auth: { persistSession: false }
-        })
-      : supabase;
-
-    // Obtener país basado en los headers geográficos estándar
+    // Soportar tanto peticiones individuales (compatibilidad) como lotes acumulados (batching)
+    const events = Array.isArray(body) ? body : [body];
     const country = 
       request.headers.get("x-vercel-ip-country") || 
       request.headers.get("cf-ipcountry") || 
       request.headers.get("x-real-ip-country") ||
       "Desconocido";
 
-    // Asegurar que la sesión exista antes de insertar cualquier métrica secundaria para evitar violaciones de FK
-    if (type === "pageview" || type === "heartbeat" || type === "event" || type === "performance") {
-      await ensureSessionExists(supabaseDb, session_id, request);
-    }
+    for (const event of events) {
+      const { type, session_id } = event;
+      if (!session_id) continue;
 
-    // 1. REGISTRO DE INICIO DE SESIÓN
-    if (type === "session_start") {
-      const userAgent = request.headers.get("user-agent");
-      const { device, browser } = parseUserAgent(userAgent);
-      
-      const referrer = body.referrer || null;
-      const source = parseSource(referrer);
-      const hasAdblocker = body.has_adblocker || false;
-
-      // Obtener el ID del usuario si está logueado en la sesión
-      const { data } = await supabase.auth.getSession();
-      const userId = data?.session?.user?.id || null;
-
-      let { error } = await supabaseDb
-        .from("analytics_sessions")
-        .upsert({
-          session_id,
-          user_id: userId,
-          referrer,
-          source,
-          device,
-          browser,
-          country,
-          has_adblocker: hasAdblocker,
-          created_at: new Date().toISOString()
-        }, { onConflict: "session_id" });
-
-      // Si falla por violación de clave foránea (usuario inexistente en profiles), reintentamos sin user_id.
-      if (error && error.code === "23503") {
-        const retryResult = await supabaseDb
-          .from("analytics_sessions")
-          .upsert({
-            session_id,
-            user_id: null,
-            referrer,
-            source,
-            device,
-            browser,
-            country,
-            has_adblocker: hasAdblocker,
-            created_at: new Date().toISOString()
-          }, { onConflict: "session_id" });
-        error = retryResult.error;
+      // Asegurar que la sesión exista en BD local antes de meter métricas secundarias
+      if (type === "pageview" || type === "heartbeat" || type === "event" || type === "performance") {
+        await ensureSessionExists(session_id, request);
       }
 
-      if (error) {
-        console.error("[StoonAnalytics] Error al registrar/actualizar sesión:", error.message, error.code);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+      // 1. INICIO DE SESIÓN
+      if (type === "session_start") {
+        const userAgent = request.headers.get("user-agent");
+        const { device, browser } = parseUserAgent(userAgent);
+        const referrer = event.referrer || null;
+        const source = parseSource(referrer);
+        const hasAdblocker = event.has_adblocker || false;
+        
+        // El user_id se guarda como null por defecto al iniciar de forma anonima
+        const userId = event.user_id || null;
+
+        await sql`
+          INSERT INTO public.analytics_sessions (session_id, user_id, referrer, source, device, browser, country, has_adblocker, created_at)
+          VALUES (${session_id}, ${userId}, ${referrer}, ${source}, ${device}, ${browser}, ${country}, ${hasAdblocker}, NOW())
+          ON CONFLICT (session_id) DO UPDATE 
+          SET user_id = EXCLUDED.user_id,
+              referrer = COALESCE(analytics_sessions.referrer, EXCLUDED.referrer),
+              source = COALESCE(analytics_sessions.source, EXCLUDED.source),
+              has_adblocker = EXCLUDED.has_adblocker
+        `;
       }
 
-      return NextResponse.json({ success: true, tracking: "session_start" });
+      // 2. VISTA DE PÁGINA
+      else if (type === "pageview") {
+        const { path, manga_id, chapter_id } = event;
+        if (!path) continue;
 
-    }
-
-    // 2. REGISTRO DE VISTA DE PÁGINA
-    if (type === "pageview") {
-      const { path, manga_id, chapter_id } = body;
-
-      if (!path) {
-        return NextResponse.json({ error: "Falta path para pageview" }, { status: 400 });
+        await sql`
+          INSERT INTO public.analytics_pageviews (session_id, path, manga_id, chapter_id, duration, created_at)
+          VALUES (${session_id}, ${path}, ${manga_id || null}, ${chapter_id || null}, 0, NOW())
+        `;
       }
 
-      const { error } = await supabaseDb
-        .from("analytics_pageviews")
-        .insert({
-          session_id,
-          path,
-          manga_id: manga_id || null,
-          chapter_id: chapter_id || null,
-          duration: 0
-        });
+      // 3. HEARTBEAT (Tiempo de permanencia)
+      else if (type === "heartbeat") {
+        const { path, secondsToAdd } = event;
+        if (!path) continue;
 
-      if (error && error.code !== "23503") {
-        console.error("[StoonAnalytics] Error al insertar pageview:", error.message, error.code);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+        // Sumar los segundos transcurridos (por defecto 30 si no viene especificado en llamadas antiguas)
+        const increment = secondsToAdd || 30;
 
-      return NextResponse.json({ success: true, tracking: "pageview" });
-    }
+        // Buscar el último registro de página vista en este path para acumular la duración
+        const [lastPageview] = await sql`
+          SELECT id FROM public.analytics_pageviews
+          WHERE session_id = ${session_id} AND path = ${path}
+          ORDER BY created_at DESC
+          LIMIT 1
+        ` as any[];
 
-    // 3. ACTUALIZACIÓN DE TIEMPO DE PERMANENCIA (HEARTBEAT)
-    if (type === "heartbeat") {
-      const { path } = body;
-
-      if (!path) {
-        return NextResponse.json({ error: "Falta path para heartbeat" }, { status: 400 });
-      }
-
-      // Buscar la última vista de página de esta sesión en este path para acumular duración
-      const { data: lastPageview, error: fetchError } = await supabaseDb
-        .from("analytics_pageviews")
-        .select("id, duration")
-        .eq("session_id", session_id)
-        .eq("path", path)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.warn("[StoonAnalytics] Error al buscar página para heartbeat:", fetchError.message);
-      }
-
-      if (lastPageview) {
-        // Sumamos 30 segundos (el intervalo que configuraremos en el cliente)
-        const { error: updateError } = await supabaseDb
-          .from("analytics_pageviews")
-          .update({ duration: lastPageview.duration + 30 })
-          .eq("id", lastPageview.id);
-
-        if (updateError) {
-          console.error("[StoonAnalytics] Error al actualizar duración en heartbeat:", updateError.message);
-          return NextResponse.json({ error: updateError.message }, { status: 500 });
+        if (lastPageview) {
+          await sql`
+            UPDATE public.analytics_pageviews
+            SET duration = duration + ${increment}
+            WHERE id = ${lastPageview.id}
+          `;
         }
       }
 
-      return NextResponse.json({ success: true, tracking: "heartbeat" });
+      // 4. EVENTO PERSONALIZADO
+      else if (type === "event") {
+        const { event_name, event_data } = event;
+        if (!event_name) continue;
+
+        await sql`
+          INSERT INTO public.analytics_events (session_id, event_name, event_data, created_at)
+          VALUES (${session_id}, ${event_name}, ${event_data ? JSON.stringify(event_data) : null}, NOW())
+        `;
+      }
+
+      // 5. RENDIMIENTO DE CARGA DE IMAGENES (Muestreo del 5%)
+      else if (type === "performance") {
+        // Reducir la ingesta de telemetría de rendimiento al 5% en servidor (además del cliente)
+        if (Math.random() > 0.05) {
+          continue; 
+        }
+
+        const { manga_id, chapter_id, image_url, load_time_ms, success } = event;
+        if (load_time_ms === undefined) continue;
+
+        await sql`
+          INSERT INTO public.analytics_performance (session_id, manga_id, chapter_id, image_url, load_time_ms, success, created_at)
+          VALUES (${session_id}, ${manga_id || null}, ${chapter_id || null}, ${image_url || null}, ${load_time_ms}, ${success !== undefined ? success : true}, NOW())
+        `;
+      }
     }
 
-    // 4. REGISTRO DE EVENTO PERSONALIZADO
-    if (type === "event") {
-      const { event_name, event_data } = body;
-
-      if (!event_name) {
-        return NextResponse.json({ error: "Falta event_name para event" }, { status: 400 });
-      }
-
-      const { error } = await supabaseDb
-        .from("analytics_events")
-        .insert({
-          session_id,
-          event_name,
-          event_data: event_data || null
-        });
-
-      if (error) {
-        console.error("[StoonAnalytics] Error al insertar evento:", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true, tracking: "event" });
-    }
-
-    // 5. REGISTRO DE RENDIMIENTO DE CARGA DE HOJAS
-    if (type === "performance") {
-      const { manga_id, chapter_id, image_url, load_time_ms, success } = body;
-
-      if (load_time_ms === undefined) {
-        return NextResponse.json({ error: "Falta load_time_ms para performance" }, { status: 400 });
-      }
-
-      const { error } = await supabaseDb
-        .from("analytics_performance")
-        .insert({
-          session_id,
-          manga_id: manga_id || null,
-          chapter_id: chapter_id || null,
-          image_url: image_url || null,
-          load_time_ms,
-          success: success !== undefined ? success : true
-        });
-
-      if (error) {
-        console.error("[StoonAnalytics] Error al insertar performance:", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true, tracking: "performance" });
-    }
-
-    return NextResponse.json({ error: "Tipo de tracking no soportado" }, { status: 400 });
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[StoonAnalytics] Error en endpoint track:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

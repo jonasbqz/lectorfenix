@@ -1,6 +1,29 @@
 "use server";
 
 import { createClient } from "../../utils/supabase/server";
+import { sql } from "../../utils/postgres/client";
+
+async function ensureLocalProfileExists(user: any) {
+  try {
+    const [existing] = await sql`
+      SELECT id FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
+
+    if (!existing) {
+      const emailUsername = user.email ? user.email.split("@")[0] : "usuario";
+      const username = user.user_metadata?.username || user.user_metadata?.full_name || emailUsername || "Usuario";
+      const avatarUrl = user.user_metadata?.avatar_url || null;
+
+      await sql`
+        INSERT INTO public.profiles (id, username, avatar_url, updated_at)
+        VALUES (${user.id}, ${username}, ${avatarUrl}, NOW())
+        ON CONFLICT (id) DO NOTHING
+      `;
+    }
+  } catch (err) {
+    console.error("[ensureLocalProfileExists] Error:", err);
+  }
+}
 
 export async function getHistoryAction() {
   const supabase = await createClient();
@@ -12,30 +35,28 @@ export async function getHistoryAction() {
     return { error: "unauthenticated" };
   }
 
-  const { data, error } = await supabase
-    .from("reading_history")
-    .select("manga_id, manga_title, chapter_id, chapter_number, cover_image, updated_at")
-    .eq("user_id", user.id)
-    .order("updated_at", { ascending: false });
+  try {
+    const data = await sql`
+      SELECT manga_id, manga_title, chapter_id, chapter_number, cover_image, updated_at
+      FROM public.reading_history
+      WHERE user_id = ${user.id}
+      ORDER BY updated_at DESC
+    ` as any[];
 
-  if (error) {
-    console.error("[getHistoryAction] DB error:", error.code, error.message);
-    if (error.code === "P0001" || error.message?.includes("relation") || error.message?.includes("does not exist")) {
-      return { error: "table_not_exists", history: [] };
-    }
+    const history = data.map((item) => ({
+      mangaId: item.manga_id,
+      mangaTitle: item.manga_title,
+      chapterId: item.chapter_id,
+      chapterNumber: item.chapter_number,
+      coverImage: item.cover_image || "",
+      timestamp: new Date(item.updated_at).getTime(),
+    }));
+
+    return { history };
+  } catch (error: any) {
+    console.error("[getHistoryAction] DB error:", error);
     return { error: "db_error", message: error.message, history: [] };
   }
-
-  const history = (data || []).map((item) => ({
-    mangaId: item.manga_id,
-    mangaTitle: item.manga_title,
-    chapterId: item.chapter_id,
-    chapterNumber: item.chapter_number,
-    coverImage: item.cover_image || "",
-    timestamp: new Date(item.updated_at).getTime(),
-  }));
-
-  return { history };
 }
 
 export async function addHistoryAction(item: {
@@ -55,27 +76,27 @@ export async function addHistoryAction(item: {
     return { error: "unauthenticated" };
   }
 
-  const { error } = await supabase
-    .from("reading_history")
-    .upsert({
-      user_id: user.id,
-      manga_id: item.mangaId,
-      manga_title: item.mangaTitle,
-      chapter_id: item.chapterId,
-      chapter_number: item.chapterNumber,
-      cover_image: item.coverImage || null,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: "user_id,manga_id"
-    });
+  // Asegurar que el perfil exista en la base de datos local antes de insertar
+  await ensureLocalProfileExists(user);
 
-  if (error) {
-    console.error("[addHistoryAction] DB error:", error.code, error.message);
+  try {
+    await sql`
+      INSERT INTO public.reading_history (user_id, manga_id, manga_title, chapter_id, chapter_number, cover_image, updated_at)
+      VALUES (${user.id}, ${item.mangaId}, ${item.mangaTitle}, ${item.chapterId}, ${item.chapterNumber}, ${item.coverImage || null}, NOW())
+      ON CONFLICT (user_id, manga_id) DO UPDATE 
+      SET manga_title = EXCLUDED.manga_title,
+          chapter_id = EXCLUDED.chapter_id,
+          chapter_number = EXCLUDED.chapter_number,
+          cover_image = COALESCE(EXCLUDED.cover_image, reading_history.cover_image),
+          updated_at = NOW()
+    `;
+
+    console.log("[addHistoryAction] Successfully added history for user:", user.id, "manga:", item.mangaId);
+    return { success: true };
+  } catch (error: any) {
+    console.error("[addHistoryAction] DB error:", error);
     return { error: "db_error", message: error.message };
   }
-
-  console.log("[addHistoryAction] Successfully added history for user:", user.id, "manga:", item.mangaId);
-  return { success: true };
 }
 
 export async function removeHistoryAction(mangaId: string) {
@@ -86,18 +107,17 @@ export async function removeHistoryAction(mangaId: string) {
     return { error: "unauthenticated" };
   }
 
-  const { error } = await supabase
-    .from("reading_history")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("manga_id", mangaId);
+  try {
+    await sql`
+      DELETE FROM public.reading_history
+      WHERE user_id = ${user.id} AND manga_id = ${mangaId}
+    `;
 
-  if (error) {
-    console.error("[removeHistoryAction] DB error:", error.code, error.message);
+    return { success: true };
+  } catch (error: any) {
+    console.error("[removeHistoryAction] DB error:", error);
     return { error: "db_error", message: error.message };
   }
-
-  return { success: true };
 }
 
 export async function clearHistoryAction() {
@@ -108,15 +128,15 @@ export async function clearHistoryAction() {
     return { error: "unauthenticated" };
   }
 
-  const { error } = await supabase
-    .from("reading_history")
-    .delete()
-    .eq("user_id", user.id);
+  try {
+    await sql`
+      DELETE FROM public.reading_history
+      WHERE user_id = ${user.id}
+    `;
 
-  if (error) {
-    console.error("[clearHistoryAction] DB error:", error.code, error.message);
+    return { success: true };
+  } catch (error: any) {
+    console.error("[clearHistoryAction] DB error:", error);
     return { error: "db_error", message: error.message };
   }
-
-  return { success: true };
 }
