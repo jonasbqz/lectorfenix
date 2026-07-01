@@ -4,6 +4,7 @@ import { searchLeerCapituloByTitle } from "../../../utils/mangadex";
 import { slugify } from "../../../utils/slugify";
 import { isDmcaBlocked } from "../../../utils/dmca";
 import { logger } from "../../../utils/logger";
+import { sql } from "../../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
+    const [profile] = await sql`
+      SELECT is_admin FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
 
-    if (profileError || !profile || !profile.is_admin) {
+    if (!profile || !profile.is_admin) {
       return NextResponse.json({ error: "Acceso denegado. Se requiere cuenta de administrador." }, { status: 403 });
     }
 
@@ -40,19 +39,16 @@ export async function POST(request: NextRequest) {
       targetMangaId = body?.mangaId || null;
     } catch {}
 
-    // Fetch broken chapters (filter by mangaId if specified)
-    let query = supabase
-      .from("broken_chapters")
-      .select("manga_id, manga_title");
-
+    // Fetch broken chapters (filter by mangaId if specified) from local Postgres
+    let brokenChapters: any[] = [];
     if (targetMangaId) {
-      query = query.eq("manga_id", targetMangaId);
-    }
-
-    const { data: brokenChapters, error: fetchError } = await query;
-
-    if (fetchError) {
-      return NextResponse.json({ error: `Error fetching broken chapters: ${fetchError.message}` }, { status: 500 });
+      brokenChapters = await sql`
+        SELECT manga_id, manga_title FROM public.broken_chapters WHERE manga_id = ${targetMangaId}
+      ` as any[];
+    } else {
+      brokenChapters = await sql`
+        SELECT manga_id, manga_title FROM public.broken_chapters
+      ` as any[];
     }
 
     if (!brokenChapters || brokenChapters.length === 0) {
@@ -102,51 +98,26 @@ export async function POST(request: NextRequest) {
           const isBlocked = blockedKeywords.some(kw => mangaTitle.toLowerCase().includes(kw) || leercapituloSlug!.toLowerCase().includes(kw));
 
           if (!isBlocked && !isDmcaBlocked(mangaId)) {
-            // Check if already in queue
-            const { data: existingJob, error: checkQueueError } = await supabase
-              .from("scraper_queue")
-              .select("id, status")
-              .eq("source_url", sourceUrl)
-              .maybeSingle();
+            // Check if already in queue from local Postgres
+            const [existingJob] = await sql`
+              SELECT id, status FROM public.scraper_queue WHERE source_url = ${sourceUrl} LIMIT 1
+            ` as any[];
 
-            if (!checkQueueError) {
-              if (!existingJob) {
-                const { error: insertQueueError } = await supabase
-                  .from("scraper_queue")
-                  .insert({
-                    manga_title: mangaTitle,
-                    source_url: sourceUrl,
-                    status: "pending",
-                    priority: 2, // Slightly lower priority than direct manual enqueue, but higher than 0
-                    requested_by: user.id,
-                    requested_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                  });
-
-                if (insertQueueError) {
-                  logger.error(`[enqueue-broken] Error auto-enqueueing:`, insertQueueError);
-                } else {
-                  enqueuedCount++;
-                }
-              } else if (existingJob.status === "failed") {
-                const { error: updateQueueError } = await supabase
-                  .from("scraper_queue")
-                  .update({
-                    status: "pending",
-                    priority: 2,
-                    error_message: null,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", existingJob.id);
-
-                if (updateQueueError) {
-                  logger.error(`[enqueue-broken] Error resetting failed job:`, updateQueueError);
-                } else {
-                  enqueuedCount++;
-                }
-              } else {
-                skippedCount++; // Already pending or completed
-              }
+            if (!existingJob) {
+              await sql`
+                INSERT INTO public.scraper_queue (manga_title, source_url, status, priority, requested_by, requested_at, updated_at)
+                VALUES (${mangaTitle}, ${sourceUrl}, 'pending', 2, ${user.id}, NOW(), NOW())
+              `;
+              enqueuedCount++;
+            } else if (existingJob.status === "failed") {
+              await sql`
+                UPDATE public.scraper_queue
+                SET status = 'pending', priority = 2, error_message = NULL, updated_at = NOW()
+                WHERE id = ${existingJob.id}
+              `;
+              enqueuedCount++;
+            } else {
+              skippedCount++; // Already pending or completed
             }
           } else {
             skippedCount++;
@@ -170,3 +141,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
+

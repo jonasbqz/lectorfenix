@@ -3,6 +3,7 @@ import { createClient } from "../../../../utils/supabase/server";
 import { searchLeerCapituloByTitle } from "../../../utils/mangadex";
 import { slugify } from "../../../utils/slugify";
 import { logger } from "../../../utils/logger";
+import { sql } from "../../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
+    const [profile] = await sql`
+      SELECT is_admin FROM public.profiles WHERE id = ${user.id} LIMIT 1
+    ` as any[];
 
-    if (profileError || !profile || !profile.is_admin) {
+    if (!profile || !profile.is_admin) {
       return NextResponse.json({ error: "Acceso denegado. Se requiere cuenta de administrador." }, { status: 403 });
     }
 
@@ -60,32 +59,18 @@ export async function POST(request: NextRequest) {
     const sourceUrl = `https://www.leercapitulo.co/manga/${leercapituloSlug}/`;
 
     // Check if already in queue
-    const { data: existingJob, error: checkQueueError } = await supabase
-      .from("scraper_queue")
-      .select("id, status")
-      .eq("source_url", sourceUrl)
-      .maybeSingle();
-
-    if (checkQueueError) {
-      return NextResponse.json({ error: `Error verificando cola: ${checkQueueError.message}` }, { status: 500 });
-    }
+    const [existingJob] = await sql`
+      SELECT id, status FROM public.scraper_queue WHERE source_url = ${sourceUrl} LIMIT 1
+    ` as any[];
 
     if (existingJob) {
       if (existingJob.status === "failed") {
         // Reset failed job
-        const { error: updateQueueError } = await supabase
-          .from("scraper_queue")
-          .update({
-            status: "pending",
-            priority,
-            error_message: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingJob.id);
-
-        if (updateQueueError) {
-          return NextResponse.json({ error: `Error reiniciando tarea: ${updateQueueError.message}` }, { status: 500 });
-        }
+        await sql`
+          UPDATE public.scraper_queue
+          SET status = 'pending', priority = ${priority}, error_message = NULL, updated_at = NOW()
+          WHERE id = ${existingJob.id}
+        `;
 
         return NextResponse.json({
           success: true,
@@ -100,21 +85,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert new job
-    const { error: insertQueueError } = await supabase
-      .from("scraper_queue")
-      .insert({
-        manga_title: mangaTitle,
-        source_url: sourceUrl,
-        status: "pending",
-        priority,
-        requested_by: user.id,
-        requested_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-
-    if (insertQueueError) {
-      return NextResponse.json({ error: `Error agregando a la cola: ${insertQueueError.message}` }, { status: 500 });
-    }
+    await sql`
+      INSERT INTO public.scraper_queue (manga_title, source_url, status, priority, requested_by, requested_at, updated_at)
+      VALUES (${mangaTitle}, ${sourceUrl}, 'pending', ${priority}, ${user.id}, NOW(), NOW())
+    `;
 
     return NextResponse.json({
       success: true,
@@ -126,3 +100,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }
+

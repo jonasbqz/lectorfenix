@@ -351,12 +351,9 @@ export default function AdminClient() {
 
   const fetchScraperQueue = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("scraper_queue")
-        .select("*")
-        .order("priority", { ascending: false })
-        .order("requested_at", { ascending: false });
-      if (!error && data) {
+      const res = await fetch("/api/admin/scraper-queue");
+      if (res.ok) {
+        const data = await res.json();
         setScraperQueue(data);
       }
     } catch (err) {
@@ -543,24 +540,20 @@ export default function AdminClient() {
       return;
     }
 
-    setScraperLoading(true);
-    setScraperStatusMsg(null);
-    
     try {
-      const { error } = await supabase
-        .from("scraper_queue")
-        .insert({
+      const res = await fetch("/api/admin/scraper-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           manga_title: scraperMangaTitle.trim(),
           source_url: scraperSourceUrl.trim(),
-          status: "pending",
-          priority: Number(scraperPriority),
-          requested_by: currentUserProfile?.id,
-          requested_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
+          priority: Number(scraperPriority)
+        })
+      });
         
-      if (error) {
-        setScraperStatusMsg(`Error: ${error.message}`);
+      if (!res.ok) {
+        const errData = await res.json();
+        setScraperStatusMsg(`Error: ${errData.error || res.statusText}`);
       } else {
         setScraperStatusMsg("Manga encolado con éxito.");
         setScraperMangaTitle("");
@@ -578,12 +571,12 @@ export default function AdminClient() {
   const handleDeleteQueueItem = async (itemId: string) => {
     if (!window.confirm("¿Seguro de que querés eliminar este item de la cola?")) return;
     try {
-      const { error } = await supabase
-        .from("scraper_queue")
-        .delete()
-        .eq("id", itemId);
-      if (error) {
-        alert(`Error: ${error.message}`);
+      const res = await fetch(`/api/admin/scraper-queue?id=${itemId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        alert(`Error: ${errData.error || res.statusText}`);
       } else {
         setScraperQueue(prev => prev.filter(item => item.id !== itemId));
       }

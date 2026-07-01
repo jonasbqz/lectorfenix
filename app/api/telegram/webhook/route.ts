@@ -3,6 +3,7 @@ import { getDailyTelegramCode } from "../../../actions/profile";
 import { createClient } from "../../../../utils/supabase/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { isDmcaBlocked } from "../../../utils/dmca";
+import { sql } from "../../../../utils/postgres/client";
 
 const GROUP_CHAT_ID = "-1003763338725";
 const telegramRequestLimitMap = new Map<number, { count: number; date: string }>();
@@ -254,15 +255,9 @@ export async function POST(req: Request) {
         }
 
         try {
-          const supabase = await createClient();
-          const { data: queueItems, error: queueError } = await supabase
-            .from("scraper_queue")
-            .select("status");
-
-          if (queueError) {
-            await sendTelegramMessage(token, chatId, `❌ Error al consultar la cola del scraper: ${queueError.message}`, message.message_id);
-            return NextResponse.json({ ok: true });
-          }
+          const queueItems = await sql`
+            SELECT status FROM public.scraper_queue
+          ` as any[];
 
           const counts = { pending: 0, processing: 0, completed: 0, failed: 0 };
           (queueItems || []).forEach((item: any) => {
@@ -314,8 +309,6 @@ export async function POST(req: Request) {
         }
 
         try {
-          const supabase = await createClient();
-          
           let mangaTitle = "Manga Encolado via Telegram";
           try {
             const url = new URL(arg);
@@ -328,23 +321,16 @@ export async function POST(req: Request) {
             }
           } catch {}
 
-          const { error: insertErr } = await supabase
-            .from("scraper_queue")
-            .upsert({
-              manga_title: mangaTitle,
-              source_url: arg,
-              status: "pending",
-              priority: 10,
-              updated_at: new Date().toISOString()
-            }, { onConflict: "source_url" });
+          await sql`
+            INSERT INTO public.scraper_queue (manga_title, source_url, status, priority, requested_at, updated_at)
+            VALUES (${mangaTitle}, ${arg}, 'pending', 10, NOW(), NOW())
+            ON CONFLICT (source_url) DO UPDATE
+            SET status = 'pending', priority = 10, error_message = NULL, updated_at = NOW()
+          `;
 
-          if (insertErr) {
-            await sendTelegramMessage(token, chatId, `❌ Error al encolar en la base de datos: ${insertErr.message}`, message.message_id);
-          } else {
-            const escapedTitle = mangaTitle.replace(/_/g, "\\_").replace(/\*/g, "\\*");
-            const escapedUrl = arg.replace(/_/g, "\\_").replace(/\*/g, "\\*");
-            await sendTelegramMessage(token, chatId, `✅ ¡Manga priorizado con éxito!\n\n📖 Título: *${escapedTitle}*\n🔗 URL: ${escapedUrl}\n⚡ Prioridad asignada: *10*`, message.message_id);
-          }
+          const escapedTitle = mangaTitle.replace(/_/g, "\\_").replace(/\*/g, "\\*");
+          const escapedUrl = arg.replace(/_/g, "\\_").replace(/\*/g, "\\*");
+          await sendTelegramMessage(token, chatId, `✅ ¡Manga priorizado con éxito!\n\n📖 Título: *${escapedTitle}*\n🔗 URL: ${escapedUrl}\n⚡ Prioridad asignada: *10*`, message.message_id);
         } catch (err: any) {
           await sendTelegramMessage(token, chatId, `❌ Error del servidor: ${err.message}`, message.message_id);
         }

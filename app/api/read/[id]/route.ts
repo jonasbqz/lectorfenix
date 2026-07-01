@@ -28,6 +28,7 @@ import {
 } from "../../../utils/monline";
 import { slugify } from "../../../utils/slugify";
 import { isDmcaBlocked } from "../../../utils/dmca";
+import { sql } from "../../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -125,47 +126,31 @@ async function reportBrokenChapter(
         const isBlocked = blockedKeywords.some(kw => mangaTitle.toLowerCase().includes(kw) || leercapituloSlug!.toLowerCase().includes(kw));
 
         if (!isBlocked && !isDmcaBlocked(mangaId)) {
-          // Check if already in queue
-          const { data: existingJob, error: checkQueueError } = await supabase
-            .from("scraper_queue")
-            .select("id, status")
-            .eq("source_url", sourceUrl)
-            .maybeSingle();
+          // Check if already in queue from local Postgres
+          const [existingJob] = await sql`
+            SELECT id, status FROM public.scraper_queue WHERE source_url = ${sourceUrl} LIMIT 1
+          ` as any[];
 
-          if (!checkQueueError) {
-            if (!existingJob) {
-              const { error: insertQueueError } = await supabase
-                .from("scraper_queue")
-                .insert({
-                  manga_title: mangaTitle,
-                  source_url: sourceUrl,
-                  status: "pending",
-                  priority: 5, // Medium priority
-                  requested_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                });
-
-              if (insertQueueError) {
-                logger.error("[broken_chapters] Error auto-enqueueing scraper job:", insertQueueError);
-              } else {
-                logger.info(`[broken_chapters] Auto-enqueued ${mangaTitle} (${sourceUrl}) with priority 5`);
-              }
-            } else if (existingJob.status === "failed") {
-              const { error: updateQueueError } = await supabase
-                .from("scraper_queue")
-                .update({
-                  status: "pending",
-                  priority: 5,
-                  error_message: null,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", existingJob.id);
-
-              if (updateQueueError) {
-                logger.error("[broken_chapters] Error resetting failed scraper job:", updateQueueError);
-              } else {
-                logger.info(`[broken_chapters] Reset failed scraper job for ${mangaTitle} to pending`);
-              }
+          if (!existingJob) {
+            try {
+              await sql`
+                INSERT INTO public.scraper_queue (manga_title, source_url, status, priority, requested_at, updated_at)
+                VALUES (${mangaTitle}, ${sourceUrl}, 'pending', 5, NOW(), NOW())
+              `;
+              logger.info(`[broken_chapters] Auto-enqueued ${mangaTitle} (${sourceUrl}) with priority 5`);
+            } catch (insertError) {
+              logger.error("[broken_chapters] Error auto-enqueueing scraper job:", insertError);
+            }
+          } else if (existingJob.status === "failed") {
+            try {
+              await sql`
+                UPDATE public.scraper_queue
+                SET status = 'pending', priority = 5, error_message = NULL, updated_at = NOW()
+                WHERE id = ${existingJob.id}
+              `;
+              logger.info(`[broken_chapters] Reset failed scraper job for ${mangaTitle} to pending`);
+            } catch (updateError) {
+              logger.error("[broken_chapters] Error resetting failed scraper job:", updateError);
             }
           }
         } else {
