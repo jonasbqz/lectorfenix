@@ -139,6 +139,9 @@ export default async function RootLayout({
   return (
     <html lang={lang} className="dark" suppressHydrationWarning>
       <head>
+        <link rel="preconnect" href="https://255md.com" />
+        <link rel="preconnect" href="https://media.imagesolymp.xyz" />
+        <link rel="preconnect" href="https://uploads.mangadex.org" />
         {gaId && (
           <>
             <Script

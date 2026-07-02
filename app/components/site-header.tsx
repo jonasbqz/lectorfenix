@@ -41,11 +41,10 @@ function formatDistanceToNow(dateString: string): string {
     return "hace tiempo";
   }
 }
-
-const NAV: Record<SupportedLanguage, { explore: string; favorites: string; login: string; logout: string; account: string }> = {
-  es: { explore: "Explorar", favorites: "Favoritos", login: "Iniciar Sesión", logout: "Cerrar Sesión", account: "Cuenta" },
-  en: { explore: "Explore",  favorites: "Favorites", login: "Log In",         logout: "Log Out",      account: "Account" },
-  pt: { explore: "Explorar", favorites: "Favoritos", login: "Entrar",         logout: "Sair",         account: "Conta" },
+const NAV: Record<SupportedLanguage, { explore: string; favorites: string; login: string; logout: string; account: string; userMenu: string }> = {
+  es: { explore: "Explorar", favorites: "Favoritos", login: "Iniciar Sesión", logout: "Cerrar Sesión", account: "Cuenta", userMenu: "Menú de usuario" },
+  en: { explore: "Explore",  favorites: "Favorites", login: "Log In",         logout: "Log Out",      account: "Account", userMenu: "User menu" },
+  pt: { explore: "Explorar", favorites: "Favoritos", login: "Entrar",         logout: "Sair",         account: "Conta",   userMenu: "Menu do usuário" },
 };
 
 export default function SiteHeader({ language }: { language: SupportedLanguage }) {
@@ -631,6 +630,7 @@ export default function SiteHeader({ language }: { language: SupportedLanguage }
       <button
         type="button"
         onClick={() => setIsAuthModalOpen(true)}
+        aria-label={copy.login}
         className="relative group overflow-hidden flex h-10 items-center justify-center rounded-xl px-3.5 sm:px-5.5 text-xs font-heading font-extrabold uppercase tracking-wider transition-all duration-300 cursor-pointer bg-gradient-to-r from-orange-500 to-[#ff6b00] hover:from-orange-600 hover:to-[#e66000] text-black shadow-[0_4px_15px_rgba(255,107,0,0.25)] hover:shadow-[0_4px_25px_rgba(255,107,0,0.45)] hover:scale-[1.02] active:scale-[0.97]"
       >
         {/* Shine effect */}

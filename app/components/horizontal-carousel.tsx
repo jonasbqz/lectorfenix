@@ -76,7 +76,7 @@ export default function HorizontalCarousel({
           <div className="h-6 w-1.5 rounded-full bg-[#ff6b00] md:h-8" />
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{title}</h2>
-            <p className="text-xs text-gray-500">{subtitle ?? "Descubre algo grande para leer ahora"}</p>
+            <p className="text-xs text-gray-400">{subtitle ?? "Descubre algo grande para leer ahora"}</p>
           </div>
         </div>
 

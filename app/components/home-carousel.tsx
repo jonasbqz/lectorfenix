@@ -241,7 +241,7 @@ export function MangaCard({
                 {mangaTitle}
               </h3>
               {/* Género: Miniatura y gris oscuro */}
-              <p className="text-zinc-500 text-[10px] md:text-[11px] font-medium uppercase tracking-wider line-clamp-1 mt-0.5">
+              <p className="text-zinc-400 text-[10px] md:text-[11px] font-medium uppercase tracking-wider line-clamp-1 mt-0.5">
                 {mangaGenre}
               </p>
             </Link>
@@ -252,7 +252,7 @@ export function MangaCard({
                 {mangaTitle}
               </h3>
               {/* Género: Miniatura y gris oscuro */}
-              <p className="text-zinc-500 text-[10px] md:text-[11px] font-medium uppercase tracking-wider line-clamp-1 mt-0.5">
+              <p className="text-zinc-400 text-[10px] md:text-[11px] font-medium uppercase tracking-wider line-clamp-1 mt-0.5">
                 {mangaGenre}
               </p>
             </a>

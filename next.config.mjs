@@ -123,6 +123,22 @@ const nextConfig = {
       fallback: [],
     };
   },
+  async headers() {
+    return [
+      {
+        source: "/premium_welcome_artwork.:ext(png|webp)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        source: "/:path*.:ext(png|jpg|jpeg|webp|avif|svg|ico)",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

@@ -89,10 +89,14 @@ export default function PremiumPromoModal() {
         }
       }
 
-      // 3. Mostrar el modal tras 1.5 segundos de retraso para mejorar el UX
+      // 3. Mostrar el modal tras 8 segundos + idle para no interferir con LCP
       const timer = setTimeout(() => {
-        setIsOpen(true);
-      }, 1500);
+        if (typeof requestIdleCallback === "function") {
+          requestIdleCallback(() => setIsOpen(true));
+        } else {
+          setIsOpen(true);
+        }
+      }, 8000);
 
       return () => clearTimeout(timer);
     }
@@ -149,6 +153,7 @@ export default function PremiumPromoModal() {
             <button
               type="button"
               onClick={handleDismiss}
+              aria-label={language === "es" ? "Cerrar" : language === "pt" ? "Fechar" : "Close"}
               className="absolute right-4 top-4 z-50 flex h-8 w-8 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95 shadow-md cursor-pointer text-gray-400 hover:text-white"
               style={{
                 border: `1px solid ${C.border}`,
@@ -162,11 +167,16 @@ export default function PremiumPromoModal() {
             <div className="relative h-44 w-full overflow-hidden bg-neutral-950 border-b border-white/[0.04] flex items-center justify-center">
               <div className="absolute inset-0 bg-gradient-to-t from-[#121110] via-transparent to-transparent z-10" />
               <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-transparent to-amber-500/10 z-10 pointer-events-none" />
-              <img
-                src="/premium_welcome_artwork.png"
-                alt="Premium Promotion"
-                className="h-full w-full object-cover opacity-60 scale-105 select-none"
-              />
+              <picture>
+                <source srcSet="/premium_welcome_artwork.webp" type="image/webp" />
+                <img
+                  src="/premium_welcome_artwork.png"
+                  alt="Premium Promotion"
+                  className="h-full w-full object-cover opacity-60 scale-105 select-none"
+                  decoding="async"
+                  fetchPriority="low"
+                />
+              </picture>
               {/* Insignia Flotante de Corona */}
               <div className="absolute z-20 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-black shadow-lg shadow-orange-500/30">
                 <Crown size={28} className="fill-black stroke-[2.2] animate-bounce-subtle" />

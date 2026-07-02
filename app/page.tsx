@@ -725,7 +725,7 @@ export default async function HomePage() {
               <div className="h-6 w-1.5 rounded-full bg-[#ff6b00] md:h-8" />
               <div>
                 <h2 className="text-2xl font-semibold tracking-tight text-white md:text-3xl">{copy.latestReleases}</h2>
-                <p className="text-xs text-gray-500">{copy.latestReleasesSubtitle}</p>
+                <p className="text-xs text-gray-400">{copy.latestReleasesSubtitle}</p>
               </div>
             </div>
           </div>

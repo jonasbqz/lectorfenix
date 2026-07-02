@@ -36,7 +36,7 @@ export function getOptimizedImageUrl(url: string): string {
       return url;
     }
 
-    return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&output=webp&q=75`;
+    return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&output=webp&q=75&w=400&fit=cover`;
   } catch {
     // Return the original URL as fallback if parsing fails (e.g. relative URLs)
     return url;
