@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "../../utils/logger";
 import { fetchMangaVfAPI } from "../../utils/monline";
-import { sql } from "../../utils/postgres/client";
+import { sql } from "../../../utils/postgres/client";
 
 export const dynamic = "force-dynamic";
 
