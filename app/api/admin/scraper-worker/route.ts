@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sql } from "../../../../utils/postgres/client";
-import { fetchMangaVfDetailsBySlug } from "../../../utils/mangadex";
+import { fetchMangaVfDetailsBySlug, fetchLocalComicBySlug } from "../../../utils/mangadex";
 import { logger } from "../../../utils/logger";
 
 export const dynamic = "force-dynamic";
@@ -65,19 +65,42 @@ export async function GET(request: NextRequest) {
         }
 
         // Extraer el slug de la URL
-        const match = sourceUrl.match(/\/manga\/([^/]+)/);
-        const slug = match && match[1] ? match[1] : null;
+        const match = sourceUrl.match(/\/manga\/(.+)/);
+        let slug = match && match[1] ? match[1].replace(/\/+$/, "") : null;
 
         if (!slug) {
           throw new Error("No se pudo extraer el slug de la URL de LeerCapitulo.");
         }
 
-        // Forzar extracción/calentamiento de caché del manga
-        const details = await fetchMangaVfDetailsBySlug(slug);
-        if (!details || !details.chapters || details.chapters.length === 0) {
-          throw new Error(`El scraper de LeerCapitulo no pudo obtener capítulos para el slug "${slug}".`);
+        // Verificar si el manga ya está registrado en el catálogo local con capítulos
+        let alreadyExists = false;
+        try {
+          const localComic = await fetchLocalComicBySlug(slug);
+          if (localComic && typeof localComic === "object") {
+            const castedComic = localComic as Record<string, any>;
+            const hasChapters = 
+              (Array.isArray(castedComic.chapters) && castedComic.chapters.length > 0) ||
+              (Array.isArray(castedComic.recent_chapters) && castedComic.recent_chapters.length > 0) ||
+              (Array.isArray(castedComic.comicScans) && castedComic.comicScans.some((s: any) => Array.isArray(s.chapters) && s.chapters.length > 0));
+            if (hasChapters) {
+              alreadyExists = true;
+            }
+          }
+        } catch (checkErr) {
+          logger.warn(`[scraper-worker] Falló comprobar existencia del manga local para ${slug}:`, checkErr);
         }
-        success = true;
+
+        if (alreadyExists) {
+          logger.info(`[scraper-worker] El manga "${slug}" ya existe en el catálogo local con capítulos. Marcando como duplicado completado.`);
+          success = true;
+        } else {
+          // Forzar extracción/calentamiento de caché del manga
+          const details = await fetchMangaVfDetailsBySlug(slug);
+          if (!details || !details.chapters || details.chapters.length === 0) {
+            throw new Error(`El scraper de LeerCapitulo no pudo obtener capítulos para el slug "${slug}".`);
+          }
+          success = true;
+        }
       } else {
         throw new Error("Origen de URL no soportado para scraping automatizado (solo LeerCapitulo soportado).");
       }

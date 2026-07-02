@@ -1154,7 +1154,13 @@ export async function fetchMangaVfSourceBySlug(id: string) {
     async () => {
       const cleanId = id.startsWith("lc-") ? id.substring(3) : id;
       const lookupId = cleanId.replace(/^manga[-_]?vf[-_]?/i, "");
-      const query = lookupId.replace(/-/g, " ");
+      
+      // Si el ID contiene barra (ej: 8gcjn97m/de-dia-en-el-bunker), limpiar la query para buscar por el titulo real
+      let query = lookupId.replace(/-/g, " ");
+      if (query.includes("/")) {
+        query = query.split("/").pop() || query;
+      }
+
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
 
@@ -1167,10 +1173,21 @@ export async function fetchMangaVfSourceBySlug(id: string) {
         const payload = (await response.json()) as MangaVfSearchResponse;
         const results = payload.results ?? [];
 
+        // Comparación flexible de slugs
+        const targetSlug = lookupId.toLowerCase();
+        const targetTail = lookupId.includes("/") ? lookupId.split("/").pop()! : lookupId;
+
         const source =
-          results.find((item) => item.slug === lookupId) ??
-          results.find((item) => item.slug?.endsWith("-" + lookupId)) ??
-          results.find((item) => slugify(item.title) === lookupId) ??
+          results.find((item) => item.slug === targetSlug) ??
+          results.find((item) => item.slug?.endsWith("/" + targetSlug)) ??
+          results.find((item) => {
+            const itemTail = item.slug?.includes("/") ? item.slug.split("/").pop() : item.slug;
+            return itemTail === targetTail;
+          }) ??
+          results.find((item) => {
+            const itemTail = item.slug?.includes("/") ? item.slug.split("/").pop() : item.slug;
+            return slugify(item.title) === targetTail || slugify(item.title) === slugify(itemTail);
+          }) ??
           null;
 
         return source?.url?.includes("leercapitulo.co") ? source : null;
